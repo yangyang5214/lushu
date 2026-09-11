@@ -6,7 +6,7 @@ export type Place = {
   lat: number
 }
 
-/** 路书可见性：默认公开（出现在「公开路书」页），private 只有自己能看。 */
+/** 路书可见性：默认私密；设为 public 后出现在「公开路书」页。 */
 export type Visibility = 'public' | 'private'
 
 export type Book = {

@@ -40,7 +40,14 @@ export type SaveResult =
   | { ok: true; updatedAt: number }
   | {
       ok: false
-      reason: 'forbidden' | 'conflict' | 'turnstile' | 'capacity' | 'login' | 'error'
+      reason:
+        | 'forbidden'
+        | 'conflict'
+        | 'duplicate_title'
+        | 'turnstile'
+        | 'capacity'
+        | 'login'
+        | 'error'
       status: number
       remote?: RemoteBook
     }
@@ -115,7 +122,10 @@ export async function saveBook(
   if (res.status === 503) return { ok: false, reason: 'capacity', status: 503 }
 
   if (res.status === 409) {
-    const data = (await res.json()) as { doc?: Book; updatedAt: number }
+    const data = (await res.json()) as { error?: string; doc?: Book; updatedAt?: number }
+    if (data.error === 'duplicate_title') {
+      return { ok: false, reason: 'duplicate_title', status: 409 }
+    }
     return {
       ok: false,
       reason: 'conflict',
@@ -125,7 +135,7 @@ export async function saveBook(
             id: book.id,
             owner: '',
             doc: normalizeVisibility({ ...data.doc, id: book.id }),
-            updatedAt: data.updatedAt,
+            updatedAt: data.updatedAt ?? 0,
           }
         : undefined,
     }
@@ -154,10 +164,12 @@ export async function saveVisibility(id: string, visibility: Visibility): Promis
   }
 }
 
-export async function deleteRemoteBook(id: string, token: string): Promise<boolean> {
+export async function deleteRemoteBook(id: string, token?: string): Promise<boolean> {
+  const headers: Record<string, string> = { 'x-owner-key': ownerKey() }
+  if (token) headers['x-edit-token'] = token
   const res = await request(`/api/books/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers: { 'x-edit-token': token, 'x-owner-key': ownerKey() },
+    headers,
   })
   return res.ok || res.status === 404
 }

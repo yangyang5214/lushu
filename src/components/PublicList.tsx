@@ -1,12 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BACKEND_UNAVAILABLE, type PublicBook } from '../lib/api'
+import { requireLogin } from '../lib/auth'
 import { fmtDay } from '../lib/format'
 import { navigateBook } from '../lib/router'
-import { refreshPublic, usePublic } from '../lib/sync'
+import { copyPublicBook, refreshPublic, usePublic } from '../lib/sync'
 import { SiteNav } from './Chrome'
 import { PointsPreview } from './RoutePreview'
 
 function PublicCard({ book }: { book: PublicBook }) {
+  const [copying, setCopying] = useState(false)
   // 文案与「我的路书」的 routeLabel 完全一致，同一本路书两边显示同样的起终点。
   const label =
     book.days > 0
@@ -38,6 +40,21 @@ function PublicCard({ book }: { book: PublicBook }) {
           </div>
         </div>
       </button>
+
+      <div className="card-ops">
+        <button
+          type="button"
+          disabled={copying}
+          onClick={() =>
+            requireLogin(() => {
+              setCopying(true)
+              void copyPublicBook(book.id).finally(() => setCopying(false))
+            })
+          }
+        >
+          {copying ? '复制中…' : '复制'}
+        </button>
+      </div>
     </li>
   )
 }

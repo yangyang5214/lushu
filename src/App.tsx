@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { AccountPage } from './components/Account'
+import { AdminPage } from './components/AdminPage'
 import { MapCanvas } from './components/MapCanvas'
 import { MinePage } from './components/MinePage'
 import { PublicList } from './components/PublicList'
@@ -93,6 +94,7 @@ export default function App() {
   // 账号是异步探测的：探测完成前 user 还是 null，先按未登录处理，免得闪出书架。
   const user = useAuth((s) => s.user)
 
+  if (view === 'admin') return <AdminPage />
   if (view === 'public') return <PublicList />
   // 我的路书是个人数据，要登录才能用：未登录（含正在探测）先落在账户页的
   // 登录表单上，不解释理由；登录态就位后这一页自动换回书架。

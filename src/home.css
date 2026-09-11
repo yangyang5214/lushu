@@ -1,8 +1,7 @@
 /* ============================================================
    主页（路书列表）
-   版式参照 obsidian.md：吸顶导航 + 居中的大标题首屏 + 应用截图
-   + 三栏说明 + 卡片列表 + 页脚；白底 + 紫罗兰主色。
-   编辑页仍是纸感主题，两页各用各的变量，互不影响。
+   版式：吸顶导航 + 居中的大标题首屏 + 功能说明；
+   白底 + 紫罗兰主色。编辑页仍是纸感主题，两页各用各的变量。
    ============================================================ */
 .home {
   --bg: #ffffff;
@@ -164,8 +163,7 @@
 /* ---------- 首屏 ---------- */
 .hero {
   position: relative;
-  padding: 78px 0 0;
-  text-align: center;
+  padding: 56px 0 72px;
   overflow: hidden;
 }
 
@@ -174,18 +172,28 @@
   position: absolute;
   z-index: 0;
   left: 50%;
-  top: 180px;
-  width: 780px;
-  height: 420px;
+  top: 40px;
+  width: 640px;
+  height: 480px;
   transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.16), transparent 72%);
-  filter: blur(30px);
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.14), transparent 72%);
+  filter: blur(32px);
   pointer-events: none;
 }
 
-.hero-in {
+.hero-grid {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  text-align: center;
+}
+
+.hero-copy {
+  min-width: 0;
+  max-width: 640px;
 }
 
 .eyebrow {
@@ -197,17 +205,17 @@
 }
 
 .hero h1 {
-  margin: 16px auto 0;
-  max-width: 18em;
-  font-size: clamp(30px, 5vw, 54px);
+  margin: 14px auto 0;
+  max-width: 12em;
+  font-size: clamp(28px, 4.2vw, 46px);
   font-weight: 700;
-  line-height: 1.16;
-  letter-spacing: -0.015em;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
 }
 
 .lede {
-  margin: 20px auto 0;
-  max-width: 34em;
+  margin: 18px auto 0;
+  max-width: 36em;
   color: var(--muted);
   font-size: 15px;
   line-height: 1.85;
@@ -227,23 +235,172 @@
   font-size: 12.5px;
 }
 
+.hero-diagram {
+  width: 100%;
+  max-width: 560px;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(165deg, #fff 0%, #faf9ff 100%);
+  box-shadow: var(--shadow);
+}
+
+.hero-diagram-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.hero-diagram-arrow {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hero-diagram-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* ---------- 独立子页（/list、/public） ---------- */
 /* 子页的第一个区块紧跟在导航/页头下面，不再叠首屏那段间距 */
 .shelf.page-first {
   margin-top: 44px;
 }
 
-/* ---------- 三栏说明 ---------- */
+/* ---------- 区块标题 ---------- */
+.section-head {
+  margin-bottom: 28px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.section-head p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+/* ---------- 三步流程 ---------- */
+.flow {
+  padding: 56px 0;
+  border-top: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.04) 0%, transparent 100%);
+}
+
+.flow-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.flow-step {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.flow-step-card {
+  flex: 1;
+  min-width: 0;
+  padding: 22px 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.flow-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.flow-step-num {
+  color: var(--accent-hi);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-step-key {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.flow-step h3 {
+  margin: 6px 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.flow-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+.flow-connector {
+  flex: none;
+  align-self: center;
+  width: 28px;
+  height: 2px;
+  margin: 0 -1px;
+  background: linear-gradient(90deg, var(--accent) 0%, rgba(124, 92, 255, 0.35) 100%);
+  position: relative;
+  z-index: 1;
+}
+
+.flow-connector::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* ---------- 辅助功能 ---------- */
 .features {
-  margin-top: 84px;
-  padding: 56px 0 0;
+  padding: 56px 0 88px;
   border-top: 1px solid var(--border-soft);
 }
 
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 36px;
+  gap: 20px;
+}
+
+.feature-grid--aux {
+  gap: 16px;
 }
 
 .feature-step {
@@ -275,17 +432,28 @@
   stroke-linejoin: round;
 }
 
+.feature {
+  padding: 18px 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.feature--aux {
+  box-shadow: none;
+}
+
 .feature h3 {
-  margin: 6px 0 8px;
-  font-size: 15.5px;
+  margin: 10px 0 6px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .feature p {
   margin: 0;
   color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.8;
+  font-size: 13px;
+  line-height: 1.75;
 }
 
 /* ---------- 分栏标题 ---------- */
@@ -324,7 +492,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
@@ -333,6 +501,7 @@
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -355,8 +524,11 @@
 }
 
 .card-open {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   width: 100%;
+  min-height: 0;
   padding: 0;
   border: none;
   background: none;
@@ -383,12 +555,22 @@
 .cover-empty {
   width: 100%;
   height: 100%;
+  min-height: 130px;
   display: grid;
   place-items: center;
   color: var(--muted);
   font-size: 12px;
+  background-color: var(--bg-2);
   background-image: radial-gradient(rgba(16, 16, 24, 0.09) 1px, transparent 1.2px);
   background-size: 12px 12px;
+}
+
+.card-cloud-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11.5px;
 }
 
 .card-days {
@@ -482,26 +664,23 @@
   font-size: 12px;
 }
 
-.card-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.card-ops {
+  flex: none;
   margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
   padding: 9px 14px 12px;
   border-top: 1px solid var(--border-soft);
-}
-
-.card-ops {
-  margin-left: auto;
-  display: flex;
-  gap: 6px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.16s;
 }
 
 .card:hover .card-ops,
-.card:focus-within .card-ops {
+.card:focus-within .card-ops,
+.card.confirming .card-ops {
   opacity: 1;
   pointer-events: auto;
 }
@@ -682,10 +861,21 @@
   }
 }
 
+@media (max-width: 960px) {
+  .flow-steps {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .flow-connector {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .feature-grid {
-    grid-template-columns: 1fr;
-    gap: 28px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
   }
 }
 
@@ -699,6 +889,16 @@
   .nav-in {
     gap: 12px;
   }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 720px) {
@@ -707,18 +907,21 @@
   }
 
   .hero {
-    padding-top: 52px;
+    padding: 36px 0 48px;
   }
 
   .hero::before {
-    top: 140px;
+    top: 80px;
     width: 520px;
     height: 320px;
   }
 
+  .flow {
+    padding: 40px 0;
+  }
+
   .features {
-    margin-top: 64px;
-    padding-top: 40px;
+    padding: 40px 0 64px;
   }
 
   .shelf {
@@ -1055,6 +1258,455 @@
   line-height: 1.7;
 }
 
+/* ---------- /admin：管理后台（左侧导航 + 右侧内容） ---------- */
+.admin-home {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.admin-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.admin-sidebar {
+  flex: none;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 14px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 18px;
+  color: var(--accent-hi);
+}
+
+.admin-sidebar-brand .brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+
+.admin-sidebar-brand b {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.admin-sidebar-brand span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.admin-sidebar-nav button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.admin-sidebar-nav button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.admin-sidebar-nav button.on {
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+}
+
+.admin-sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.admin-sidebar-link {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+}
+
+.admin-sidebar-link:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.admin-sidebar-link.danger:hover {
+  background: rgba(220, 67, 56, 0.08);
+  color: var(--bad);
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-2);
+}
+
+.admin-main-head {
+  flex: none;
+  padding: 22px 28px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg);
+}
+
+.admin-main-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.admin-main-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 28px 32px;
+}
+
+.admin-login-screen {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 420px at 0% 0%, var(--accent-soft), transparent 55%),
+    var(--bg-2);
+}
+
+.admin-card {
+  width: min(420px, 100%);
+  padding: 32px 36px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.admin-card-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--accent-hi);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-card-brand .brand-mark {
+  width: 22px;
+  height: 22px;
+}
+
+.admin-card h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 650;
+}
+
+.admin-muted {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.admin-error {
+  margin: 0 0 12px;
+  color: var(--bad);
+  font-size: 13px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-form input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.admin-stat {
+  padding: 18px 16px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.admin-stat b {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  color: var(--accent-hi);
+}
+
+.admin-stat span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.admin-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.admin-toolbar input,
+.admin-toolbar select {
+  flex: 1;
+  min-width: 180px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  background: var(--surface-2);
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-row-click {
+  cursor: pointer;
+}
+
+.admin-row-click:hover td {
+  background: var(--accent-soft);
+}
+
+.admin-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-pager button {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.admin-pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-detail h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.admin-detail h3 {
+  margin: 24px 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.admin-back {
+  margin-bottom: 16px;
+}
+
+.admin-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-detail-head .admin-back {
+  margin-bottom: 0;
+}
+
+/* 表格里的删除操作：默认低调，二次确认时变实心红 */
+.admin-danger-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-danger-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-danger,
+.admin-cancel {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.admin-danger {
+  color: var(--bad);
+}
+
+.admin-danger:hover {
+  background: rgba(220, 67, 56, 0.08);
+}
+
+.admin-danger.on {
+  border-color: var(--bad);
+  background: var(--bad);
+  color: #fff;
+}
+
+.admin-danger.on:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-cancel {
+  color: var(--muted);
+}
+
+.admin-cancel:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.admin-kv {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.admin-kv > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.admin-kv dt {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-kv dd {
+  margin: 0;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  white-space: normal;
+}
+
+.admin-json {
+  margin: 0;
+  padding: 14px;
+  max-height: min(52vh, 520px);
+  overflow: auto;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 560px) {
   .account-main {
@@ -1063,5 +1715,44 @@
 
   .account-card {
     padding: 24px 20px;
+  }
+
+  .admin-card {
+    padding: 24px 20px;
+  }
+
+  .admin-sidebar {
+    width: 72px;
+    padding: 14px 8px;
+  }
+
+  .admin-sidebar-brand div,
+  .admin-sidebar-brand span,
+  .admin-sidebar-link {
+    display: none;
+  }
+
+  .admin-sidebar-brand {
+    justify-content: center;
+    padding-bottom: 12px;
+  }
+
+  .admin-sidebar-nav button {
+    font-size: 12px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+
+  .admin-main-head {
+    padding: 16px 16px 12px;
+  }
+
+  .admin-main-body {
+    padding: 16px;
+  }
+
+  .admin-kv > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

@@ -191,8 +191,11 @@ export async function refreshPublic(): Promise<void> {
   }
 }
 
-/** 打开一本还没取到的路书时调用：从服务端取下来。 */
-export async function pullBook(id: string): Promise<boolean> {
+/**
+ * 打开一本还没取到的路书时调用：从服务端取下来。
+ * `own`：账号书架里的书（换设备同步），本机补编辑口令后可继续改。
+ */
+export async function pullBook(id: string, opts?: { own?: boolean }): Promise<boolean> {
   try {
     const remote = await fetchBook(id)
     if (!remote) return false
@@ -200,20 +203,65 @@ export async function pullBook(id: string): Promise<boolean> {
     const meta = getMeta(id)
     // 书主公开 ID 一并记下（可能为空串 = 匿名书架），地址栏才能规范成 `/{userId}/{bookId}`。
     const owner = { owner: remote.owner }
-    if (meta.token) setMeta(id, { base: remote.updatedAt, pushed: remote.doc.updatedAt, ...owner })
-    else setMeta(id, { remote: true, base: remote.updatedAt, pushed: remote.doc.updatedAt, ...owner })
+    const synced = {
+      base: remote.updatedAt,
+      pushed: remote.doc.updatedAt,
+      ...owner,
+      remote: undefined as boolean | undefined,
+    }
+    if (meta.token || opts?.own) {
+      if (opts?.own) ensureToken(id)
+      setMeta(id, synced)
+    } else {
+      setMeta(id, { ...synced, remote: true })
+    }
     return true
   } catch {
     return false
   }
 }
 
+/**
+ * 把公开路书复制进个人书架：拉完整 doc → 本地新建私密副本 → 推到账号。
+ * 需已登录（调用方用 requireLogin 包一层）。
+ */
+export async function copyPublicBook(id: string): Promise<string | null> {
+  try {
+    let src = useStore.getState().books[id]
+    if (!src) {
+      const remote = await fetchBook(id)
+      if (!remote) return null
+      src = remote.doc
+    }
+    const newId = useStore.getState().importBookCopy(src)
+    ensureToken(newId)
+    await pushBook(newId)
+    void refreshCloud()
+    return newId
+  } catch {
+    return null
+  }
+}
+
+/** 把账号书架里有、本机还没有的路书拉下来（打开「我的路书」时用）。 */
+export async function pullMissingCloudBooks(): Promise<void> {
+  const cloud = useCloud.getState().books
+  const local = useStore.getState().books
+  const missing = cloud.filter((c) => !local[c.id])
+  if (missing.length === 0) return
+  await Promise.all(missing.map((c) => pullBook(c.id, { own: true })))
+}
+
 /** 删除：本地与服务端一起清掉。 */
 export async function removeBook(id: string): Promise<void> {
   const meta = getMeta(id)
+  const inCloud = useCloud.getState().books.some((c) => c.id === id)
   useStore.getState().deleteBook(id)
   dropMeta(id)
-  if (meta.token && !meta.remote) {
+  // 账号书架里的、或曾推送过的：服务端也要删（归属靠会话 / owner_key，不依赖编辑口令）。
+  // 仅「别人的分享、且不在本人云端列表」时只清本机。
+  const purgeRemote = inCloud || meta.pushed !== undefined || (Boolean(meta.token) && !meta.remote)
+  if (purgeRemote) {
     try {
       await deleteRemoteBook(id, meta.token)
     } catch {

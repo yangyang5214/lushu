@@ -7,7 +7,7 @@ import { insertNearest, isSamePlace, orderRoute, suggestSplitId } from './lib/ge
 import { readRoute } from './lib/router'
 import type { Book, Journey, Place, Visibility } from './types'
 
-export type View = 'list' | 'mine' | 'public' | 'account' | 'edit'
+export type View = 'list' | 'mine' | 'public' | 'account' | 'admin' | 'edit'
 
 type NewBook = Partial<
   Pick<
@@ -57,6 +57,8 @@ type Actions = {
   closeBook: () => void
   upsertRemoteBook: (book: Book) => void
   duplicateBook: (id: string) => string
+  /** 把整本路书（含公开页拉下来的）复制进个人书架，新副本默认私密。 */
+  importBookCopy: (source: Book) => string
   deleteBook: (id: string) => void
   renameBook: (id: string, title: string) => void
   setVisibility: (id: string, visibility: Visibility) => void
@@ -85,7 +87,7 @@ const EMPTY_BOOK: Book = {
   id: '',
   title: '未命名路书',
   startDate: '',
-  visibility: 'public',
+  visibility: 'private',
   places: [],
   startId: null,
   endId: null,
@@ -193,7 +195,7 @@ export const useStore = create<Store>()(
           id,
           title: seed?.title ?? '未命名路书',
           startDate: seed?.startDate ?? '',
-          visibility: seed?.visibility ?? 'public',
+          visibility: seed?.visibility ?? 'private',
           places: seed?.places ?? [],
           startId: seed?.startId ?? null,
           endId: seed?.endId ?? null,
@@ -229,12 +231,17 @@ export const useStore = create<Store>()(
       duplicateBook: (id) => {
         const src = get().books[id]
         if (!src) return id
+        return get().importBookCopy(src)
+      },
+
+      importBookCopy: (src) => {
         const nid = hashId()
         const now = Date.now()
         const copy: Book = {
           ...src,
           id: nid,
           title: `${src.title} 副本`,
+          visibility: 'private',
           places: src.places.map((p) => ({ ...p })),
           createdAt: now,
           updatedAt: now,
@@ -252,7 +259,8 @@ export const useStore = create<Store>()(
           return {
             books,
             order: s.order.filter((x) => x !== id),
-            ...(wasActive ? { activeId: null, view: 'list' as View, selectedId: null } : {}),
+            // 只清 activeId，不改 view：在 /list 删书时 view 仍是 mine，避免跳回首页。
+            ...(wasActive ? { activeId: null, selectedId: null } : {}),
           }
         }),
 

@@ -5,7 +5,7 @@
 //   · meta[id].token        = 编辑口令，只有创建者的浏览器有，写操作靠它
 //   · owner key             = 书架密钥，用于"我的路书"列表与跨设备编辑
 //
-// 可见性存在路书自己身上（Book.visibility），默认 'public'，在「我的路书」里改。
+// 可见性存在路书自己身上（Book.visibility），默认 'private'，在「我的路书」里改。
 //
 // 这三个都是 localStorage 里的随机串，不会出现在分享链接里。
 

@@ -21,4 +21,5 @@ MAX_BOOKS = "20000"
 # Max JSON size per book (bytes). ~33 KB for 300 places.
 MAX_DOC_BYTES = "262144"
 
-# Secrets (RESEND_API_KEY, TURNSTILE_SECRET): local → .dev.vars; deploy → pnpm secret:resend / secret:turnstile
+# Secrets (RESEND_API_KEY, TURNSTILE_SECRET, ADMIN_SECRET): local → .dev.vars; deploy → wrangler pages secret put
+# ADMIN_SECRET：管理后台 /admin 口令，至少 6 字符；未设置时 /api/admin/* 返回 404。

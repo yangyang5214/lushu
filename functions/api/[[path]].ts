@@ -16,6 +16,16 @@
 //   GET    /api/auth/activate → 点击邮件链接激活账号并登录
 //   POST   /api/auth/resend-activation → 重发激活邮件（限流 + 可选 Turnstile）
 //   POST   /api/auth/logout   → 退出登录
+//   GET    /api/admin/me        → 管理员会话探测（需 ADMIN_SECRET + 登录）
+//   POST   /api/admin/login     → 管理员登录（ADMIN_SECRET 口令）
+//   POST   /api/admin/logout    → 退出管理后台
+//   GET    /api/admin/stats     → 概览统计
+//   GET    /api/admin/users     → 用户列表（分页 / 搜索）
+//   GET    /api/admin/users/:id → 用户详情 + 路书
+//   GET    /api/admin/books     → 路书列表（分页 / 搜索 / 可见性筛选）
+//   GET    /api/admin/books/:id → 路书详情（含完整 doc）
+//   DELETE /api/admin/books/:id → 删除路书
+//   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
 //   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存
 //   GET    /api/route?coords= → OSRM 代理 + Cache API 缓存
 //
@@ -25,7 +35,7 @@
 //   3. 全局容量上限（stats 计数），即使被刷也刷不满 D1 的 5 GB。
 //   4. 文档体积上限，单行最多 MAX_DOC_BYTES。
 //   5. 口令 PBKDF2-SHA256 加盐迭代，会话 cookie 只存 token 摘要，泄库换不到登录态。
-//   6. 可见性：默认 public；private 的书不进公开列表，直接读也要求 owner 身份。
+//   6. 可见性：新建默认 private；缺字段的老书仍当 public；private 不进公开列表。
 //   7. 细节：id 必须是 24-hex 形态、token 恒定时间比较、上游代理 host 写死（无 SSRF）。
 //   另外建议在 Cloudflare 控制台给 /api/* 加一条免费的速率限制规则（见 README）。
 
@@ -62,9 +72,26 @@ import {
   verifyAndConsumeActivation,
 } from '../lib/email-activation'
 import { sendActivationEmail } from '../lib/mail'
+import {
+  adminConfigured,
+  adminLogin,
+  adminLogoutCookie,
+  isAdmin,
+} from '../lib/admin'
+import {
+  adminDeleteBook,
+  adminDeleteUser,
+  adminGetBook,
+  adminGetUser,
+  adminListBooks,
+  adminListUsers,
+  adminStats,
+} from '../lib/admin-data'
 
 type Env = {
   DB: D1Database
+  /** 管理后台口令，部署时用 wrangler pages secret put ADMIN_SECRET。 */
+  ADMIN_SECRET?: string
   /** 可选。设置后，注册发码与新建路书必须带有效 Turnstile token。 */
   TURNSTILE_SECRET?: string
   /** Resend API 密钥，部署时用 wrangler pages secret put RESEND_API_KEY。 */
@@ -88,7 +115,7 @@ type BookRow = {
   updated_at: number
 }
 
-/** 可见性：默认 public；只有显式的 'private' 才算私密，脏数据一律当公开。 */
+/** 可见性：新建默认 private；缺字段的老书当 public，只有显式 'private' 才算私密。 */
 type Visibility = 'public' | 'private'
 
 function asVisibility(raw: unknown): Visibility {
@@ -111,6 +138,34 @@ function parseDoc(docText: string): Record<string, unknown> | null {
 /** 从路书 JSON 里读可见性（可见性只存在 doc 里，没有单独的列）。 */
 function visibilityOf(docText: string): Visibility {
   return asVisibility(parseDoc(docText)?.visibility)
+}
+
+/** 书名去重键：忽略大小写与首尾空白；空名不参与去重。 */
+function titleDedupeKey(title: unknown): string | null {
+  if (typeof title !== 'string') return null
+  const key = title.trim().toLowerCase()
+  return key || null
+}
+
+/** 同一 owner 下是否已有同名路书（excludeId 用于更新时排除自身）。 */
+async function hasDuplicateTitle(
+  env: Env,
+  ownerKey: string,
+  title: unknown,
+  excludeId?: string,
+): Promise<boolean> {
+  const key = titleDedupeKey(title)
+  if (!key) return false
+  const row = await env.DB.prepare(
+    `SELECT id FROM books
+      WHERE owner_key = ?
+        AND LOWER(TRIM(json_extract(doc, '$.title'))) = ?
+        AND (? IS NULL OR id != ?)
+      LIMIT 1`,
+  )
+    .bind(ownerKey, key, excludeId ?? null, excludeId ?? null)
+    .first<{ id: string }>()
+  return Boolean(row)
 }
 
 const GEO_TTL = 60 * 60 * 24 * 7 // 地理编码缓存 7 天
@@ -416,6 +471,87 @@ async function authLogout(ctx: Ctx): Promise<Response> {
   return json({ ok: true }, 200, { 'set-cookie': clearedCookie(request) })
 }
 
+// ── admin ───────────────────────────────────────────────────────────────────
+
+async function requireAdmin(ctx: Ctx): Promise<Response | null> {
+  if (!adminConfigured(ctx.env)) return json({ error: 'not_found' }, 404)
+  if (!(await isAdmin(ctx.request, ctx.env))) return json({ error: 'unauthorized' }, 401)
+  return null
+}
+
+async function adminMe(ctx: Ctx): Promise<Response> {
+  if (!adminConfigured(ctx.env)) return json({ error: 'not_found' }, 404)
+  const ok = await isAdmin(ctx.request, ctx.env)
+  return json({ ok })
+}
+
+async function adminAuthLogin(ctx: Ctx): Promise<Response> {
+  if (!adminConfigured(ctx.env)) return json({ error: 'not_found' }, 404)
+  const body = await readBody<{ token?: unknown }>(ctx.request)
+  const result = await adminLogin(ctx.request, ctx.env, String(body?.token ?? ''))
+  if (!result.ok) return json({ error: 'invalid_credentials' }, 401)
+  return json({ ok: true }, 200, { 'set-cookie': result.cookie })
+}
+
+async function adminAuthLogout(ctx: Ctx): Promise<Response> {
+  if (!adminConfigured(ctx.env)) return json({ error: 'not_found' }, 404)
+  return json({ ok: true }, 200, { 'set-cookie': adminLogoutCookie(ctx.request) })
+}
+
+async function adminStatsHandler(ctx: Ctx): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  return json(await adminStats(ctx.env))
+}
+
+async function adminUsersHandler(ctx: Ctx): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  return json(await adminListUsers(ctx.env, ctx.request))
+}
+
+async function adminUserDetail(ctx: Ctx, userId: string): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  if (!OWNER_ID_RE.test(userId)) return json({ error: 'bad_id' }, 400)
+  const data = await adminGetUser(ctx.env, userId)
+  if (!data) return json({ error: 'not_found' }, 404)
+  return json(data)
+}
+
+async function adminBooksHandler(ctx: Ctx): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  return json(await adminListBooks(ctx.env, ctx.request))
+}
+
+async function adminBookDetail(ctx: Ctx, bookId: string): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  if (!BOOK_ID_RE.test(bookId)) return json({ error: 'bad_id' }, 400)
+  const data = await adminGetBook(ctx.env, bookId)
+  if (!data) return json({ error: 'not_found' }, 404)
+  return json(data)
+}
+
+async function adminBookDelete(ctx: Ctx, bookId: string): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  if (!BOOK_ID_RE.test(bookId)) return json({ error: 'bad_id' }, 400)
+  const deleted = await adminDeleteBook(ctx.env, bookId)
+  if (!deleted) return json({ error: 'not_found' }, 404)
+  return json({ ok: true })
+}
+
+async function adminUserDelete(ctx: Ctx, userId: string): Promise<Response> {
+  const gate = await requireAdmin(ctx)
+  if (gate) return gate
+  if (!OWNER_ID_RE.test(userId)) return json({ error: 'bad_id' }, 400)
+  const result = await adminDeleteUser(ctx.env, userId)
+  if (!result) return json({ error: 'not_found' }, 404)
+  return json({ ok: true, books: result.books })
+}
+
 // ── books ───────────────────────────────────────────────────────────────────
 
 async function getBook(ctx: Ctx, id: string): Promise<Response> {
@@ -470,7 +606,7 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
     return json({ error: 'bad_body' }, 400)
   }
   const rawDoc = body.doc as Record<string, unknown>
-  // 老版本前端不带 visibility：**不能**当成"改回公开"。新建按公开，
+  // 老版本前端不带 visibility：**不能**当成"改回公开/私密"。新建按私密，
   // 更新沿用库里当前值，否则一次旧客户端的保存就能把私密书发出去。
   const asked = rawDoc.visibility
   const askedVisibility: Visibility | null =
@@ -489,6 +625,9 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
   if (!existing) {
     // 新建必须登录：匿名只能通过分享链接读，不能凭空造书。
     if (!user) return json({ error: 'login_required' }, 401)
+    if (owner && (await hasDuplicateTitle(env, owner, rawDoc.title))) {
+      return json({ error: 'duplicate_title' }, 409)
+    }
     // 再过 Turnstile（若启用），然后占容量名额。
     if (env.TURNSTILE_SECRET) {
       const tsToken = request.headers.get('x-turnstile-token') ?? ''
@@ -499,7 +638,7 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
     }
     if (!(await reserveSlot(env))) return json({ error: 'capacity' }, 503)
 
-    const doc = JSON.stringify({ ...rawDoc, visibility: askedVisibility ?? 'public' })
+    const doc = JSON.stringify({ ...rawDoc, visibility: askedVisibility ?? 'private' })
     if (doc.length > maxBytes) return json({ error: 'too_large' }, 413)
 
     await env.DB.prepare(
@@ -521,6 +660,11 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
       { error: 'conflict', updatedAt: existing.updated_at, doc: parseDoc(existing.doc) },
       409,
     )
+  }
+
+  const ownerKey = owner || existing.owner_key
+  if (ownerKey && (await hasDuplicateTitle(env, ownerKey, rawDoc.title, id))) {
+    return json({ error: 'duplicate_title' }, 409)
   }
 
   const doc = JSON.stringify({
@@ -919,6 +1063,27 @@ async function handle(ctx: Ctx): Promise<Response> {
 
   if (seg[0] === 'library' && seg.length === 1 && method === 'GET') {
     return library(ctx)
+  }
+
+  if (seg[0] === 'admin') {
+    if (!adminConfigured(env)) return json({ error: 'not_found' }, 404)
+    if (seg[1] === 'me' && seg.length === 2 && method === 'GET') return adminMe(ctx)
+    if (seg[1] === 'login' && seg.length === 2 && method === 'POST') return adminAuthLogin(ctx)
+    if (seg[1] === 'logout' && seg.length === 2 && method === 'POST') return adminAuthLogout(ctx)
+    if (seg[1] === 'stats' && seg.length === 2 && method === 'GET') return adminStatsHandler(ctx)
+    if (seg[1] === 'users' && seg.length === 2 && method === 'GET') return adminUsersHandler(ctx)
+    if (seg[1] === 'users' && seg.length === 3) {
+      const userId = decodeURIComponent(seg[2])
+      if (method === 'GET') return adminUserDetail(ctx, userId)
+      if (method === 'DELETE') return adminUserDelete(ctx, userId)
+    }
+    if (seg[1] === 'books' && seg.length === 2 && method === 'GET') return adminBooksHandler(ctx)
+    if (seg[1] === 'books' && seg.length === 3) {
+      const bookId = decodeURIComponent(seg[2])
+      if (method === 'GET') return adminBookDetail(ctx, bookId)
+      if (method === 'DELETE') return adminBookDelete(ctx, bookId)
+    }
+    return json({ error: 'not_found' }, 404)
   }
 
   if (seg[0] === 'auth') {

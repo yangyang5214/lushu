@@ -3,6 +3,7 @@ export type Route =
   | { name: 'mine' }
   | { name: 'public' }
   | { name: 'account' }
+  | { name: 'admin' }
   /**
    * 路书详情：`/{userId}/{bookId}`。userId 是书主的公开短 ID（账号页的「用户 ID」），
    * 老链接 / 匿名书架的书只有 bookId 时 userId 为 null。
@@ -13,6 +14,7 @@ export const ROOT_PATH = '/'
 export const MINE_PATH = '/list'
 export const PUBLIC_PATH = '/public'
 export const ACCOUNT_PATH = '/account'
+export const ADMIN_PATH = '/admin'
 
 function safeDecode(value: string): string {
   try {
@@ -41,6 +43,7 @@ export function parsePath(pathname: string): Route {
   if (first === 'list') return { name: 'mine' }
   if (first === 'public') return { name: 'public' }
   if (first === 'account') return { name: 'account' }
+  if (first === 'admin') return { name: 'admin' }
   // `/{userId}/{bookId}`：第一段是书主公开 ID，第二段是路书 ID。
   if (segments.length >= 2) {
     return { name: 'book', bookId: safeDecode(segments[1]), userId: first || null }
@@ -69,7 +72,7 @@ function rememberPath(pathname: string): void {
   const name = parsePath(pathname).name
   // 已经在某本路书里，或停在登录页（「新建路书」要先登录，登录后再打开）时，
   // 都沿用原来的那一页，别把来源写成路书 / 账户页。
-  if (name === 'book' || name === 'account') return
+  if (name === 'book' || name === 'account' || name === 'admin') return
   try {
     sessionStorage.setItem(ORIGIN_KEY, pathname)
   } catch {
