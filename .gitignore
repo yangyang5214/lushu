@@ -16,6 +16,9 @@ dist-ssr
 # 本地 wrangler 配置（含 database_id）：cp wrangler.toml.example wrangler.toml
 wrangler.toml
 
+# 本地开发密钥（pages:dev 读取），勿提交
+.dev.vars
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

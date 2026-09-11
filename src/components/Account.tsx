@@ -3,6 +3,8 @@ import {
   authErrorText,
   register,
   login,
+  refreshAuth,
+  resendActivation,
   retryAuth,
   signOut,
   takePending,
@@ -79,10 +81,12 @@ function AuthPanel() {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const [turnstileKey, setTurnstileKey] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [registerPending, setRegisterPending] = useState(false)
+  const [activationNotice, setActivationNotice] = useState<string | null>(null)
   const [error, setError] = useState<AuthError | null>(null)
   const emailRef = useRef<HTMLInputElement>(null)
   const needTurnstile = turnstileConfigured()
@@ -98,25 +102,62 @@ function AuthPanel() {
     emailRef.current?.focus()
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const activate = params.get('activate')
+    if (activate === 'expired') {
+      setActivationNotice('激活链接已过期，请重新注册或重发激活邮件。')
+      window.history.replaceState(null, '', window.location.pathname)
+    } else if (activate === 'invalid') {
+      setActivationNotice('激活链接无效，请重新注册或重发激活邮件。')
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
   const switchMode = (next: Mode) => {
     if (busy || next === mode) return
     setMode(next)
     setError(null)
     setPassword('')
-    setConfirm('')
+    setRegisterPending(false)
+    setActivationNotice(null)
     resetTurnstile()
   }
 
   const finish = () => {
-    // 登录前点的「新建路书」之类的动作，在这里接着做完。
     const pending = takePending()
     if (pending) {
       pending()
       return
     }
-    // 没有待办时：登录只是解开了当前这一页（比如「我的路书」）就留在原地，
-    // 其余情况回首页。
     if (readRoute().name !== 'mine') navigateList()
+  }
+
+  const resend = async () => {
+    if (resending || busy) return
+    const mail = email.trim().toLowerCase()
+    if (!EMAIL_RE.test(mail)) {
+      setError('invalid_email')
+      emailRef.current?.focus()
+      return
+    }
+    if (needTurnstile && !turnstileToken) {
+      setError('turnstile_required')
+      return
+    }
+    setResending(true)
+    setError(null)
+    const res = await resendActivation(mail, turnstileToken ?? undefined)
+    setResending(false)
+    if (!res.ok) {
+      setError(res.error)
+      if (res.error === 'turnstile_failed' || res.error === 'turnstile_required') {
+        resetTurnstile()
+      }
+      return
+    }
+    setActivationNotice('激活邮件已重新发送，请查收。')
+    resetTurnstile()
   }
 
   const submit = async (e: FormEvent) => {
@@ -132,32 +173,41 @@ function AuthPanel() {
       setError('weak_password')
       return
     }
-    if (mode === 'register' && password !== confirm) {
-      setError('password_mismatch')
-      return
-    }
-    if (mode === 'register' && needTurnstile && !turnstileToken) {
-      setError('turnstile_required')
-      return
+    if (mode === 'register') {
+      if (needTurnstile && !turnstileToken) {
+        setError('turnstile_required')
+        return
+      }
     }
     setBusy(true)
     setError(null)
-    const res =
-      mode === 'login'
-        ? await login(mail, password)
-        : await register(mail, password, turnstileToken ?? undefined)
+    setActivationNotice(null)
+    if (mode === 'login') {
+      const res = await login(mail, password)
+      setBusy(false)
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
+      finish()
+      return
+    }
+    const res = await register(mail, password, turnstileToken ?? undefined)
     setBusy(false)
     if (!res.ok) {
       setError(res.error)
-      if (mode === 'register' && (res.error === 'turnstile_failed' || res.error === 'turnstile_required')) {
+      if (res.error === 'turnstile_failed' || res.error === 'turnstile_required') {
         resetTurnstile()
       }
       return
     }
-    finish()
+    setRegisterPending(true)
+    resetTurnstile()
   }
 
   const disabled = status !== 'ready' || busy
+  const showResend =
+    error === 'email_not_activated' || registerPending || activationNotice?.includes('过期')
 
   if (status === 'error') {
     return (
@@ -169,6 +219,39 @@ function AuthPanel() {
         <button type="button" className="btn-primary auth-submit" onClick={retryAuth}>
           重试
         </button>
+      </div>
+    )
+  }
+
+  if (registerPending) {
+    return (
+      <div className="auth-panel">
+        <div className="auth-intro">
+          <h1>查收激活邮件</h1>
+          <p>
+            我们已向 <strong>{email.trim().toLowerCase()}</strong> 发送了一封激活邮件，
+            请点击邮件中的链接完成注册。链接 24 小时内有效。
+          </p>
+        </div>
+        <TurnstileField
+          resetKey={turnstileKey}
+          onToken={onTurnstileToken}
+          onClear={clearTurnstile}
+        />
+        <button
+          type="button"
+          className="btn-ghost auth-submit"
+          disabled={disabled || resending}
+          onClick={() => void resend()}
+        >
+          {resending ? '发送中…' : '没收到？重新发送'}
+        </button>
+        <p className="auth-switch">
+          已经有账号了？
+          <button type="button" onClick={() => switchMode('login')}>
+            去登录
+          </button>
+        </p>
       </div>
     )
   }
@@ -198,7 +281,12 @@ function AuthPanel() {
 
       <div className="auth-intro">
         <h1>{mode === 'login' ? '欢迎回来' : '创建账号'}</h1>
+        {mode === 'register' ? (
+          <p>注册后我们会向你的邮箱发送激活链接，点击即可开通账号。</p>
+        ) : null}
       </div>
+
+      {activationNotice ? <p className="auth-notice">{activationNotice}</p> : null}
 
       <form className="auth-form" onSubmit={submit} noValidate>
         <label className="auth-field">
@@ -234,23 +322,6 @@ function AuthPanel() {
         </label>
 
         {mode === 'register' ? (
-          <label className="auth-field">
-            <span>确认密码</span>
-            <div className="auth-input">
-              <IconLock />
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                autoComplete="new-password"
-                placeholder="再输入一次"
-                maxLength={128}
-              />
-            </div>
-          </label>
-        ) : null}
-
-        {mode === 'register' ? (
           <TurnstileField
             resetKey={turnstileKey}
             onToken={onTurnstileToken}
@@ -260,8 +331,19 @@ function AuthPanel() {
 
         {error ? <p className="auth-error">{authErrorText(error)}</p> : null}
 
+        {showResend && mode === 'login' ? (
+          <button
+            type="button"
+            className="btn-ghost auth-resend"
+            disabled={disabled || resending}
+            onClick={() => void resend()}
+          >
+            {resending ? '发送中…' : '重发激活邮件'}
+          </button>
+        ) : null}
+
         <button type="submit" className="btn-primary auth-submit" disabled={disabled}>
-          {busy ? '请稍候…' : mode === 'login' ? '登录' : '注册并登录'}
+          {busy ? '请稍候…' : mode === 'login' ? '登录' : '注册'}
         </button>
       </form>
 
@@ -328,9 +410,40 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
 
 // ── /account 页面 ────────────────────────────────────────────────────────────
 
+const POST_ACTIVATE_KEY = 'lushu-post-activate'
+
 export function AccountPage() {
   const status = useAuth((s) => s.status)
   const user = useAuth((s) => s.user)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('activated') === '1') {
+      try {
+        sessionStorage.setItem(POST_ACTIVATE_KEY, '1')
+      } catch {
+        /* 隐私模式 */
+      }
+      refreshAuth()
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    try {
+      if (sessionStorage.getItem(POST_ACTIVATE_KEY) !== '1') return
+      sessionStorage.removeItem(POST_ACTIVATE_KEY)
+    } catch {
+      return
+    }
+    const pending = takePending()
+    if (pending) {
+      pending()
+      return
+    }
+    if (readRoute().name !== 'mine') navigateList()
+  }, [user])
 
   const doSignOut = async () => {
     await flushPending()

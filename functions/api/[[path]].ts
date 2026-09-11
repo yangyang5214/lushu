@@ -12,7 +12,9 @@
 //   GET    /api/library     → 我的书架（会话优先，没会话回退 X-Owner-Key）
 //   GET    /api/auth/me       → 当前登录用户
 //   POST   /api/auth/login    → 登录（邮箱 + 口令）
-//   POST   /api/auth/register → 注册（邮箱 + 口令），邮箱已存在则 409
+//   POST   /api/auth/register → 注册（邮箱 + 口令），发激活邮件，邮箱已激活则 409
+//   GET    /api/auth/activate → 点击邮件链接激活账号并登录
+//   POST   /api/auth/resend-activation → 重发激活邮件（限流 + 可选 Turnstile）
 //   POST   /api/auth/logout   → 退出登录
 //   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存
 //   GET    /api/route?coords= → OSRM 代理 + Cache API 缓存
@@ -28,6 +30,7 @@
 //   另外建议在 Cloudflare 控制台给 /api/* 加一条免费的速率限制规则（见 README）。
 
 import {
+  activateUser,
   adoptBooks,
   clearedCookie,
   createSession,
@@ -38,21 +41,36 @@ import {
   findUserByEmail,
   findUserById,
   ID_RE as OWNER_ID_RE,
+  isUserActivated,
   normalizeDisplayName,
   normalizeEmail,
   readUser,
   safeEqual,
   sessionCookie,
   toUser,
+  updatePendingUserPassword,
   validateEmail,
   validatePassword,
   verifyPassword,
 } from '../lib/auth'
+import {
+  canSendActivation,
+  generateActivationToken,
+  normalizeActivationToken,
+  storeActivationToken,
+  validateActivationTokenFormat,
+  verifyAndConsumeActivation,
+} from '../lib/email-activation'
+import { sendActivationEmail } from '../lib/mail'
 
 type Env = {
   DB: D1Database
-  /** 可选。设置后，新建路书必须带有效 Turnstile token。 */
+  /** 可选。设置后，注册发码与新建路书必须带有效 Turnstile token。 */
   TURNSTILE_SECRET?: string
+  /** Resend API 密钥，部署时用 wrangler pages secret put RESEND_API_KEY。 */
+  RESEND_API_KEY?: string
+  /** 发件人，例如 "路书 <noreply@yourdomain.com>" */
+  EMAIL_FROM?: string
   /** 可选，默认 20000。0 表示不限。 */
   MAX_BOOKS?: string
   /** 可选，默认 262144（256 KB）。 */
@@ -243,16 +261,59 @@ async function authLogin(ctx: Ctx): Promise<Response> {
   if (!row || !(await verifyPassword(password, row.pass_hash))) {
     return json({ error: 'invalid_credentials' }, 401)
   }
+  if (!isUserActivated(row)) {
+    return json({ error: 'email_not_activated' }, 403)
+  }
   const user = toUser(await ensureHashId(env, row))
   await adoptIfAnonymous(env, body?.ownerKey, user.id)
   const { token, expiresAt } = await createSession(env, user.id)
   return json({ user }, 200, { 'set-cookie': sessionCookie(request, token, expiresAt) })
 }
 
-/** 注册：邮箱已被占用返回 409；成功后直接建立会话。 */
+function activationUrl(request: Request, token: string): string {
+  const origin = new URL(request.url).origin
+  return `${origin}/api/auth/activate?token=${encodeURIComponent(token)}`
+}
+
+async function requireTurnstile(ctx: Ctx): Promise<Response | null> {
+  const { request, env } = ctx
+  if (!env.TURNSTILE_SECRET) return null
+  const tsToken = request.headers.get('x-turnstile-token') ?? ''
+  if (!tsToken) return json({ error: 'turnstile_required' }, 428)
+  if (!(await verifyTurnstile(env, request, tsToken))) {
+    return json({ error: 'turnstile_failed' }, 403)
+  }
+  return null
+}
+
+/** 向邮箱发送激活链接；限流 + 可选 Turnstile 防刷信。 */
+async function sendActivationForEmail(
+  ctx: Ctx,
+  email: string,
+): Promise<Response | { token: string }> {
+  const { request, env } = ctx
+  const gate = await canSendActivation(env, email)
+  if (gate === 'cooldown') return json({ error: 'activation_cooldown' }, 429)
+  if (gate === 'rate_limit') return json({ error: 'activation_rate_limit' }, 429)
+
+  const token = generateActivationToken()
+  await storeActivationToken(env, email, token)
+
+  const sent = await sendActivationEmail(env, email, activationUrl(request, token))
+  if (sent === 'failed') return json({ error: 'email_failed' }, 503)
+
+  return { token }
+}
+
+/** 注册：创建待激活账号并发送激活邮件；已激活邮箱返回 409。 */
 async function authRegister(ctx: Ctx): Promise<Response> {
   const { request, env } = ctx
-  const body = await readBody<{ email?: unknown; username?: unknown; password?: unknown; ownerKey?: unknown }>(request)
+  const body = await readBody<{
+    email?: unknown
+    username?: unknown
+    password?: unknown
+    ownerKey?: unknown
+  }>(request)
   const email = normalizeEmail(body?.email ?? body?.username)
   const password = String(body?.password ?? '')
   const displayName = normalizeDisplayName(undefined, email)
@@ -262,28 +323,91 @@ async function authRegister(ctx: Ctx): Promise<Response> {
   const pwError = validatePassword(password)
   if (pwError) return json({ error: pwError }, 400)
 
-  if (env.TURNSTILE_SECRET) {
-    const tsToken = request.headers.get('x-turnstile-token') ?? ''
-    if (!tsToken) return json({ error: 'turnstile_required' }, 428)
-    if (!(await verifyTurnstile(env, request, tsToken))) {
-      return json({ error: 'turnstile_failed' }, 403)
+  const tsErr = await requireTurnstile(ctx)
+  if (tsErr) return tsErr
+
+  const existing = await findUserByEmail(env, email)
+  if (existing && isUserActivated(existing)) {
+    return json({ error: 'email_taken' }, 409)
+  }
+
+  let userId: string
+  if (existing) {
+    userId = existing.id
+    await updatePendingUserPassword(env, userId, password)
+  } else {
+    let user
+    try {
+      user = await createUser(env, { email, displayName, password })
+    } catch {
+      return json({ error: 'email_taken' }, 409)
     }
+    userId = user.id
   }
 
-  if (await findUserByEmail(env, email)) {
-    return json({ error: 'email_taken' }, 409)
+  await adoptIfAnonymous(env, body?.ownerKey, userId)
+
+  const sent = await sendActivationForEmail(ctx, email)
+  if (sent instanceof Response) return sent
+
+  return json({ ok: true, pending: true }, 201)
+}
+
+/** 点击邮件链接：激活账号并建立会话，重定向到账户页。 */
+async function authActivate(ctx: Ctx): Promise<Response> {
+  const { request, env } = ctx
+  const url = new URL(request.url)
+  const token = normalizeActivationToken(url.searchParams.get('token'))
+
+  const accountUrl = `${url.origin}/account`
+  if (!validateActivationTokenFormat(token)) {
+    return Response.redirect(`${accountUrl}?activate=invalid`, 302)
   }
 
-  let user
-  try {
-    user = await createUser(env, { email, displayName, password })
-  } catch {
-    // 并发抢注：别人先建了同名账号。
-    return json({ error: 'email_taken' }, 409)
+  const verified = await verifyAndConsumeActivation(env, token)
+  if (verified.result !== 'ok') {
+    const reason = verified.result === 'expired' ? 'expired' : 'invalid'
+    return Response.redirect(`${accountUrl}?activate=${reason}`, 302)
   }
-  await adoptIfAnonymous(env, body?.ownerKey, user.id)
-  const { token, expiresAt } = await createSession(env, user.id)
-  return json({ user }, 201, { 'set-cookie': sessionCookie(request, token, expiresAt) })
+
+  const row = await activateUser(env, verified.email)
+  if (!row || !isUserActivated(row)) {
+    return Response.redirect(`${accountUrl}?activate=invalid`, 302)
+  }
+
+  const user = toUser(await ensureHashId(env, row))
+  const { token: sessionToken, expiresAt } = await createSession(env, user.id)
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${accountUrl}?activated=1`,
+      'set-cookie': sessionCookie(request, sessionToken, expiresAt),
+    },
+  })
+}
+
+/** 重发激活邮件（账号存在且尚未激活）。 */
+async function authResendActivation(ctx: Ctx): Promise<Response> {
+  const { env } = ctx
+  const body = await readBody<{ email?: unknown; username?: unknown }>(ctx.request)
+  const email = normalizeEmail(body?.email ?? body?.username)
+
+  const emailError = validateEmail(email)
+  if (emailError) return json({ error: emailError }, 400)
+
+  const tsErr = await requireTurnstile(ctx)
+  if (tsErr) return tsErr
+
+  const row = await findUserByEmail(env, email)
+  if (!row || isUserActivated(row)) {
+    // 不泄露邮箱是否已注册 / 已激活。
+    return json({ ok: true })
+  }
+
+  const sent = await sendActivationForEmail(ctx, email)
+  if (sent instanceof Response) return sent
+
+  return json({ ok: true })
 }
 
 async function authLogout(ctx: Ctx): Promise<Response> {
@@ -797,11 +921,15 @@ async function handle(ctx: Ctx): Promise<Response> {
     return library(ctx)
   }
 
-  if (seg[0] === 'auth' && seg.length === 2) {
-    if (seg[1] === 'me' && method === 'GET') return authMe(ctx)
-    if (seg[1] === 'login' && method === 'POST') return authLogin(ctx)
-    if (seg[1] === 'register' && method === 'POST') return authRegister(ctx)
-    if (seg[1] === 'logout' && method === 'POST') return authLogout(ctx)
+  if (seg[0] === 'auth') {
+    if (seg[1] === 'me' && seg.length === 2 && method === 'GET') return authMe(ctx)
+    if (seg[1] === 'login' && seg.length === 2 && method === 'POST') return authLogin(ctx)
+    if (seg[1] === 'register' && seg.length === 2 && method === 'POST') return authRegister(ctx)
+    if (seg[1] === 'activate' && seg.length === 2 && method === 'GET') return authActivate(ctx)
+    if (seg[1] === 'resend-activation' && seg.length === 2 && method === 'POST') {
+      return authResendActivation(ctx)
+    }
+    if (seg[1] === 'logout' && seg.length === 2 && method === 'POST') return authLogout(ctx)
     return json({ error: 'not_found' }, 404)
   }
 

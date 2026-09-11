@@ -28,6 +28,14 @@ export type UserRow = {
   pass_hash: string | null
   hash_id: string | null
   created_at: number
+  /** 0 = 待激活；>0 = 激活时间戳；NULL = 老账号（视为已激活）。 */
+  activated_at: number | null
+}
+
+/** 账号是否已完成邮箱激活。 */
+export function isUserActivated(row: UserRow): boolean {
+  if (row.activated_at === null || row.activated_at === undefined) return true
+  return row.activated_at > 0
 }
 
 /** 账号 / 书架密钥的统一形态：16 字节随机串的十六进制。 */
@@ -175,7 +183,7 @@ export function toUser(row: UserRow): AuthUser {
   }
 }
 
-const USER_COLS = 'id, username, display_name, pass_hash, hash_id, created_at'
+const USER_COLS = 'id, username, display_name, pass_hash, hash_id, created_at, activated_at'
 
 export function findUserById(env: AuthEnv, id: string): Promise<UserRow | null> {
   return env.DB.prepare(`SELECT ${USER_COLS} FROM users WHERE id = ?`)
@@ -205,18 +213,49 @@ export async function ensureHashId(env: AuthEnv, row: UserRow): Promise<UserRow>
 
 export async function createUser(
   env: AuthEnv,
-  input: { id?: string; email: string; displayName: string; password: string },
+  input: {
+    id?: string
+    email: string
+    displayName: string
+    password: string
+    /** 默认待激活（0）；传 Date.now() 可跳过邮件激活。 */
+    activatedAt?: number
+  },
 ): Promise<AuthUser> {
   const id = input.id ?? newUserId()
   const now = Date.now()
   const passHash = await hashPassword(input.password)
   const hashId = await emailHashId(input.email)
+  const activatedAt = input.activatedAt ?? 0
   await env.DB.prepare(
-    'INSERT INTO users (id, username, display_name, pass_hash, hash_id, created_at) VALUES (?,?,?,?,?,?)',
+    'INSERT INTO users (id, username, display_name, pass_hash, hash_id, created_at, activated_at) VALUES (?,?,?,?,?,?,?)',
   )
-    .bind(id, input.email, input.displayName, passHash, hashId, now)
+    .bind(id, input.email, input.displayName, passHash, hashId, now, activatedAt)
     .run()
   return { id, hashId, email: input.email, displayName: input.displayName, createdAt: now }
+}
+
+/** 更新待激活账号的口令（重复注册时覆盖）。 */
+export async function updatePendingUserPassword(
+  env: AuthEnv,
+  userId: string,
+  password: string,
+): Promise<void> {
+  const passHash = await hashPassword(password)
+  await env.DB.prepare('UPDATE users SET pass_hash = ? WHERE id = ? AND activated_at = 0')
+    .bind(passHash, userId)
+    .run()
+}
+
+/** 激活账号并返回最新用户行。 */
+export async function activateUser(env: AuthEnv, email: string): Promise<UserRow | null> {
+  const now = Date.now()
+  await env.DB.prepare(
+    'UPDATE users SET activated_at = ? WHERE username = ? AND activated_at = 0',
+  )
+    .bind(now, email)
+    .run()
+  return findUserByEmail(env, email)
 }
 
 /**
@@ -308,7 +347,8 @@ export async function readUser(request: Request, env: AuthEnv): Promise<AuthUser
   const tokenHash = await sha256Hex(token)
   const row = await env.DB.prepare(
     `SELECT u.id AS id, u.username AS username, u.display_name AS display_name,
-            u.pass_hash AS pass_hash, u.hash_id AS hash_id, u.created_at AS created_at
+            u.pass_hash AS pass_hash, u.hash_id AS hash_id, u.created_at AS created_at,
+            u.activated_at AS activated_at
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.expires_at > ?`,
   )

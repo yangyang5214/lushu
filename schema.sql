@@ -45,10 +45,16 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,              -- 展示名，保留用户输入的大小写
   pass_hash    TEXT NOT NULL,              -- pbkdf2$sha256$iter$salt$hash
   hash_id      TEXT,                       -- 邮箱派生的公开短 ID（sha256 前 10 位 hex）
-  created_at   INTEGER NOT NULL
+  created_at   INTEGER NOT NULL,
+  activated_at INTEGER                   -- 0=待激活；>0=激活时间戳；NULL=老账号（视为已激活）
 );
 
 -- hash_id 没必要单独建唯一索引：它由邮箱唯一决定，老库补列后由服务端按邮箱回填。
+--
+-- 已有库升级（按需执行）：
+--   ALTER TABLE users ADD COLUMN activated_at INTEGER;
+--   CREATE TABLE IF NOT EXISTS email_activations (...);  -- 见下方定义
+--   DROP TABLE IF EXISTS email_codes;
 
 -- 会话：cookie 里放明文 token，库里只存 SHA-256，泄库也换不来登录态。
 CREATE TABLE IF NOT EXISTS sessions (
@@ -61,3 +67,22 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- 登出/清理会话、以及"这个用户有几台设备登录"都要用。
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at);
+
+-- 注册邮箱激活：库里只存 token 的 SHA-256 摘要，24 小时过期；点击成功即删行（一次性）。
+CREATE TABLE IF NOT EXISTS email_activations (
+  email      TEXT NOT NULL,              -- 归一化（小写）邮箱
+  token_hash TEXT PRIMARY KEY,           -- sha256(token)
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_activations_email ON email_activations (email, created_at DESC);
+
+-- 发码频率统计（按邮箱限流；老记录可定期清，不影响正确性）。
+CREATE TABLE IF NOT EXISTS email_send_log (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  email   TEXT NOT NULL,
+  sent_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_send_log ON email_send_log (email, sent_at DESC);

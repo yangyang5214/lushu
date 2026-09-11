@@ -20,4 +20,9 @@ MAX_BOOKS = "20000"
 # 单本路书 JSON 上限（字节）。300 个地点约 33 KB。
 MAX_DOC_BYTES = "262144"
 
-# 不要在这里放任何密钥。Turnstile secret 部署时用 pnpm secret:turnstile。
+# 注册激活邮件发件人（Resend 需已验证域名；未配时用 Resend 测试地址）。
+# EMAIL_FROM = "路书 <noreply@yourdomain.com>"
+
+# 不要在这里放任何密钥。部署时用：
+#   pnpm secret:turnstile   → TURNSTILE_SECRET
+#   pnpm secret:resend      → RESEND_API_KEY

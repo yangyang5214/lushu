@@ -25,7 +25,7 @@ export function SiteNav({
       <div className="shell nav-in">
         <a className="brand" href="/" onClick={jump(navigateList)}>
           <BrandMark />
-          <b>路书</b>
+          <b>lushu</b>
         </a>
         <nav className="nav-links">
           <a href="/list" className={active === 'mine' ? 'on' : undefined} onClick={jump(navigateMine)}>

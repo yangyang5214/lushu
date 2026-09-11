@@ -3,6 +3,7 @@
 // 设计（和 functions/lib/auth.ts 一一对应）：
 //   · 没有游客账号。登录名就是邮箱；注册和登录是两个明确的动作，登录不会
 //     顺手注册。口令至少 6 位。
+//   · 注册后须点击邮件里的激活链接才能登录。
 //   · 登录 / 注册时带上本机旧的 owner_key，服务端把此前匿名创建的书过户到账号。
 //   · 「我的路书」= 未登录时的本机匿名书架（x-owner-key）；登录后按账号归属。
 //
@@ -69,8 +70,11 @@ export type AuthError =
   | 'invalid_credentials'
   | 'invalid_email'
   | 'email_taken'
+  | 'email_not_activated'
   | 'weak_password'
-  | 'password_mismatch'
+  | 'activation_cooldown'
+  | 'activation_rate_limit'
+  | 'email_failed'
   | 'turnstile_required'
   | 'turnstile_failed'
   | 'network'
@@ -80,10 +84,13 @@ const ERROR_TEXT: Record<AuthError, string> = {
   invalid_credentials: '邮箱或密码不对',
   invalid_email: '请输入有效的邮箱地址',
   email_taken: '这个邮箱已经注册过了，直接登录即可',
+  email_not_activated: '账号尚未激活，请查收邮件并点击激活链接',
   weak_password: '密码至少 6 位',
-  password_mismatch: '两次输入的密码不一致',
-  turnstile_required: '请先完成验证码',
-  turnstile_failed: '验证码校验失败，请重试',
+  activation_cooldown: '发送太频繁，请稍后再试',
+  activation_rate_limit: '该邮箱今日发信次数已达上限，请稍后再试',
+  email_failed: '激活邮件发送失败，请稍后再试',
+  turnstile_required: '请先完成人机验证',
+  turnstile_failed: '人机验证失败，请重试',
   network: '网络不可用，账号暂时用不了',
   backend_unavailable: BACKEND_UNAVAILABLE,
 }
@@ -112,7 +119,11 @@ const KNOWN_ERRORS: AuthError[] = [
   'invalid_credentials',
   'invalid_email',
   'email_taken',
+  'email_not_activated',
   'weak_password',
+  'activation_cooldown',
+  'activation_rate_limit',
+  'email_failed',
   'turnstile_required',
   'turnstile_failed',
 ]
@@ -124,6 +135,14 @@ function asError(code: unknown): AuthError {
 type AuthOk = { ok: true; user: AuthUser }
 type AuthFail = { ok: false; error: AuthError }
 export type AuthResult = AuthOk | AuthFail
+
+type RegisterOk = { ok: true; pending: true }
+type RegisterFail = { ok: false; error: AuthError }
+export type RegisterResult = RegisterOk | RegisterFail
+
+type ResendOk = { ok: true }
+type ResendFail = { ok: false; error: AuthError }
+export type ResendResult = ResendOk | ResendFail
 
 async function post(
   path: string,
@@ -184,6 +203,12 @@ export function retryAuth(): void {
   void probeAuth()
 }
 
+/** 重新探测登录态（例如邮件激活跳转回来后刷新会话）。 */
+export function refreshAuth(): void {
+  useAuth.setState({ status: 'loading', error: null })
+  void probeAuth()
+}
+
 /** 登录；邮箱未注册或密码不对都会失败，不会自动注册。 */
 export async function login(email: string, password: string): Promise<AuthResult> {
   const res = await post('/api/auth/login', { email, password, ownerKey: ownerKey() })
@@ -191,20 +216,49 @@ export async function login(email: string, password: string): Promise<AuthResult
   return res
 }
 
-/** 注册；邮箱已存在时返回 email_taken，成功后直接进入登录态。 */
+/** 注册；成功后发送激活邮件，须点击链接后才能登录。 */
 export async function register(
   email: string,
   password: string,
   turnstile?: string,
-): Promise<AuthResult> {
+): Promise<RegisterResult> {
   const headers = turnstile ? { 'x-turnstile-token': turnstile } : undefined
-  const res = await post(
-    '/api/auth/register',
-    { email, password, ownerKey: ownerKey() },
-    headers,
-  )
-  if (res.ok) useAuth.setState({ status: 'ready', user: res.user })
-  return res
+  let res: Response
+  try {
+    res = await request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ email, password, ownerKey: ownerKey() }),
+    })
+  } catch {
+    return { ok: false, error: 'network' }
+  }
+  if (!isJson(res)) return { ok: false, error: 'network' }
+  if (res.ok) return { ok: true, pending: true }
+  const data = (await res.json()) as { error?: unknown }
+  return { ok: false, error: asError(data.error) }
+}
+
+/** 重发激活邮件（账号存在且尚未激活）。 */
+export async function resendActivation(
+  email: string,
+  turnstile?: string,
+): Promise<ResendResult> {
+  const headers = turnstile ? { 'x-turnstile-token': turnstile } : undefined
+  let res: Response
+  try {
+    res = await request('/api/auth/resend-activation', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ email }),
+    })
+  } catch {
+    return { ok: false, error: 'network' }
+  }
+  if (!isJson(res)) return { ok: false, error: 'network' }
+  if (res.ok) return { ok: true }
+  const data = (await res.json()) as { error?: unknown }
+  return { ok: false, error: asError(data.error) }
 }
 
 /**

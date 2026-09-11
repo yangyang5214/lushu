@@ -48,7 +48,7 @@ const FEATURES = [
     step: '第三步',
     icon: <IconCut />,
     title: '在过夜处剪一刀',
-    text: '把分割针钉在要住下来的那个点，一天就在这里切开。针拖着走，天数和配色跟着变。',
+    text: '在要过夜的点上剪一刀，方便把行程按天分开。',
   },
 ]
 
@@ -67,11 +67,10 @@ export function RouteList() {
       <main>
         <section className="hero">
           <div className="shell hero-in">
-            <h1>先铺整条路，再剪成日子</h1>
+            <h1>搜地点，串路线，在过夜处切成每天</h1>
             <p className="lede">
-              路书不按天开始，而是按地点开始：先把想去的地方一路搜进来，
-              在任意两点上钉起终点，其余的点按路程自动串成一条线；
-              再在过夜的地方钉一枚分割针，整条路就剪成一天一天。
+              不用先想好第几天去哪：把城市、景点、营地一个个搜进来，
+              钉起终点后自动串成一条线；在要住下来的地方钉分割针，行程就按天分开。
             </p>
             <div className="hero-cta">
               <button type="button" className="btn-primary" onClick={startNew}>

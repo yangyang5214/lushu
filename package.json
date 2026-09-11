@@ -12,6 +12,7 @@
     "db:init:local": "wrangler d1 execute lushu --local --file=./schema.sql",
     "db:init": "wrangler d1 execute lushu --remote --file=./schema.sql",
     "secret:turnstile": "wrangler pages secret put TURNSTILE_SECRET",
+    "secret:resend": "wrangler pages secret put RESEND_API_KEY",
     "deploy": "wrangler pages deploy dist"
   },
   "dependencies": {
