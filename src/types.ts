@@ -6,10 +6,14 @@ export type Place = {
   lat: number
 }
 
+/** 路书可见性：默认公开（出现在「公开路书」页），private 只有自己能看。 */
+export type Visibility = 'public' | 'private'
+
 export type Book = {
   id: string
   title: string
   startDate: string
+  visibility: Visibility
   places: Place[]
   startId: string | null
   endId: string | null

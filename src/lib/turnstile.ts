@@ -9,6 +9,7 @@ type TurnstileApi = {
     opts: {
       sitekey: string
       callback: (token: string) => void
+      'expired-callback'?: () => void
       'error-callback'?: () => void
       'timeout-callback'?: () => void
       theme?: 'light' | 'dark' | 'auto'
@@ -38,6 +39,50 @@ function loadScript(): Promise<void> {
     document.head.appendChild(script)
   })
   return loader
+}
+
+type TurnstileMountOpts = {
+  onToken: (token: string) => void
+  onExpire?: () => void
+  onError?: () => void
+}
+
+/** 在指定容器内嵌入 Turnstile 小组件；返回卸载函数。未配置 site key 时返回空操作。 */
+export async function mountTurnstile(
+  container: HTMLElement,
+  opts: TurnstileMountOpts,
+): Promise<() => void> {
+  if (!SITE_KEY) return () => {}
+  try {
+    await loadScript()
+  } catch {
+    return () => {}
+  }
+
+  const api = (window as unknown as { turnstile?: TurnstileApi }).turnstile
+  if (!api) return () => {}
+
+  let widgetId: string | null = null
+  try {
+    widgetId = api.render(container, {
+      sitekey: SITE_KEY,
+      theme: 'light',
+      size: 'flexible',
+      callback: opts.onToken,
+      'expired-callback': () => opts.onExpire?.(),
+      'error-callback': () => opts.onError?.(),
+    })
+  } catch {
+    /* ignore */
+  }
+
+  return () => {
+    try {
+      if (widgetId) api.remove(widgetId)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /**

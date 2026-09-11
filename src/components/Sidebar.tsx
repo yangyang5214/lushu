@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
-import { navigateList } from '../lib/router'
+import { navigateMine } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useSelectedId } from '../store'
-import { ShareButton, SyncBadge } from './SyncBadge'
 
 function cityOf(place: Place | undefined): string {
   if (!place) return ''
@@ -36,7 +35,6 @@ function CarIcon() {
 export function Sidebar() {
   const journey = useJourney()
   const selectedId = useSelectedId()
-  const activeId = useLushu((s) => s.activeId)
   const startId = useLushu((s) => s.startId)
   const endId = useLushu((s) => s.endId)
   const setStart = useLushu((s) => s.setStart)
@@ -49,7 +47,7 @@ export function Sidebar() {
   const closeBook = useLushu((s) => s.closeBook)
   const back = () => {
     closeBook()
-    navigateList()
+    navigateMine()
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
 
@@ -82,11 +80,6 @@ export function Sidebar() {
           placeholder="未命名路书"
           aria-label="路线名"
         />
-        {activeId ? <ShareButton id={activeId} /> : null}
-      </div>
-
-      <div className="sheet-status">
-        <SyncBadge />
       </div>
 
       <div className="place-scroll">

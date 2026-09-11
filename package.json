@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/ensure-env.mjs && vite",
+    "dev": "vite",
     "build": "tsc -b && tsc -p functions/tsconfig.json && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "pages:dev": "node scripts/ensure-env.mjs && pnpm build && wrangler pages dev dist --env-file=.env",
+    "pages:dev": "pnpm build && wrangler pages dev dist",
     "db:init:local": "wrangler d1 execute lushu --local --file=./schema.sql",
     "db:init": "wrangler d1 execute lushu --remote --file=./schema.sql",
     "secret:turnstile": "wrangler pages secret put TURNSTILE_SECRET",

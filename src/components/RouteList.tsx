@@ -1,237 +1,101 @@
-import { useMemo, useState } from 'react'
-import { buildJourney } from '../lib/journey'
+import { requireLogin } from '../lib/auth'
 import { navigateBook } from '../lib/router'
-import { removeBook, useCloud } from '../lib/sync'
-import type { Book, Journey, Place } from '../types'
 import { useLushu } from '../store'
-import { RoutePreview } from './RoutePreview'
-import { SyncBadge } from './SyncBadge'
+import { SiteFoot, SiteNav } from './Chrome'
 
-function cityOf(place: Place | undefined): string {
-  if (!place) return ''
-  const parts = place.address.split(/[·,，]/).map((s) => s.trim()).filter(Boolean)
-  if (parts[0] && ['上海', '北京', '天津', '重庆'].includes(parts[0])) return parts[0]
-  return parts[parts.length - 1] || place.name
+function IconSearch() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M15.8 15.8 21 21" />
+    </svg>
+  )
 }
 
-function citiesOf(journey: Journey): string[] {
-  const out: string[] = []
-  journey.places.forEach((p) => {
-    const city = cityOf(p)
-    if (city && !out.includes(city)) out.push(city)
-  })
-  return out
+function IconPin() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden>
+      <path d="M12 21.5s7-6.4 7-11.5a7 7 0 1 0-14 0c0 5.1 7 11.5 7 11.5Z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </svg>
+  )
 }
 
-function fmtDateRange(startDate: string, days: number): string {
-  if (!startDate) return '未定日期'
-  const start = new Date(`${startDate}T00:00:00`)
-  if (Number.isNaN(start.getTime())) return startDate
-  const label = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`
-  if (days <= 1) return label(start)
-  const end = new Date(start)
-  end.setDate(end.getDate() + days - 1)
-  return `${label(start)} – ${label(end)}`
+function IconCut() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden>
+      <circle cx="6" cy="6.5" r="2.6" />
+      <circle cx="6" cy="17.5" r="2.6" />
+      <path d="M8.3 7.8 20 17.2M8.3 16.2 20 6.8" />
+    </svg>
+  )
 }
 
-function routeLabel(journey: Journey): string {
-  if (!journey.ready) return '未设起点与终点'
-  const from = journey.start?.name ?? ''
-  if (journey.isLoop) return `${from} 出发 · 环线`
-  const to = journey.end?.name ?? ''
-  return `${from} → ${to}`
-}
+const FEATURES = [
+  {
+    step: '第一步',
+    icon: <IconSearch />,
+    title: '搜地点，可一直加',
+    text: '城市、寺庙、老街、营地，搜到什么就放什么。顺序不用先想好，加进来之后再排。',
+  },
+  {
+    step: '第二步',
+    icon: <IconPin />,
+    title: '定起点和终点',
+    text: '在任意两点上钉起终点，中间的点按路程自动串起来；钉在同一处，就是一条环线。',
+  },
+  {
+    step: '第三步',
+    icon: <IconCut />,
+    title: '在过夜处剪一刀',
+    text: '把分割针钉在要住下来的那个点，一天就在这里切开。针拖着走，天数和配色跟着变。',
+  },
+]
 
+/** `/`：首页，首屏 + 怎么用；书单都在独立的 `/list`、`/public` 页。 */
 export function RouteList() {
-  const books = useLushu((s) => s.books)
-  const order = useLushu((s) => s.order)
-  const activeId = useLushu((s) => s.activeId)
   const createBook = useLushu((s) => s.createBook)
-  const duplicateBook = useLushu((s) => s.duplicateBook)
-  const loadSample = useLushu((s) => s.loadSample)
-  const cloud = useCloud((s) => s.books)
 
-  const [confirmId, setConfirmId] = useState<string | null>(null)
-
-  const startNew = () => navigateBook(createBook())
-  const startSample = () => navigateBook(loadSample())
-
-  const rows = useMemo(
-    () =>
-      order
-        .map((id) => books[id])
-        .filter((b): b is Book => Boolean(b))
-        .map((book) => ({
-          book,
-          journey: buildJourney({
-            title: book.title,
-            startDate: book.startDate,
-            places: book.places,
-            startId: book.startId,
-            endId: book.endId,
-            orderedIds: book.orderedIds,
-            splitIds: book.splitIds,
-          }),
-        })),
-    [books, order],
-  )
-
-  const shown = useMemo(
-    () => [...rows].sort((a, b) => b.book.updatedAt - a.book.updatedAt),
-    [rows],
-  )
-
-  // 云端有、本机没有的路书（比如换了设备 / 换了浏览器）。
-  const cloudOnly = useMemo(() => cloud.filter((c) => !books[c.id]), [cloud, books])
+  // 新建路书要先登录；未登录会跳到账户页，登录后接着把动作做完。
+  const startNew = () => requireLogin(() => navigateBook(createBook()))
 
   return (
-    <div className="library">
-      <header className="lib-top">
-        <div className="lib-brand">
-          <span className="lib-seal" aria-hidden>
-            路书
-          </span>
-          <div>
-            <h1>我的路书</h1>
-            <p>先铺整条路，再剪成日子</p>
-          </div>
-        </div>
-        <div className="lib-tools">
-          <SyncBadge />
-        </div>
-      </header>
+    <div className="home">
+      <SiteNav />
 
-      <main className="lib-body">
-        {rows.length === 0 ? (
-          <section className="lib-empty">
-            <div className="lib-empty-art" aria-hidden>
-              <span className="dot" />
-              <span className="line" />
-              <span className="dot" />
-              <span className="line" />
-              <span className="dot" />
-            </div>
-            <h2>还没有路书</h2>
-            <p>
-              把想去的点一路搜进来，定好起点终点，再在过夜的地方钉上分割针。
-              <br />
-              整趟旅程会自己铺成一条线。
+      <main>
+        <section className="hero">
+          <div className="shell hero-in">
+            <p className="eyebrow">怎么用</p>
+            <h1>先铺整条路，再剪成日子</h1>
+            <p className="lede">
+              路书不按天开始，而是按地点开始：先把想去的地方一路搜进来，
+              在任意两点上钉起终点，其余的点按路程自动串成一条线；
+              再在过夜的地方钉一枚分割针，整条路就剪成一天一天。
             </p>
-            <div className="lib-empty-ops">
+            <div className="hero-cta">
               <button type="button" className="btn-primary" onClick={startNew}>
-                ＋ 新建一本路书
-              </button>
-              <button type="button" className="btn-ghost" onClick={startSample}>
-                载入示例环线
+                新建一本路书
               </button>
             </div>
-          </section>
-        ) : (
-          <ul className="card-grid">
-            <li>
-              <button type="button" className="card-new" onClick={startNew}>
-                <span className="card-new-plus" aria-hidden>
-                  ＋
-                </span>
-                <span>新建路书</span>
-              </button>
-            </li>
+          </div>
+        </section>
 
-            {shown.map(({ book, journey }) => {
-              const cities = citiesOf(journey)
-              const dayCount = journey.days.length
-              return (
-                <li key={book.id} className={book.id === activeId ? 'book-card on' : 'book-card'}>
-                  <button type="button" className="card-open" onClick={() => navigateBook(book.id)}>
-                    <div className="card-cover">
-                      <RoutePreview journey={journey} />
-                      <span className="card-days">
-                        {dayCount > 0 ? `${dayCount} 天` : '草稿'}
-                      </span>
-                      {journey.isLoop && journey.ready ? (
-                        <span className="card-loop">环线</span>
-                      ) : null}
-                    </div>
-                    <div className="card-body">
-                      <h3>{book.title || '未命名路书'}</h3>
-                      <p className="card-route">{routeLabel(journey)}</p>
-                      <div className="card-meta">
-                        <span>
-                          <b>{journey.places.length}</b>个地点
-                        </span>
-                        {journey.ready ? (
-                          <span>
-                            <b>{Math.round(journey.totalKm).toLocaleString()}</b>公里
-                          </span>
-                        ) : null}
-                      </div>
-                      {cities.length ? (
-                        <div className="card-cities">
-                          {cities.slice(0, 3).map((c) => (
-                            <span key={c}>{c}</span>
-                          ))}
-                          {cities.length > 3 ? <span>+{cities.length - 3}</span> : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  </button>
-
-                  <div className="card-foot">
-                    <span className="date">{fmtDateRange(book.startDate, dayCount)}</span>
-                    <div className="ops">
-                      <button type="button" onClick={() => navigateBook(book.id)}>
-                        打开
-                      </button>
-                      <button type="button" onClick={() => duplicateBook(book.id)}>
-                        复制
-                      </button>
-                      {confirmId === book.id ? (
-                        <button
-                          type="button"
-                          className="danger on"
-                          onClick={() => {
-                            void removeBook(book.id)
-                            setConfirmId(null)
-                          }}
-                          onBlur={() => setConfirmId(null)}
-                        >
-                          确认删除
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="danger"
-                          onClick={() => setConfirmId(book.id)}
-                        >
-                          删除
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-
-          </ul>
-        )}
-
-        {cloudOnly.length > 0 ? (
-          <section className="cloud-shelf">
-            <h2>云端书架</h2>
-            <ul>
-              {cloudOnly.map((c) => (
-                <li key={c.id}>
-                  <button type="button" onClick={() => navigateBook(c.id)}>
-                    <strong>{c.title || '未命名路书'}</strong>
-                    <span>{c.places} 个地点</span>
-                    <span>更新于 {new Date(c.updatedAt).toLocaleDateString()}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        <section className="features">
+          <div className="shell feature-grid">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="feature">
+                <span className="feature-icon">{f.icon}</span>
+                <span className="feature-step">{f.step}</span>
+                <h3>{f.title}</h3>
+                <p>{f.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
+
+      <SiteFoot />
     </div>
   )
 }

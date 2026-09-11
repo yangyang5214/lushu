@@ -1,0 +1,1072 @@
+/* ============================================================
+   主页（路书列表）
+   版式参照 obsidian.md：吸顶导航 + 居中的大标题首屏 + 应用截图
+   + 三栏说明 + 卡片列表 + 页脚；白底 + 紫罗兰主色。
+   编辑页仍是纸感主题，两页各用各的变量，互不影响。
+   ============================================================ */
+.home {
+  --bg: #ffffff;
+  --bg-2: #fafafb;
+  --surface: #ffffff;
+  --surface-2: #f4f4f7;
+  --border: #e5e5ea;
+  --border-soft: rgba(16, 16, 24, 0.09);
+  --text: #16161e;
+  --text-2: #3c3c48;
+  --muted: #6c6c7c;
+  --accent: #7c5cff;
+  --accent-hi: #6b46f5;
+  --accent-soft: rgba(124, 92, 255, 0.1);
+  --good: #0f9d63;
+  --warn: #b47500;
+  --bad: #dc4338;
+  --sans: 'Manrope', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --r: 12px;
+  --r-sm: 8px;
+  --shadow: 0 1px 2px rgba(16, 16, 24, 0.05), 0 10px 26px -20px rgba(16, 16, 24, 0.25);
+
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.home section[id] {
+  scroll-margin-top: 84px;
+}
+
+.shell {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- 吸顶导航 ---------- */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.nav-in {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 60px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  color: var(--accent-hi);
+}
+
+.brand-mark {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.brand-route {
+  stroke: var(--text-2);
+}
+
+.brand b {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.nav-links {
+  display: flex;
+  gap: 22px;
+}
+
+.nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.15s;
+}
+
+.nav-links a:hover {
+  color: var(--text);
+}
+
+.nav-links a.on {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nav-actions {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---------- 按钮 ---------- */
+.btn-primary,
+.btn-ghost {
+  border-radius: var(--r-sm);
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+}
+
+.btn-primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #8f74ff;
+  border-color: #8f74ff;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+
+.btn-primary:active,
+.btn-ghost:active {
+  transform: translateY(1px);
+}
+
+.btn-sm {
+  padding: 6px 13px;
+  font-size: 13px;
+}
+
+/* ---------- 首屏 ---------- */
+.hero {
+  position: relative;
+  padding: 78px 0 0;
+  text-align: center;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 180px;
+  width: 780px;
+  height: 420px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.16), transparent 72%);
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+.hero-in {
+  position: relative;
+  z-index: 1;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-hi);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.hero h1 {
+  margin: 16px auto 0;
+  max-width: 18em;
+  font-size: clamp(30px, 5vw, 54px);
+  font-weight: 700;
+  line-height: 1.16;
+  letter-spacing: -0.015em;
+}
+
+.lede {
+  margin: 20px auto 0;
+  max-width: 34em;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.85;
+}
+
+.hero-cta {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hero-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ---------- 独立子页（/list、/public） ---------- */
+/* 子页的第一个区块紧跟在导航/页头下面，不再叠首屏那段间距 */
+.shelf.page-first {
+  margin-top: 44px;
+}
+
+/* ---------- 三栏说明 ---------- */
+.features {
+  margin-top: 84px;
+  padding: 56px 0 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 36px;
+}
+
+.feature-step {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+}
+
+.feature-icon svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feature h3 {
+  margin: 6px 0 8px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.feature p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
+/* ---------- 分栏标题 ---------- */
+.shelf {
+  margin-top: 80px;
+}
+
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.shelf-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.shelf-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shelf-head .count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+}
+
+/* ---------- 卡片 ---------- */
+.card-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 16px;
+}
+
+.card-grid > li {
+  min-width: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: border-color 0.16s, transform 0.16s, box-shadow 0.16s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 92, 255, 0.6);
+  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.06), 0 18px 34px -24px rgba(16, 16, 24, 0.3);
+}
+
+.card.on {
+  border-color: var(--accent);
+}
+
+.card-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.card-cover {
+  position: relative;
+  height: 130px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-soft);
+  background-color: var(--bg-2);
+  background-image: radial-gradient(rgba(16, 16, 24, 0.07) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+
+.route-preview {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cover-empty {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  background-image: radial-gradient(rgba(16, 16, 24, 0.09) 1px, transparent 1.2px);
+  background-size: 12px 12px;
+}
+
+.card-days {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.card-loop {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* 仅自己可见：始终可见，权限状态不应该藏在 hover 里 */
+.card-vis {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  padding: 3px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(6px);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.card-body {
+  display: grid;
+  gap: 6px;
+  padding: 13px 14px;
+}
+
+.card-body h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-route {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-meta b {
+  margin-right: 3px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.card-meta .card-date {
+  margin-left: auto;
+}
+
+.card-date {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 9px 14px 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.card-ops {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s;
+}
+
+.card:hover .card-ops,
+.card:focus-within .card-ops {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-ops button {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  transition: color 0.14s, border-color 0.14s, background 0.14s;
+}
+
+.card-ops button:hover {
+  color: var(--accent-hi);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.card-ops button.danger:hover,
+.card-ops button.danger.on {
+  color: #fff;
+  background: #b4413a;
+  border-color: #b4413a;
+}
+
+/* 新建卡片 */
+/* ---------- 空态 ---------- */
+.empty-state {
+  padding: 48px 24px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r);
+  background: rgba(30, 30, 40, 0.4);
+  text-align: center;
+}
+
+.empty-state h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0 auto 20px;
+  max-width: 32em;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
+.empty-ops {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.empty-note {
+  margin: 0;
+  padding: 30px 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.empty-note.bad {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+/* ---------- 页脚 ---------- */
+.foot {
+  margin-top: 96px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.foot-in {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 28px;
+  padding-bottom: 52px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.foot-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.foot-brand .brand-mark {
+  width: 18px;
+  height: 18px;
+}
+
+.foot-in a.foot-brand {
+  color: var(--text-2);
+}
+
+.foot-in a.foot-brand:hover {
+  color: var(--accent-hi);
+}
+
+.foot-in nav {
+  margin-left: auto;
+  display: flex;
+  gap: 18px;
+}
+
+.foot-in a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.foot-in a:hover {
+  color: var(--accent-hi);
+}
+
+/* ============================================================
+   账号 / 同步 / 登录弹层：编辑页是纸感主题，这里换成白底紫调
+   ============================================================ */
+.home .account-chip {
+  border-color: var(--border);
+  background: #fff;
+  color: var(--text);
+  box-shadow: none;
+}
+
+.home .account-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+
+.home .account-chip.muted {
+  color: var(--muted);
+}
+
+.home .account-chip.error {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.home .account-chip.error:hover {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.home .account-avatar {
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.home .account-mini {
+  color: var(--muted);
+}
+
+.home .account-mini:hover {
+  color: var(--accent-hi);
+  background: var(--accent-soft);
+}
+
+.home .auth-overlay {
+  background: rgba(16, 16, 24, 0.38);
+}
+
+.home .auth-card {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 60px -24px rgba(16, 16, 24, 0.35);
+}
+
+.home .auth-card h2 {
+  font-family: var(--sans);
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.home .auth-sub {
+  color: var(--muted);
+}
+
+.home .auth-field span {
+  color: var(--text-2);
+}
+
+.home .auth-field input {
+  border-color: var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.home .auth-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.home .auth-error {
+  color: var(--bad);
+}
+
+.home .auth-card .btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.home .auth-card .btn-ghost {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.home .auth-card .btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+
+/* ---------- 响应式 ---------- */
+@media (hover: none) {
+  .card-ops {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+@media (max-width: 820px) {
+  .nav-links {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .nav-in {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 0 16px;
+  }
+
+  .hero {
+    padding-top: 52px;
+  }
+
+  .hero::before {
+    top: 140px;
+    width: 520px;
+    height: 320px;
+  }
+
+  .features {
+    margin-top: 64px;
+    padding-top: 40px;
+  }
+
+  .shelf {
+    margin-top: 60px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .foot {
+    margin-top: 72px;
+  }
+}
+
+/* ============================================================
+   /account：登录 / 注册 / 账号信息页
+   沿用主页的白底紫调，一张居中的卡片，不放别的。
+   ============================================================ */
+.home a.brand {
+  text-decoration: none;
+}
+
+.home .account-chip.who {
+  cursor: pointer;
+  font-family: var(--sans);
+}
+
+.account-main {
+  padding: 64px 0 24px;
+}
+
+.account-shell {
+  display: flex;
+  justify-content: center;
+}
+
+.account-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.account-loading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- 表单 ---------- */
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.auth-tab:hover {
+  color: var(--text);
+}
+
+.auth-tab.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.08);
+}
+
+.auth-intro h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.auth-intro p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-panel .auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.auth-panel .auth-field > span {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.auth-input {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-2);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.auth-input svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  outline: none;
+}
+
+.auth-turnstile {
+  min-height: 65px;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 11px;
+  font-size: 14px;
+}
+
+.auth-error {
+  margin: 0;
+  color: var(--bad);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.auth-switch {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.auth-switch button {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--accent-hi);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-switch button:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 已登录 ---------- */
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account-avatar-lg {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.account-head-text {
+  min-width: 0;
+}
+
+.account-head h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.account-mail {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.account-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.account-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.account-rows dt {
+  flex: none;
+  color: var(--muted);
+}
+
+.account-rows dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+}
+
+.account-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-danger .btn-ghost {
+  width: 100%;
+}
+
+.account-danger p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 560px) {
+  .account-main {
+    padding-top: 36px;
+  }
+
+  .account-card {
+    padding: 24px 20px;
+  }
+}

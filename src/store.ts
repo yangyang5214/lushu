@@ -5,15 +5,21 @@ import { useShallow } from 'zustand/react/shallow'
 import { buildJourney } from './lib/journey'
 import { insertNearest, isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
 import { readRoute } from './lib/router'
-import { SAMPLE_DATE, SAMPLE_PLACES, SAMPLE_TITLE } from './lib/sample'
-import type { Book, Journey, Place } from './types'
+import type { Book, Journey, Place, Visibility } from './types'
 
-export type View = 'list' | 'edit'
+export type View = 'list' | 'mine' | 'public' | 'account' | 'edit'
 
 type NewBook = Partial<
   Pick<
     Book,
-    'title' | 'startDate' | 'places' | 'startId' | 'endId' | 'orderedIds' | 'splitIds'
+    | 'title'
+    | 'startDate'
+    | 'visibility'
+    | 'places'
+    | 'startId'
+    | 'endId'
+    | 'orderedIds'
+    | 'splitIds'
   >
 >
 
@@ -53,7 +59,7 @@ type Actions = {
   duplicateBook: (id: string) => string
   deleteBook: (id: string) => void
   renameBook: (id: string, title: string) => void
-  loadSample: () => string
+  setVisibility: (id: string, visibility: Visibility) => void
 
   setTitle: (title: string) => void
   setStartDate: (startDate: string) => void
@@ -79,6 +85,7 @@ const EMPTY_BOOK: Book = {
   id: '',
   title: '未命名路书',
   startDate: '',
+  visibility: 'public',
   places: [],
   startId: null,
   endId: null,
@@ -139,15 +146,42 @@ function remapBookIds(persisted: unknown): unknown {
   return { ...p, books, order }
 }
 
+/** 示例环线已下线：把旧版本里由「载入示例环线」生成的那本书从本机清掉。 */
+const SAMPLE_BOOK_TITLE = '2026中秋-国庆'
+
+function dropSampleBooks(persisted: unknown): unknown {
+  const p = (persisted ?? {}) as Partial<State>
+  if (!p.books) return persisted
+  const books = Object.fromEntries(
+    Object.entries(p.books).filter(([, book]) => book.title !== SAMPLE_BOOK_TITLE),
+  ) as Record<string, Book>
+  return { ...p, books, order: (p.order ?? []).filter((id) => id in books) }
+}
+
+/** 老数据没有 visibility 字段 → 默认公开（与加这个字段之前的实际行为一致）。 */
+function defaultVisibility(persisted: unknown): unknown {
+  const p = (persisted ?? {}) as Partial<State>
+  if (!p.books) return persisted
+  const books = Object.fromEntries(
+    Object.entries(p.books).map(([id, book]) => [
+      id,
+      book.visibility === 'private' ? book : { ...book, visibility: 'public' as const },
+    ]),
+  ) as Record<string, Book>
+  return { ...p, books }
+}
+
 const initialRoute = readRoute()
+const initialBookId = initialRoute.name === 'book' ? initialRoute.bookId : null
+const initialView: View = initialRoute.name === 'book' ? 'edit' : initialRoute.name
 
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
       books: {},
       order: [],
-      activeId: initialRoute.bookId,
-      view: initialRoute.bookId ? 'edit' : 'list',
+      activeId: initialBookId,
+      view: initialView,
       selectedId: null,
 
       setView: (view) => set({ view }),
@@ -159,6 +193,7 @@ export const useStore = create<Store>()(
           id,
           title: seed?.title ?? '未命名路书',
           startDate: seed?.startDate ?? '',
+          visibility: seed?.visibility ?? 'public',
           places: seed?.places ?? [],
           startId: seed?.startId ?? null,
           endId: seed?.endId ?? null,
@@ -184,7 +219,7 @@ export const useStore = create<Store>()(
 
       closeBook: () => set({ view: 'list', selectedId: null }),
 
-      // 从云端拉回来的路书：原样入册，不动 updatedAt（避免触发回声推送）。
+      // 从服务端取回来的路书：原样入册，不动 updatedAt（避免触发回声推送）。
       upsertRemoteBook: (book) =>
         set((s) => ({
           books: { ...s.books, [book.id]: book },
@@ -228,17 +263,13 @@ export const useStore = create<Store>()(
             : {},
         ),
 
-      loadSample: () => {
-        const startId = SAMPLE_PLACES[0].id
-        return get().createBook({
-          title: SAMPLE_TITLE,
-          startDate: SAMPLE_DATE,
-          places: SAMPLE_PLACES.map((p) => ({ ...p })),
-          startId,
-          endId: startId,
-          orderedIds: SAMPLE_PLACES.map((p) => p.id),
-        })
-      },
+      // 改权限：本地立刻生效，推送由调用方（我的路书列表）显式触发。
+      setVisibility: (id, visibility) =>
+        set((s) =>
+          s.books[id]
+            ? { books: { ...s.books, [id]: { ...s.books[id], visibility, updatedAt: Date.now() } } }
+            : {},
+        ),
 
       setTitle: (title) => set((s) => activePatch(s, () => ({ title }))),
 
@@ -404,8 +435,8 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'lushu-v1',
-      version: 4,
-      // The open book / view live in the URL hash, so only the library is stored.
+      version: 6,
+      // The open book / view come from the URL path, so only the library is stored.
       partialize: (s) => ({ books: s.books, order: s.order }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>
@@ -434,6 +465,7 @@ export const useStore = create<Store>()(
             id,
             title: old.title ?? '未命名路书',
             startDate: old.startDate ?? '',
+            visibility: 'public',
             places: old.places ?? [],
             startId: old.startId ?? null,
             endId: old.endId ?? null,
@@ -448,6 +480,8 @@ export const useStore = create<Store>()(
           }
         }
         if (version < 4) state = remapBookIds(state)
+        if (version < 5) state = dropSampleBooks(state)
+        if (version < 6) state = defaultVisibility(state)
         return state
       },
     },

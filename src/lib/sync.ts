@@ -1,4 +1,6 @@
-// 本地优先同步：zustand 立刻更新界面，后台防抖推送到 D1。
+// 同步：zustand 立刻更新界面，后台防抖推送到 D1。
+// 同一本路书全局只有一个版本；两边都改过时按 updatedAt 取更晚的一次，不需要用户在
+// 两份之间做选择。
 //
 // 关键约束（免费档额度）：
 //   · D1 写 10 万行/天 → 一次编辑会话只允许落几次库，必须防抖；并用持久化的
@@ -7,34 +9,36 @@
 
 import { create } from 'zustand'
 import { useStore } from '../store'
+import { useAuth } from './auth'
 import {
   deleteRemoteBook,
   fetchBook,
+  listPublicBooks,
   listRemoteBooks,
   saveBook,
   type BookSummary,
-  type RemoteBook,
+  type PublicBook,
 } from './api'
 import { dropMeta, ensureToken, getMeta, setMeta } from './keys'
 import { requestTurnstileToken } from './turnstile'
 
 export type SyncStatus =
-  | 'local' // 尚无云端副本
+  | 'idle' // 无同步会话（未打开任何书）
   | 'syncing' // 正在推送
   | 'saved' // 已同步
   | 'readonly' // 别人的分享，只读
   | 'offline' // 网络失败
-  | 'conflict' // 云端有更新
   | 'full' // 服务端名额已满
-  | 'error' // 其它失败
+  | 'error' // 其它失败（含后端不可达 / 缺配置）
 
-type Conflict = { id: string; remote: RemoteBook }
+type SyncStore = { status: SyncStatus; at: number }
+export const useSync = create<SyncStore>(() => ({ status: 'idle', at: 0 }))
 
-type SyncStore = { status: SyncStatus; at: number; conflict: Conflict | null }
-export const useSync = create<SyncStore>(() => ({ status: 'local', at: 0, conflict: null }))
+type CloudStore = { books: BookSummary[]; loaded: boolean; error: boolean }
+export const useCloud = create<CloudStore>(() => ({ books: [], loaded: false, error: false }))
 
-type CloudStore = { books: BookSummary[]; loaded: boolean }
-export const useCloud = create<CloudStore>(() => ({ books: [], loaded: false }))
+type PublicStore = { books: PublicBook[]; loaded: boolean; error: boolean }
+export const usePublic = create<PublicStore>(() => ({ books: [], loaded: false, error: false }))
 
 function update(patch: Partial<SyncStore>): void {
   useSync.setState(patch)
@@ -59,7 +63,7 @@ async function push(id: string): Promise<void> {
     update({ status: 'readonly' })
     return
   }
-  // 已经推过的版本不再重复推（例如刚采用云端版本时的回声）。
+  // 已经推过的版本不再重复推（例如刚采用服务端版本时的回声）。
   if (meta.pushed !== undefined && book.updatedAt <= meta.pushed) return
 
   const token = ensureToken(id)
@@ -79,6 +83,11 @@ async function push(id: string): Promise<void> {
       update({ status: 'saved', at: Date.now() })
       return
     }
+    if (res.reason === 'login') {
+      // 新建必须登录；登录过期也会走到这里。书还在本机，登录后会补推。
+      update({ status: 'idle' })
+      return
+    }
     if (res.reason === 'forbidden') {
       // 服务端确认我们没写权限 → 记住只读，不再白推。
       setMeta(id, { remote: true })
@@ -86,16 +95,30 @@ async function push(id: string): Promise<void> {
       return
     }
     if (res.reason === 'conflict' && res.remote) {
-      update({ status: 'conflict', conflict: { id, remote: res.remote } })
+      const remote = res.remote
+      // 服务端已被写入了更新的版本 → 直接采用；否则以服务端当前版本为基线再写一次。
+      if (remote.doc.updatedAt > book.updatedAt) {
+        useStore.getState().upsertRemoteBook(remote.doc)
+        setMeta(id, { base: remote.updatedAt, pushed: remote.doc.updatedAt })
+        update({ status: 'saved', at: Date.now() })
+        return
+      }
+      try {
+        const retry = await saveBook(book, { token, base: remote.updatedAt })
+        if (retry.ok) {
+          setMeta(id, { base: retry.updatedAt, pushed: book.updatedAt })
+          update({ status: 'saved', at: Date.now() })
+          return
+        }
+      } catch {
+        update({ status: 'offline' })
+        return
+      }
+      update({ status: 'error' })
       return
     }
     if (res.reason === 'capacity') {
       update({ status: 'full' })
-      return
-    }
-    if (res.reason === 'unavailable') {
-      // 后端还没部署（只跑纯静态）：静默当作本机存储。
-      update({ status: 'local' })
       return
     }
     update({ status: 'error' })
@@ -132,19 +155,43 @@ function onStoreChange(): void {
 
 /** 立即把待推送的都发出去（关页 / 切后台时用）。 */
 export function flush(): void {
-  for (const id of [...timers.keys()]) void push(id)
+  void flushPending()
+}
+
+/**
+ * 立刻推送指定的某一本（列表页的显式操作，如「改权限」）。
+ * 不等防抖：用户刚点的那下应该马上落到服务端。
+ */
+export async function pushBook(id: string): Promise<void> {
+  await push(id)
+}
+
+/** 等所有待推送的都发完（退出登录前用，确保服务端拿到最新版本）。 */
+export async function flushPending(): Promise<void> {
+  const ids = [...timers.keys()]
+  await Promise.all(ids.map((id) => push(id)))
 }
 
 export async function refreshCloud(): Promise<void> {
   try {
     const books = await listRemoteBooks()
-    useCloud.setState({ books, loaded: true })
+    useCloud.setState({ books, loaded: true, error: false })
   } catch {
-    /* 离线就保持现状 */
+    useCloud.setState({ loaded: true, error: true })
   }
 }
 
-/** 打开一个本地没有的路书时调用：从云端拉下来。 */
+/** 主页默认的公开路书列表。失败时把错误暴露给界面，不再假装空列表。 */
+export async function refreshPublic(): Promise<void> {
+  try {
+    const books = await listPublicBooks()
+    usePublic.setState({ books, loaded: true, error: false })
+  } catch {
+    usePublic.setState({ loaded: true, error: true })
+  }
+}
+
+/** 打开一本还没取到的路书时调用：从服务端取下来。 */
 export async function pullBook(id: string): Promise<boolean> {
   try {
     const remote = await fetchBook(id)
@@ -159,40 +206,7 @@ export async function pullBook(id: string): Promise<boolean> {
   }
 }
 
-/** 冲突处理：用云端版本覆盖本地，或用本地强制覆盖云端。 */
-export async function resolveConflict(choice: 'remote' | 'local'): Promise<void> {
-  const conflict = useSync.getState().conflict
-  if (!conflict) return
-  const { id, remote } = conflict
-
-  if (choice === 'remote') {
-    useStore.getState().upsertRemoteBook(remote.doc)
-    setMeta(id, { base: remote.updatedAt, pushed: remote.doc.updatedAt })
-    update({ status: 'saved', at: Date.now(), conflict: null })
-    return
-  }
-
-  const book = useStore.getState().books[id]
-  if (!book) {
-    update({ conflict: null })
-    return
-  }
-  const token = ensureToken(id)
-  try {
-    // base 用云端版本，等于"我知道云端更新了，仍以本地为准"。
-    const res = await saveBook(book, { token, base: remote.updatedAt })
-    if (res.ok) {
-      setMeta(id, { base: res.updatedAt, pushed: book.updatedAt })
-      update({ status: 'saved', at: Date.now(), conflict: null })
-    } else {
-      update({ status: 'error', conflict: null })
-    }
-  } catch {
-    update({ status: 'offline' })
-  }
-}
-
-/** 删除：本地 + 云端一起清掉。 */
+/** 删除：本地与服务端一起清掉。 */
 export async function removeBook(id: string): Promise<void> {
   const meta = getMeta(id)
   useStore.getState().deleteBook(id)
@@ -214,12 +228,19 @@ export function startSync(): void {
   const active = useStore.getState().activeId
   if (active) {
     const meta = getMeta(active)
-    update({ status: meta.remote ? 'readonly' : meta.token ? 'saved' : 'local' })
+    update({
+      status: meta.remote ? 'readonly' : meta.pushed !== undefined ? 'saved' : 'idle',
+    })
   }
 
   useStore.subscribe(onStoreChange)
 
-  // 首次运行：把本机已有（但云端没有）的路书补传一次，链接才分享得出去。
+  // 账号探测 / 登录 / 绑定完成后，书架归属会变，重拉一次账号里的路书列表。
+  useAuth.subscribe((state, prev) => {
+    if (state.user?.id !== prev.user?.id) void refreshCloud()
+  })
+
+  // 首次运行：把已有（但服务端还没有）的路书补传一次，链接才分享得出去。
   // meta.pushed 保证之后不再重复推送。
   for (const id of Object.keys(useStore.getState().books)) consider(id)
 
@@ -229,4 +250,5 @@ export function startSync(): void {
   })
 
   void refreshCloud()
+  void refreshPublic()
 }
