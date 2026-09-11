@@ -49,6 +49,7 @@ type Actions = {
   createBook: (seed?: NewBook) => string
   openBook: (id: string) => void
   closeBook: () => void
+  upsertRemoteBook: (book: Book) => void
   duplicateBook: (id: string) => string
   deleteBook: (id: string) => void
   renameBook: (id: string, title: string) => void
@@ -182,6 +183,13 @@ export const useStore = create<Store>()(
         ),
 
       closeBook: () => set({ view: 'list', selectedId: null }),
+
+      // 从云端拉回来的路书：原样入册，不动 updatedAt（避免触发回声推送）。
+      upsertRemoteBook: (book) =>
+        set((s) => ({
+          books: { ...s.books, [book.id]: book },
+          order: s.order.includes(book.id) ? s.order : [book.id, ...s.order],
+        })),
 
       duplicateBook: (id) => {
         const src = get().books[id]

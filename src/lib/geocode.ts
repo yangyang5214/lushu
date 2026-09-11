@@ -54,7 +54,8 @@ async function searchPhoton(q: string): Promise<SearchHit[]> {
 }
 
 async function searchNominatim(q: string): Promise<SearchHit[]> {
-  const url = `/api/nominatim/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6`
+  // 走 Worker 代理：满足 Nominatim 的 User-Agent 政策，并在边缘缓存 7 天。
+  const url = `/api/geocode?q=${encodeURIComponent(q)}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('nominatim')
   const data = (await res.json()) as NominatimHit[]

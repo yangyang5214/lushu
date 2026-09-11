@@ -11,6 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.wrangler
+
+# 本地密钥 / 环境变量：绝不能提交
+.env
+.env.*
+!.env.example
+# 兼容 Cloudflare 传统写法，万一有人用了也别让它漏出去
+.dev.vars
+.dev.vars.*
 
 # Editor directories and files
 .vscode/*

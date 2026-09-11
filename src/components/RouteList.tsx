@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { buildJourney } from '../lib/journey'
 import { navigateBook } from '../lib/router'
+import { removeBook, useCloud } from '../lib/sync'
 import type { Book, Journey, Place } from '../types'
 import { useLushu } from '../store'
 import { RoutePreview } from './RoutePreview'
+import { SyncBadge } from './SyncBadge'
 
 function cityOf(place: Place | undefined): string {
   if (!place) return ''
@@ -46,8 +48,8 @@ export function RouteList() {
   const activeId = useLushu((s) => s.activeId)
   const createBook = useLushu((s) => s.createBook)
   const duplicateBook = useLushu((s) => s.duplicateBook)
-  const deleteBook = useLushu((s) => s.deleteBook)
   const loadSample = useLushu((s) => s.loadSample)
+  const cloud = useCloud((s) => s.books)
 
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
@@ -79,6 +81,9 @@ export function RouteList() {
     [rows],
   )
 
+  // 云端有、本机没有的路书（比如换了设备 / 换了浏览器）。
+  const cloudOnly = useMemo(() => cloud.filter((c) => !books[c.id]), [cloud, books])
+
   return (
     <div className="library">
       <header className="lib-top">
@@ -90,6 +95,9 @@ export function RouteList() {
             <h1>我的路书</h1>
             <p>先铺整条路，再剪成日子</p>
           </div>
+        </div>
+        <div className="lib-tools">
+          <SyncBadge />
         </div>
       </header>
 
@@ -182,7 +190,7 @@ export function RouteList() {
                           type="button"
                           className="danger on"
                           onClick={() => {
-                            deleteBook(book.id)
+                            void removeBook(book.id)
                             setConfirmId(null)
                           }}
                           onBlur={() => setConfirmId(null)}
@@ -206,6 +214,23 @@ export function RouteList() {
 
           </ul>
         )}
+
+        {cloudOnly.length > 0 ? (
+          <section className="cloud-shelf">
+            <h2>云端书架</h2>
+            <ul>
+              {cloudOnly.map((c) => (
+                <li key={c.id}>
+                  <button type="button" onClick={() => navigateBook(c.id)}>
+                    <strong>{c.title || '未命名路书'}</strong>
+                    <span>{c.places} 个地点</span>
+                    <span>更新于 {new Date(c.updatedAt).toLocaleDateString()}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </main>
     </div>
   )

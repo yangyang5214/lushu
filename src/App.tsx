@@ -4,29 +4,54 @@ import { RouteList } from './components/RouteList'
 import { Sidebar } from './components/Sidebar'
 import { SplitRail } from './components/SplitRail'
 import { readRoute, ROOT_PATH } from './lib/router'
+import { pullBook, startSync } from './lib/sync'
 import { useLushu, useStore } from './store'
 
 function usePathRoute() {
   useEffect(() => {
-    const sync = () => {
+    let cancelled = false
+
+    const sync = async () => {
       const { bookId } = readRoute()
       const store = useStore.getState()
-      if (bookId && store.books[bookId]) {
+
+      if (!bookId) {
+        store.closeBook()
+        return
+      }
+
+      if (store.books[bookId]) {
+        store.openBook(bookId)
+        return
+      }
+
+      // 本地没有 → 可能是别人分享的链接，去云端取。
+      const found = await pullBook(bookId)
+      if (cancelled) return
+      if (found) {
         store.openBook(bookId)
         return
       }
       store.closeBook()
-      if (bookId) window.history.replaceState(null, '', ROOT_PATH)
+      window.history.replaceState(null, '', ROOT_PATH)
     }
 
-    sync()
-    window.addEventListener('popstate', sync)
-    return () => window.removeEventListener('popstate', sync)
+    void sync()
+    const onPop = () => void sync()
+    window.addEventListener('popstate', onPop)
+    return () => {
+      cancelled = true
+      window.removeEventListener('popstate', onPop)
+    }
   }, [])
 }
 
 export default function App() {
   usePathRoute()
+
+  useEffect(() => {
+    startSync()
+  }, [])
 
   const view = useLushu((s) => s.view)
   const activeId = useLushu((s) => s.activeId)
