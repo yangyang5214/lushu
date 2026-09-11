@@ -12,6 +12,41 @@ const DEFAULT_FROM = '路书 <onboarding@resend.dev>'
 
 export type SendResult = 'sent' | 'unconfigured' | 'failed'
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** 邮件正文：按钮式激活链接（客户端不支持按钮时仍有文字链接兜底）。 */
+function activationEmailHtml(activateUrl: string): string {
+  const href = escapeHtml(activateUrl)
+  return `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f2f3f5;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;color:#1f2329;">
+    <div style="background:#ffffff;border-radius:12px;padding:32px 28px;">
+      <h1 style="margin:0 0 12px;font-size:20px;line-height:1.4;">激活你的路书账号</h1>
+      <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#646a73;">
+        欢迎注册路书！点击下面的按钮完成邮箱验证，即可开始使用。
+      </p>
+      <a href="${href}" style="display:inline-block;padding:12px 28px;background:#1f6feb;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">激活账号</a>
+      <p style="margin:24px 0 0;font-size:13px;line-height:1.7;color:#8f959e;">
+        按钮无法点击？请复制以下链接到浏览器打开：<br>
+        <a href="${href}" style="color:#1f6feb;word-break:break-all;">${href}</a>
+      </p>
+      <p style="margin:24px 0 0;font-size:13px;line-height:1.7;color:#8f959e;">
+        链接 24 小时内有效，请勿泄露给他人。如非本人操作，请忽略此邮件。
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 export async function sendActivationEmail(
   env: MailEnv,
   to: string,
@@ -31,6 +66,7 @@ export async function sendActivationEmail(
     `${activateUrl}\n\n` +
     `链接 24 小时内有效，请勿泄露给他人。\n` +
     `如非本人操作，请忽略此邮件。`
+  const html = activationEmailHtml(activateUrl)
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -39,7 +75,7 @@ export async function sendActivationEmail(
         authorization: `Bearer ${key}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ from, to: [to], subject, text }),
+      body: JSON.stringify({ from, to: [to], subject, text, html }),
       signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) {

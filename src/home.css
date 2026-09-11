@@ -1135,17 +1135,15 @@
 /* 新建卡片 */
 /* ---------- 空态 ---------- */
 .empty-state {
-  padding: 48px 24px;
-  border: 1px dashed var(--border);
-  border-radius: var(--r);
-  background: rgba(30, 30, 40, 0.4);
+  padding: 12px 0;
   text-align: center;
 }
 
 .empty-state h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .empty-state p {

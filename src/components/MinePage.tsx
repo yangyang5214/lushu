@@ -132,12 +132,6 @@ export function MinePage() {
               ) : (
                 <div className="empty-state">
                   <h3>还没有自己的路书</h3>
-                  <p>把想去的点一路搜进来，定好起点终点，再在过夜的地方钉上分割针。</p>
-                  <div className="empty-ops">
-                    <button type="button" className="btn-primary" onClick={startNew}>
-                      新建路书
-                    </button>
-                  </div>
                 </div>
               )
             ) : (

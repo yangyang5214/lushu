@@ -93,7 +93,7 @@ export function PublicList() {
                 {error
                   ? `${BACKEND_UNAVAILABLE}。`
                   : loaded
-                    ? '还没有公开的路书。新建一本，它就会出现在这里。'
+                    ? '还没有公开的路书'
                     : '正在加载…'}
               </p>
             )}
