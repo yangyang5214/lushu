@@ -15,6 +15,7 @@
 
 export type AuthUser = {
   id: string
+  hashId: string
   email: string
   displayName: string
   createdAt: number
@@ -25,6 +26,7 @@ export type UserRow = {
   username: string
   display_name: string
   pass_hash: string | null
+  hash_id: string | null
   created_at: number
 }
 
@@ -85,6 +87,19 @@ function safeEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
 export async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(input))
   return bytesToHex(new Uint8Array(digest))
+}
+
+/** 公开短 ID 的长度（hex 字符数）；40 bit，足够区分用户，又不至于长到难认。 */
+const HASH_ID_LEN = 10
+
+/**
+ * 由归一化邮箱派生的公开短 ID：sha256("lushu:user:" + email) 的前 10 位 hex。
+ * 前缀是域分隔，避免同一个邮箱在别的服务里直接 sha256 出来一模一样。
+ * 它只是个展示 / 引用用的标识（比如在页面上代替邮箱），不是凭证，
+ * 知道某个 id 不带来任何权限。
+ */
+export async function emailHashId(email: string): Promise<string> {
+  return (await sha256Hex(`lushu:user:${email}`)).slice(0, HASH_ID_LEN)
 }
 
 // ── 口令 ────────────────────────────────────────────────────────────────────
@@ -153,13 +168,14 @@ export function validatePassword(password: string): string | null {
 export function toUser(row: UserRow): AuthUser {
   return {
     id: row.id,
+    hashId: row.hash_id ?? '',
     email: row.username,
     displayName: row.display_name,
     createdAt: row.created_at,
   }
 }
 
-const USER_COLS = 'id, username, display_name, pass_hash, created_at'
+const USER_COLS = 'id, username, display_name, pass_hash, hash_id, created_at'
 
 export function findUserById(env: AuthEnv, id: string): Promise<UserRow | null> {
   return env.DB.prepare(`SELECT ${USER_COLS} FROM users WHERE id = ?`)
@@ -173,6 +189,20 @@ export function findUserByEmail(env: AuthEnv, email: string): Promise<UserRow | 
     .first<UserRow>()
 }
 
+/**
+ * 老账号（跑 schema.sql 之前就存在的 users 表没有 hash_id 列，补列后该列为 NULL）
+ * 首次读到时就按邮箱补算一次并落库，避免单独的数据迁移脚本。
+ * 邮箱有唯一约束，所以同一邮箱只会算出同一个 id，重复回填也无害。
+ */
+export async function ensureHashId(env: AuthEnv, row: UserRow): Promise<UserRow> {
+  if (row.hash_id) return row
+  const hashId = await emailHashId(row.username)
+  await env.DB.prepare('UPDATE users SET hash_id = ? WHERE id = ? AND hash_id IS NULL')
+    .bind(hashId, row.id)
+    .run()
+  return { ...row, hash_id: hashId }
+}
+
 export async function createUser(
   env: AuthEnv,
   input: { id?: string; email: string; displayName: string; password: string },
@@ -180,12 +210,13 @@ export async function createUser(
   const id = input.id ?? newUserId()
   const now = Date.now()
   const passHash = await hashPassword(input.password)
+  const hashId = await emailHashId(input.email)
   await env.DB.prepare(
-    'INSERT INTO users (id, username, display_name, pass_hash, created_at) VALUES (?,?,?,?,?)',
+    'INSERT INTO users (id, username, display_name, pass_hash, hash_id, created_at) VALUES (?,?,?,?,?,?)',
   )
-    .bind(id, input.email, input.displayName, passHash, now)
+    .bind(id, input.email, input.displayName, passHash, hashId, now)
     .run()
-  return { id, email: input.email, displayName: input.displayName, createdAt: now }
+  return { id, hashId, email: input.email, displayName: input.displayName, createdAt: now }
 }
 
 /**
@@ -277,13 +308,13 @@ export async function readUser(request: Request, env: AuthEnv): Promise<AuthUser
   const tokenHash = await sha256Hex(token)
   const row = await env.DB.prepare(
     `SELECT u.id AS id, u.username AS username, u.display_name AS display_name,
-            u.pass_hash AS pass_hash, u.created_at AS created_at
+            u.pass_hash AS pass_hash, u.hash_id AS hash_id, u.created_at AS created_at
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.expires_at > ?`,
   )
     .bind(tokenHash, Date.now())
     .first<UserRow>()
-  return row ? toUser(row) : null
+  return row ? toUser(await ensureHashId(env, row)) : null
 }
 
 export async function destroySession(request: Request, env: AuthEnv): Promise<void> {

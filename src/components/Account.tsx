@@ -9,10 +9,10 @@ import {
   useAuth,
   type AuthError,
 } from '../lib/auth'
-import { navigateList } from '../lib/router'
+import { navigateList, readRoute } from '../lib/router'
 import { flushPending } from '../lib/sync'
 import { mountTurnstile, turnstileConfigured } from '../lib/turnstile'
-import { SiteFoot, SiteNav } from './Chrome'
+import { SiteNav } from './Chrome'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -110,8 +110,13 @@ function AuthPanel() {
   const finish = () => {
     // 登录前点的「新建路书」之类的动作，在这里接着做完。
     const pending = takePending()
-    if (pending) pending()
-    else navigateList()
+    if (pending) {
+      pending()
+      return
+    }
+    // 没有待办时：登录只是解开了当前这一页（比如「我的路书」）就留在原地，
+    // 其余情况回首页。
+    if (readRoute().name !== 'mine') navigateList()
   }
 
   const submit = async (e: FormEvent) => {
@@ -303,6 +308,10 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
           <dd>{user.email}</dd>
         </div>
         <div>
+          <dt>用户 ID</dt>
+          <dd>{user.hashId || '—'}</dd>
+        </div>
+        <div>
           <dt>注册时间</dt>
           <dd>{fmtDate(user.createdAt) || '—'}</dd>
         </div>
@@ -349,9 +358,6 @@ export function AccountPage() {
           )}
         </div>
       </main>
-
-      <SiteFoot />
-
     </div>
   )
 }

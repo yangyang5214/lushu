@@ -33,6 +33,8 @@ import {
   createSession,
   createUser,
   destroySession,
+  emailHashId,
+  ensureHashId,
   findUserByEmail,
   findUserById,
   ID_RE as OWNER_ID_RE,
@@ -187,6 +189,20 @@ async function ownerFrom(ctx: Ctx): Promise<string> {
   return ownerHeader(ctx.request)
 }
 
+/**
+ * 书主的公开短 ID（= 账号页展示的「用户 ID」），由邮箱派生，用作路书链接里的 userId。
+ * 老账号 hash_id 还没回填时按邮箱现算，不必为此多写一次库；匿名书架的 owner_key
+ * 不是账号，没有公开 ID，返回空串。
+ */
+async function ownerHashId(
+  email: string | null | undefined,
+  stored: string | null | undefined,
+): Promise<string> {
+  if (stored) return stored
+  if (!email) return ''
+  return emailHashId(email)
+}
+
 // ── auth ────────────────────────────────────────────────────────────────────
 
 /** 把本机旧密钥名下的路书过户到账号，登录/注册成功后调用。 */
@@ -227,7 +243,7 @@ async function authLogin(ctx: Ctx): Promise<Response> {
   if (!row || !(await verifyPassword(password, row.pass_hash))) {
     return json({ error: 'invalid_credentials' }, 401)
   }
-  const user = toUser(row)
+  const user = toUser(await ensureHashId(env, row))
   await adoptIfAnonymous(env, body?.ownerKey, user.id)
   const { token, expiresAt } = await createSession(env, user.id)
   return json({ user }, 200, { 'set-cookie': sessionCookie(request, token, expiresAt) })
@@ -279,9 +295,20 @@ async function authLogout(ctx: Ctx): Promise<Response> {
 // ── books ───────────────────────────────────────────────────────────────────
 
 async function getBook(ctx: Ctx, id: string): Promise<Response> {
-  const row = await ctx.env.DB.prepare('SELECT doc, owner_key, updated_at FROM books WHERE id = ?')
+  const row = await ctx.env.DB.prepare(
+    `SELECT b.doc AS doc, b.owner_key AS owner_key, b.updated_at AS updated_at,
+            u.username AS owner_email, u.hash_id AS owner_hash_id
+       FROM books b LEFT JOIN users u ON u.id = b.owner_key
+      WHERE b.id = ?`,
+  )
     .bind(id)
-    .first<Pick<BookRow, 'doc' | 'owner_key' | 'updated_at'>>()
+    .first<{
+      doc: string
+      owner_key: string | null
+      updated_at: number
+      owner_email: string | null
+      owner_hash_id: string | null
+    }>()
   if (!row) return json({ error: 'not_found' }, 404)
 
   // 私密书只给 owner 看；对其他人一律当作不存在，不泄露它存在。
@@ -293,7 +320,13 @@ async function getBook(ctx: Ctx, id: string): Promise<Response> {
     }
   }
 
-  return json({ id, doc: { ...(parseDoc(row.doc) ?? {}), visibility }, updatedAt: row.updated_at })
+  const owner = await ownerHashId(row.owner_email, row.owner_hash_id)
+  return json({
+    id,
+    owner,
+    doc: { ...(parseDoc(row.doc) ?? {}), visibility },
+    updatedAt: row.updated_at,
+  })
 }
 
 async function putBook(ctx: Ctx, id: string): Promise<Response> {
@@ -448,12 +481,17 @@ type Summary = {
   places: number
   visibility: Visibility
   updatedAt: number
+  /** 书主的公开短 ID（本人），拼路书详情链接用。 */
+  owner: string
 }
 
 async function library(ctx: Ctx): Promise<Response> {
   const { env } = ctx
-  const owner = await ownerFrom(ctx)
+  // 会话优先：登录后 owner 是账号 id，同时能拿到本人的公开短 ID。
+  const user = await readUser(ctx.request, env)
+  const owner = user ? user.id : ownerHeader(ctx.request)
   if (!owner) return json({ books: [] })
+  const ownerId = user?.hashId ?? ''
   const res = await env.DB.prepare(
     'SELECT id, doc, updated_at FROM books WHERE owner_key = ? ORDER BY updated_at DESC LIMIT 200',
   )
@@ -474,6 +512,7 @@ async function library(ctx: Ctx): Promise<Response> {
       places: Array.isArray(parsed.places) ? parsed.places.length : 0,
       visibility: asVisibility(parsed.visibility),
       updatedAt: row.updated_at,
+      owner: ownerId,
     }
   })
   return json({ books })
@@ -494,6 +533,8 @@ type PublicBook = {
   from: string
   to: string
   isLoop: boolean
+  /** 书主的公开短 ID（= 账号页的「用户 ID」），拼路书详情链接用。 */
+  owner: string
   /** 有序坐标 [lng, lat]（环线已把起点补回终点），抽样到 ≤ 60 个点，供卡片画缩略线路。 */
   points: [number, number][]
   /** points 里每天起点的下标；与「我的路书」用同一套切天规则，卡片据此按天着色。 */
@@ -534,7 +575,12 @@ function samePlace(a: PublicPlace, b: PublicPlace): boolean {
   return a.id === b.id || haversineKm(a, b) * 1000 <= LOOP_METERS
 }
 
-function toPublicBook(id: string, docText: string, updatedAt: number): PublicBook | null {
+function toPublicBook(
+  id: string,
+  docText: string,
+  updatedAt: number,
+  owner: string,
+): PublicBook | null {
   const doc = parseDoc(docText)
   if (!doc) return null
 
@@ -594,6 +640,7 @@ function toPublicBook(id: string, docText: string, updatedAt: number): PublicBoo
     from: start?.name ?? '',
     to: end?.name ?? '',
     isLoop,
+    owner,
     points,
     dayBreaks,
     updatedAt,
@@ -601,17 +648,31 @@ function toPublicBook(id: string, docText: string, updatedAt: number): PublicBoo
 }
 
 async function listPublic(env: Env, request: Request): Promise<Response> {
-  const raw = Number(new URL(request.url).searchParams.get('limit'))
+  // 注意别写成 Number(get('limit'))：没带参数时 get 返回 null，Number(null) === 0，
+  // 会被当成合法值算成 limit = 1，公开列表就只剩最新一本。
+  const asked = new URL(request.url).searchParams.get('limit')
+  const raw = asked === null ? Number.NaN : Number(asked)
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.floor(raw), 1), 100) : 60
   const res = await env.DB.prepare(
-    "SELECT id, doc, updated_at FROM books WHERE COALESCE(json_extract(doc, '$.visibility'), 'public') = 'public' ORDER BY updated_at DESC LIMIT ?",
+    `SELECT b.id AS id, b.doc AS doc, b.updated_at AS updated_at,
+            u.username AS owner_email, u.hash_id AS owner_hash_id
+       FROM books b LEFT JOIN users u ON u.id = b.owner_key
+      WHERE COALESCE(json_extract(b.doc, '$.visibility'), 'public') = 'public'
+      ORDER BY b.updated_at DESC LIMIT ?`,
   )
     .bind(limit)
-    .all<{ id: string; doc: string; updated_at: number }>()
+    .all<{
+      id: string
+      doc: string
+      updated_at: number
+      owner_email: string | null
+      owner_hash_id: string | null
+    }>()
 
   const books: PublicBook[] = []
   for (const row of res.results ?? []) {
-    const book = toPublicBook(row.id, row.doc, row.updated_at)
+    const owner = await ownerHashId(row.owner_email, row.owner_hash_id)
+    const book = toPublicBook(row.id, row.doc, row.updated_at, owner)
     if (book) books.push(book)
   }
   return json({ books })

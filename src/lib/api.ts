@@ -5,7 +5,7 @@ import { getMeta, ownerKey } from './keys'
 export const BACKEND_UNAVAILABLE =
   '连不上后端：请确认已配置 wrangler.toml 并运行 pnpm pages:dev，或已完成部署'
 
-export type RemoteBook = { id: string; doc: Book; updatedAt: number }
+export type RemoteBook = { id: string; doc: Book; updatedAt: number; owner: string }
 export type BookSummary = {
   id: string
   title: string
@@ -13,6 +13,8 @@ export type BookSummary = {
   places: number
   visibility: Visibility
   updatedAt: number
+  /** 书主的公开短 ID（= 账号页的「用户 ID」），拼路书详情链接用。 */
+  owner: string
 }
 
 /** 主页「公开路书」卡片：服务端只下发预览需要的字段，不含完整 doc。 */
@@ -26,6 +28,8 @@ export type PublicBook = {
   from: string
   to: string
   isLoop: boolean
+  /** 书主的公开短 ID（= 账号页的「用户 ID」），路书详情链接里的 userId。 */
+  owner: string
   points: [number, number][]
   /** `points` 里每天起点的下标；与「我的路书」同一套切天规则，用于按天着色。 */
   dayBreaks: number[]
@@ -71,8 +75,13 @@ export async function fetchBook(id: string): Promise<RemoteBook | null> {
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`fetch book ${res.status}`)
   if (!isJson(res)) throw new Error('api unavailable')
-  const data = (await res.json()) as { doc: Book; updatedAt: number }
-  return { id, doc: normalizeVisibility({ ...data.doc, id }), updatedAt: data.updatedAt }
+  const data = (await res.json()) as { doc: Book; updatedAt: number; owner?: string }
+  return {
+    id,
+    owner: data.owner ?? '',
+    doc: normalizeVisibility({ ...data.doc, id }),
+    updatedAt: data.updatedAt,
+  }
 }
 
 export async function saveBook(
@@ -114,6 +123,7 @@ export async function saveBook(
       remote: data.doc
         ? {
             id: book.id,
+            owner: '',
             doc: normalizeVisibility({ ...data.doc, id: book.id }),
             updatedAt: data.updatedAt,
           }
@@ -166,5 +176,5 @@ export async function listPublicBooks(): Promise<PublicBook[]> {
   const res = await request('/api/books')
   if (!res.ok || !isJson(res)) throw new Error(`public books ${res.status}`)
   const data = (await res.json()) as { books?: PublicBook[] }
-  return data.books ?? []
+  return (data.books ?? []).map((b) => ({ ...b, owner: b.owner ?? '' }))
 }

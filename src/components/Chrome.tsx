@@ -47,29 +47,3 @@ export function SiteNav({
     </header>
   )
 }
-
-/** 全站页脚。 */
-export function SiteFoot({ active }: { active?: NavKey }) {
-  return (
-    <footer className="foot">
-      <div className="shell foot-in">
-        <a className="foot-brand" href="/" onClick={jump(navigateList)}>
-          <BrandMark />
-          路书
-        </a>
-        <nav>
-          <a href="/list" className={active === 'mine' ? 'on' : undefined} onClick={jump(navigateMine)}>
-            我的路书
-          </a>
-          <a
-            href="/public"
-            className={active === 'public' ? 'on' : undefined}
-            onClick={jump(navigatePublic)}
-          >
-            公开路书
-          </a>
-        </nav>
-      </div>
-    </footer>
-  )
-}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
-import { navigateMine } from '../lib/router'
+import { navigateBookOrigin } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useSelectedId } from '../store'
 
@@ -47,7 +47,8 @@ export function Sidebar() {
   const closeBook = useLushu((s) => s.closeBook)
   const back = () => {
     closeBook()
-    navigateMine()
+    // 从哪一页点进来的就回哪一页（首页 / 我的路书 / 公开路书）。
+    navigateBookOrigin()
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
 
@@ -65,8 +66,8 @@ export function Sidebar() {
           type="button"
           className="sheet-back"
           onClick={back}
-          title="返回路书列表"
-          aria-label="返回路书列表"
+          title="返回上一页"
+          aria-label="返回上一页"
         >
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M19 12H5" />

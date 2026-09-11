@@ -21,6 +21,11 @@ export type BookMeta = {
   base?: number
   /** 本机最后一次成功推送的 book.updatedAt，避免每次开页重推 */
   pushed?: number
+  /**
+   * 书主的公开短 ID（从服务端取回这本时记下），用来把地址栏规范成
+   * `/{userId}/{bookId}`。本机自己创建的书没有这一项，回退到当前登录用户的 hashId。
+   */
+  owner?: string
 }
 
 function randomHex(bytes: number): string {

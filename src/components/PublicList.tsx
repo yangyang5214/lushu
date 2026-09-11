@@ -3,7 +3,7 @@ import { BACKEND_UNAVAILABLE, type PublicBook } from '../lib/api'
 import { fmtDay } from '../lib/format'
 import { navigateBook } from '../lib/router'
 import { refreshPublic, usePublic } from '../lib/sync'
-import { SiteFoot, SiteNav } from './Chrome'
+import { SiteNav } from './Chrome'
 import { PointsPreview } from './RoutePreview'
 
 function PublicCard({ book }: { book: PublicBook }) {
@@ -16,7 +16,7 @@ function PublicCard({ book }: { book: PublicBook }) {
       : '未设起点与终点'
   return (
     <li className="card">
-      <button type="button" className="card-open" onClick={() => navigateBook(book.id)}>
+      <button type="button" className="card-open" onClick={() => navigateBook(book.id, book.owner)}>
         <div className="card-cover">
           <PointsPreview points={book.points} dayBreaks={book.dayBreaks} days={book.days} />
           <span className="card-days">{book.days > 0 ? `${book.days} 天` : '草稿'}</span>
@@ -83,8 +83,6 @@ export function PublicList() {
           </div>
         </section>
       </main>
-
-      <SiteFoot active="public" />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { saveVisibility, type BookSummary } from '../lib/api'
-import { requireLogin } from '../lib/auth'
+import { requireLogin, useAuth } from '../lib/auth'
 import { fmtDay } from '../lib/format'
 import { buildJourney } from '../lib/journey'
 import { hasToken } from '../lib/keys'
@@ -8,7 +8,7 @@ import { navigateBook } from '../lib/router'
 import { pushBook, refreshCloud, refreshPublic, removeBook, useCloud } from '../lib/sync'
 import { useLushu } from '../store'
 import type { Book, Journey, Visibility } from '../types'
-import { SiteFoot, SiteNav } from './Chrome'
+import { SiteNav } from './Chrome'
 import { RoutePreview } from './RoutePreview'
 
 function routeLabel(journey: Journey): string {
@@ -46,11 +46,13 @@ export function MinePage() {
   const duplicateBook = useLushu((s) => s.duplicateBook)
   const setVisibility = useLushu((s) => s.setVisibility)
   const cloud = useCloud((s) => s.books)
+  // 本人的公开短 ID：自己的路书链接用 `/{userId}/{bookId}`。
+  const myId = useAuth((s) => s.user?.hashId)
 
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
   // 新建（含复制）都要先登录；未登录会跳到账户页，登录后接着把动作做完。
-  const startNew = () => requireLogin(() => navigateBook(createBook()))
+  const startNew = () => requireLogin(() => navigateBook(createBook(), useAuth.getState().user?.hashId))
 
   // 改权限也要登录：这是写操作，且推送靠账号归属授权。
   // 没有编辑口令的书（比如别人分享过来、只落在本机的那本）不提供切换。
@@ -156,7 +158,7 @@ export function MinePage() {
                       <button
                         type="button"
                         className="card-open"
-                        onClick={() => navigateBook(book.id)}
+                        onClick={() => navigateBook(book.id, myId)}
                       >
                         <div className="card-cover">
                           <RoutePreview journey={journey} />
@@ -238,7 +240,7 @@ export function MinePage() {
                     <button
                       type="button"
                       className="card-open"
-                      onClick={() => navigateBook(c.id)}
+                      onClick={() => navigateBook(c.id, c.owner || myId)}
                     >
                       <div className="card-body">
                         <h3>{c.title || '未命名路书'}</h3>
@@ -264,8 +266,6 @@ export function MinePage() {
           </section>
         ) : null}
       </main>
-
-      <SiteFoot active="mine" />
     </div>
   )
 }

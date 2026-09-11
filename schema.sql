@@ -44,8 +44,11 @@ CREATE TABLE IF NOT EXISTS users (
   username     TEXT NOT NULL UNIQUE,       -- 已归一化（小写）的邮箱，作为登录名
   display_name TEXT NOT NULL,              -- 展示名，保留用户输入的大小写
   pass_hash    TEXT NOT NULL,              -- pbkdf2$sha256$iter$salt$hash
+  hash_id      TEXT,                       -- 邮箱派生的公开短 ID（sha256 前 10 位 hex）
   created_at   INTEGER NOT NULL
 );
+
+-- hash_id 没必要单独建唯一索引：它由邮箱唯一决定，老库补列后由服务端按邮箱回填。
 
 -- 会话：cookie 里放明文 token，库里只存 SHA-256，泄库也换不来登录态。
 CREATE TABLE IF NOT EXISTS sessions (

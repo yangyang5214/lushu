@@ -1,7 +1,7 @@
-import { requireLogin } from '../lib/auth'
+import { requireLogin, useAuth } from '../lib/auth'
 import { navigateBook } from '../lib/router'
 import { useLushu } from '../store'
-import { SiteFoot, SiteNav } from './Chrome'
+import { SiteNav } from './Chrome'
 
 function IconSearch() {
   return (
@@ -57,7 +57,8 @@ export function RouteList() {
   const createBook = useLushu((s) => s.createBook)
 
   // 新建路书要先登录；未登录会跳到账户页，登录后接着把动作做完。
-  const startNew = () => requireLogin(() => navigateBook(createBook()))
+  const startNew = () =>
+    requireLogin(() => navigateBook(createBook(), useAuth.getState().user?.hashId))
 
   return (
     <div className="home">
@@ -66,7 +67,6 @@ export function RouteList() {
       <main>
         <section className="hero">
           <div className="shell hero-in">
-            <p className="eyebrow">怎么用</p>
             <h1>先铺整条路，再剪成日子</h1>
             <p className="lede">
               路书不按天开始，而是按地点开始：先把想去的地方一路搜进来，
@@ -94,8 +94,6 @@ export function RouteList() {
           </div>
         </section>
       </main>
-
-      <SiteFoot />
     </div>
   )
 }

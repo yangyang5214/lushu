@@ -198,8 +198,10 @@ export async function pullBook(id: string): Promise<boolean> {
     if (!remote) return false
     useStore.getState().upsertRemoteBook(remote.doc)
     const meta = getMeta(id)
-    if (meta.token) setMeta(id, { base: remote.updatedAt, pushed: remote.doc.updatedAt })
-    else setMeta(id, { remote: true, base: remote.updatedAt, pushed: remote.doc.updatedAt })
+    // 书主公开 ID 一并记下（可能为空串 = 匿名书架），地址栏才能规范成 `/{userId}/{bookId}`。
+    const owner = { owner: remote.owner }
+    if (meta.token) setMeta(id, { base: remote.updatedAt, pushed: remote.doc.updatedAt, ...owner })
+    else setMeta(id, { remote: true, base: remote.updatedAt, pushed: remote.doc.updatedAt, ...owner })
     return true
   } catch {
     return false

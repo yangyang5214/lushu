@@ -46,7 +46,7 @@ pnpm pages:dev    # 先 build，再起 Worker，http://localhost:8788
 
 - 搜索、路线规划（`/api/geocode`、`/api/route`）不登录也能用。
 - 个人数据相关的功能一律要登录：我的路书、新建 / 复制路书、编辑保存、云端书架、跨设备找回。未登录时点这些操作会先跳到账户页，登录 / 注册成功后自动接着把刚才的事做完。
-- 可见性默认公开：新路书会出现在「公开路书」页，拿到链接的人都能打开。在「我的路书」列表里可以把某一本切成「仅自己可见」——它随即从公开列表消失，别人再打开旧链接也读不到（服务端当成不存在），只有这本路书的 owner 能看。切回公开同理。
+- 可见性默认公开：新路书会出现在「公开路书」页，拿到链接的人都能打开。路书详情链接形如 `/{userId}/{bookId}`，`userId` 是书主的公开短 ID（账号页的「用户 ID」，由邮箱派生，不是凭证）；老链接只有 `/{bookId}` 也照常打开。在「我的路书」列表里可以把某一本切成「仅自己可见」——它随即从公开列表消失，别人再打开旧链接也读不到（服务端当成不存在），只有这本路书的 owner 能看。切回公开同理。
 - 改动全程只对应同一本路书：界面先即时更新，防抖 1.4s 后写入 D1，不存在两份需要用户对照的数据。
 - 退出登录会清掉这台设备上的缓存（路书、令牌、owner key）；路书仍在账号里，重新登录即可同步回来。
 - 这套规则只在文档里说明，页面不做解释。
@@ -106,7 +106,7 @@ pnpm pages:dev    # build, then start the Worker on http://localhost:8788
 
 - Search and routing (`/api/geocode`, `/api/route`) work without signing in.
 - Personal data always requires signing in: My Books, creating / duplicating a book, editing and saving, the cloud shelf, and cross-device recovery. When signed out, those actions first jump to the account page and finish automatically once you sign in or register.
-- Books are public by default: a new book shows up on the Public books page and anyone with the link can open it. In the My Books list you can flip a book to "only me" — it disappears from the public list and the old link stops working for everyone else (the server pretends it does not exist); only the owner can read it. Flipping it back to public works the same way.
+- Books are public by default: a new book shows up on the Public books page and anyone with the link can open it. A book link looks like `/{userId}/{bookId}`, where `userId` is the owner's public short ID (the "user ID" on the account page, derived from the email — not a credential); an old link with just `/{bookId}` still opens. In the My Books list you can flip a book to "only me" — it disappears from the public list and the old link stops working for everyone else (the server pretends it does not exist); only the owner can read it. Flipping it back to public works the same way.
 - Storage stays local-first: the UI writes to the browser immediately, then pushes to D1 after a 1.4s debounce. Signing in only attaches local data to the account; the cloud copy is what survives a device change.
 - Signing out clears the local cache (books, tokens, owner key). Cloud data stays with the account and comes back on the next sign-in.
 - These rules are documented here only; the UI does not explain them.

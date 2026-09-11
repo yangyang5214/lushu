@@ -11,10 +11,12 @@
 import { create } from 'zustand'
 import { BACKEND_UNAVAILABLE } from './api'
 import { ownerKey } from './keys'
-import { navigateAccount } from './router'
+import { markBookOrigin, navigateAccount } from './router'
 
 export type AuthUser = {
   id: string
+  /** 邮箱派生的公开短 ID（10 位 hex），展示 / 引用用，不是凭证。 */
+  hashId: string
   email: string
   displayName: string
   createdAt: number
@@ -47,6 +49,8 @@ export function requireLogin(run: () => void): void {
     return
   }
   useAuth.setState({ pending: run })
+  // 登录成功后 pending 会打开路书，返回时要回用户点按钮的那一页，而不是登录页。
+  markBookOrigin()
   navigateAccount()
 }
 

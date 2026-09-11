@@ -575,59 +575,6 @@
   border-color: var(--bad);
 }
 
-/* ---------- 页脚 ---------- */
-.foot {
-  margin-top: 96px;
-  border-top: 1px solid var(--border-soft);
-}
-
-.foot-in {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding-top: 28px;
-  padding-bottom: 52px;
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.foot-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-2);
-  font-weight: 600;
-}
-
-.foot-brand .brand-mark {
-  width: 18px;
-  height: 18px;
-}
-
-.foot-in a.foot-brand {
-  color: var(--text-2);
-}
-
-.foot-in a.foot-brand:hover {
-  color: var(--accent-hi);
-}
-
-.foot-in nav {
-  margin-left: auto;
-  display: flex;
-  gap: 18px;
-}
-
-.foot-in a {
-  color: var(--muted);
-  text-decoration: none;
-}
-
-.foot-in a:hover {
-  color: var(--accent-hi);
-}
-
 /* ============================================================
    账号 / 同步 / 登录弹层：编辑页是纸感主题，这里换成白底紫调
    ============================================================ */
@@ -780,10 +727,6 @@
 
   .card-grid {
     grid-template-columns: 1fr;
-  }
-
-  .foot {
-    margin-top: 72px;
   }
 }
 
