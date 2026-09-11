@@ -279,13 +279,6 @@ function AuthPanel() {
         </button>
       </div>
 
-      <div className="auth-intro">
-        <h1>{mode === 'login' ? '欢迎回来' : '创建账号'}</h1>
-        {mode === 'register' ? (
-          <p>注册后我们会向你的邮箱发送激活链接，点击即可开通账号。</p>
-        ) : null}
-      </div>
-
       {activationNotice ? <p className="auth-notice">{activationNotice}</p> : null}
 
       <form className="auth-form" onSubmit={submit} noValidate>

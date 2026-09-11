@@ -1,28 +1,24 @@
-# 复制为 wrangler.toml 后填入你自己的 D1 database_id（wrangler.toml 已 gitignore，不会提交）：
+# Copy to wrangler.toml and set your D1 database_id (wrangler.toml is gitignored):
 #   cp wrangler.toml.example wrangler.toml
 #
-# 先建库（不需要 wrangler.toml）：
+# Create the database first (no wrangler.toml needed):
 #   pnpm wrangler login
 #   pnpm wrangler d1 create lushu
+
 name = "lushu"
 compatibility_date = "2025-08-01"
 pages_build_output_dir = "dist"
 
-# database_id 不是密钥（账号内标识，没凭证访问不了），但仍各自用自己的库，避免误绑别人的。
+# Not a secret — account-scoped identifier; use your own DB to avoid cross-binding.
 [[d1_databases]]
 binding = "DB"
 database_name = "lushu"
 database_id = "YOUR_DATABASE_ID_HERE"
 
 [vars]
-# 全局路书名额上限；0 表示不限。软上限，防止公开端点被刷满 D1 的 5 GB。
+# Global book cap; 0 = unlimited. Soft limit to avoid filling D1's 5 GB quota.
 MAX_BOOKS = "20000"
-# 单本路书 JSON 上限（字节）。300 个地点约 33 KB。
+# Max JSON size per book (bytes). ~33 KB for 300 places.
 MAX_DOC_BYTES = "262144"
 
-# 注册激活邮件发件人（Resend 需已验证域名；未配时用 Resend 测试地址）。
-# EMAIL_FROM = "路书 <noreply@yourdomain.com>"
-
-# 不要在这里放任何密钥。部署时用：
-#   pnpm secret:turnstile   → TURNSTILE_SECRET
-#   pnpm secret:resend      → RESEND_API_KEY
+# Secrets (RESEND_API_KEY, TURNSTILE_SECRET): local → .dev.vars; deploy → pnpm secret:resend / secret:turnstile
