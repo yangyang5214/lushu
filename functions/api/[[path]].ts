@@ -27,7 +27,7 @@
 //   DELETE /api/admin/books/:id → 删除路书
 //   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
 //   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存
-//   GET    /api/route?coords= → OSRM 代理 + Cache API 缓存
+//   GET    /api/route?coords= → 驾车路线：优先高德，失败回落 OSRM，Cache API 缓存
 //
 // 暴露面控制（公开仓库 = 端点形状全部公开，所以防线必须在服务端）：
 //   1. 不下发 CORS 头：只服务同源 SPA，第三方站点无法用访客浏览器打这个 API。
@@ -87,6 +87,7 @@ import {
   adminListUsers,
   adminStats,
 } from '../lib/admin-data'
+import { wgs84ToGcj02 } from '../../shared/coords'
 
 type Env = {
   DB: D1Database
@@ -98,6 +99,8 @@ type Env = {
   RESEND_API_KEY?: string
   /** 发件人，例如 "路书 <noreply@yourdomain.com>" */
   EMAIL_FROM?: string
+  /** 可选。高德 Web 服务 key；配了就走高德驾车规划，没配或失败回落 OSRM。 */
+  AMAP_KEY?: string
   /** 可选，默认 20000。0 表示不限。 */
   MAX_BOOKS?: string
   /** 可选，默认 262144（256 KB）。 */
@@ -1021,18 +1024,235 @@ function geocode(ctx: Ctx): Promise<Response> {
   })
 }
 
-function routeProxy(ctx: Ctx): Promise<Response> {
+type RoutePoint = { lng: number; lat: number }
+
+/** /api/route 的统一返回：线路坐标一律 GCJ02，直接贴合高德底图。 */
+type RouteLine = {
+  source: 'amap' | 'osrm'
+  line: [number, number][]
+  distanceKm: number
+  durationMin: number
+}
+
+/** 高德驾车 v3 的 waypoints 上限 16 个，加上起终点每段最多 18 个点。 */
+const AMAP_MAX_POINTS = 18
+const ROUTE_UA = 'LushuRoutePlanner/1.0 (+https://github.com/yangyang5214/lushu)'
+
+function parseCoords(coords: string): RoutePoint[] | null {
+  const points: RoutePoint[] = []
+  for (const pair of coords.split(';')) {
+    const [lng, lat] = pair.split(',').map(Number)
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+    points.push({ lng, lat })
+  }
+  return points.length >= 2 ? points : null
+}
+
+/** OSRM 原始响应 → 统一线路（WGS84 转成 GCJ02）。 */
+function parseOsrm(data: unknown): RouteLine | null {
+  const first = (
+    data as {
+      routes?: Array<{
+        geometry?: { coordinates?: [number, number][] }
+        distance?: number
+        duration?: number
+      }>
+    }
+  ).routes?.[0]
+  const coords = first?.geometry?.coordinates
+  if (!coords?.length) return null
+  if (!coords.every(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))) return null
+  const distance = first?.distance
+  const duration = first?.duration
+  return {
+    source: 'osrm',
+    line: coords.map(([lng, lat]) => wgs84ToGcj02(lng, lat)),
+    distanceKm: typeof distance === 'number' && Number.isFinite(distance) ? distance / 1000 : 0,
+    durationMin: typeof duration === 'number' && Number.isFinite(duration) ? Math.round(duration / 60) : 0,
+  }
+}
+
+/** 高德驾车响应 → 统一线路（polyline 本来就是 GCJ02，原样返回）。 */
+function parseAmap(data: unknown): RouteLine | null {
+  const payload = data as {
+    status?: string
+    route?: {
+      paths?: Array<{
+        distance?: string
+        duration?: string
+        steps?: Array<{ polyline?: string }>
+      }>
+    }
+  }
+  if (payload?.status !== '1') return null
+  const path = payload.route?.paths?.[0]
+  if (!path) return null
+  const line: [number, number][] = []
+  for (const step of path.steps ?? []) {
+    for (const pair of (step.polyline ?? '').split(';')) {
+      if (!pair) continue
+      const [lng, lat] = pair.split(',').map(Number)
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue
+      // 高德相邻 step 会重复首尾点，去掉零长度段
+      const last = line[line.length - 1]
+      if (last && last[0] === lng && last[1] === lat) continue
+      line.push([lng, lat])
+    }
+  }
+  if (line.length < 2) return null
+  const distanceKm = Number(path.distance) / 1000
+  const durationMin = Math.round(Number(path.duration) / 60)
+  return {
+    source: 'amap',
+    line,
+    distanceKm: Number.isFinite(distanceKm) ? distanceKm : 0,
+    durationMin: Number.isFinite(durationMin) ? durationMin : 0,
+  }
+}
+
+function amapDriveUrl(key: string, points: RoutePoint[]): string {
+  const fmt = (p: RoutePoint) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`
+  const params = new URLSearchParams({
+    key,
+    origin: fmt(points[0]),
+    destination: fmt(points[points.length - 1]),
+    extensions: 'base',
+    strategy: '0',
+  })
+  if (points.length > 2) params.set('waypoints', points.slice(1, -1).map(fmt).join(';'))
+  return `https://restapi.amap.com/v3/direction/driving?${params.toString()}`
+}
+
+/** 高德限流/频繁类错误：换一息重试一次，别直接交给 OSRM。 */
+const AMAP_RETRYABLE = new Set(['10004', '10020', '10021'])
+const AMAP_RETRY_DELAYS = [400, 900]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** 单段高德驾车请求，遇限流按退避重试。 */
+async function amapChunk(key: string, points: RoutePoint[]): Promise<RouteLine | null> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const res = await fetch(amapDriveUrl(key, points), {
+        signal: AbortSignal.timeout(9000),
+        headers: { Accept: 'application/json' },
+      })
+      if (!res.ok) return null
+      const data = (await res.json()) as { status?: string; infocode?: string }
+      if (data?.status === '1') return parseAmap(data)
+      if (AMAP_RETRYABLE.has(String(data?.infocode)) && attempt < AMAP_RETRY_DELAYS.length) {
+        await sleep(AMAP_RETRY_DELAYS[attempt])
+        continue
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+}
+
+/**
+ * 高德驾车规划。点太多就按 18 个一段切开再拼回一条线；
+ * 任一段失败整体放弃，交给 OSRM 兜底，避免出现半截路线。
+ */
+async function amapRoute(key: string, points: RoutePoint[]): Promise<RouteLine | null> {
+  const line: [number, number][] = []
+  let distanceKm = 0
+  let durationMin = 0
+  for (let i = 0; i < points.length; i += AMAP_MAX_POINTS - 1) {
+    const chunk = points.slice(i, i + AMAP_MAX_POINTS)
+    if (chunk.length < 2) break
+    const part = await amapChunk(key, chunk)
+    if (!part) return null
+    line.push(...(line.length ? part.line.slice(1) : part.line))
+    distanceKm += part.distanceKm
+    durationMin += part.durationMin
+  }
+  return line.length >= 2 ? { source: 'amap', line, distanceKm, durationMin } : null
+}
+
+async function routeProxy(ctx: Ctx): Promise<Response> {
   const coords = (new URL(ctx.request.url).searchParams.get('coords') ?? '').trim()
   if (!/^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?)*$/.test(coords)) {
-    return Promise.resolve(json({ error: 'bad_coords' }, 400))
+    return json({ error: 'bad_coords' }, 400)
   }
-  if (coords.split(';').length > 100) return Promise.resolve(json({ error: 'too_many_points' }, 400))
-  const target =
-    `https://router.project-osrm.org/route/v1/driving/${coords}` +
-    '?overview=full&geometries=geojson&continue_straight=false'
-  return cachedProxy(ctx, target, ROUTE_TTL, {
-    Accept: 'application/json',
-    'User-Agent': 'LushuRoutePlanner/1.0 (+https://github.com/yangyang5214/lushu)',
+  const points = parseCoords(coords)
+  if (!points) return json({ error: 'bad_coords' }, 400)
+  if (points.length > 100) return json({ error: 'too_many_points' }, 400)
+
+  // 缓存键与上游 provider、坐标系统解耦：换源或升级返回结构都能直接失效。
+  const cache = typeof caches !== 'undefined' ? caches.default : undefined
+  const cacheKey = new Request(
+    `https://lushu.internal/api/route/v2?coords=${encodeURIComponent(coords)}`,
+    { method: 'GET' },
+  )
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheKey)
+      if (hit) {
+        return new Response(hit.body, {
+          status: 200,
+          headers: {
+            ...JSON_HEADERS,
+            'x-lushu-cache': 'hit',
+            'cache-control': `public, max-age=${ROUTE_TTL}`,
+          },
+        })
+      }
+    } catch {
+      /* 缓存不可用就直接算 */
+    }
+  }
+
+  // 高德要 GCJ02，而地点本身是 WGS84：先转再发。
+  const amapKey = ctx.env.AMAP_KEY?.trim()
+  let route = amapKey
+    ? await amapRoute(
+        amapKey,
+        points.map((p) => {
+          const [lng, lat] = wgs84ToGcj02(p.lng, p.lat)
+          return { lng, lat }
+        }),
+      )
+    : null
+
+  if (!route) {
+    const target =
+      `https://router.project-osrm.org/route/v1/driving/${coords}` +
+      '?overview=full&geometries=geojson&continue_straight=false'
+    const upstream = await cachedProxy(ctx, target, ROUTE_TTL, {
+      Accept: 'application/json',
+      'User-Agent': ROUTE_UA,
+    })
+    if (upstream.ok) route = parseOsrm(await upstream.json())
+  }
+
+  if (!route) return json({ error: 'upstream' }, 502)
+
+  const body = JSON.stringify(route)
+  if (cache) {
+    try {
+      ctx.waitUntil(
+        cache.put(
+          cacheKey,
+          new Response(body, {
+            headers: { ...JSON_HEADERS, 'cache-control': `public, max-age=${ROUTE_TTL}` },
+          }),
+        ),
+      )
+    } catch {
+      /* 写缓存失败不影响响应 */
+    }
+  }
+  return new Response(body, {
+    status: 200,
+    headers: {
+      ...JSON_HEADERS,
+      'x-lushu-cache': 'miss',
+      'cache-control': `public, max-age=${ROUTE_TTL}`,
+    },
   })
 }
 

@@ -13,6 +13,7 @@
     "db:init": "wrangler d1 execute lushu --remote --file=./schema.sql",
     "secret:turnstile": "wrangler pages secret put TURNSTILE_SECRET",
     "secret:resend": "wrangler pages secret put RESEND_API_KEY",
+    "secret:amap": "wrangler pages secret put AMAP_KEY",
     "deploy": "wrangler pages deploy dist"
   },
   "dependencies": {

@@ -114,26 +114,35 @@ export function MapCanvas() {
     if (!current.ready) return
     const { days } = current
     let cancelled = false
-    void Promise.all(days.map((day) => fetchRoadLine(day.places))).then((lines) => {
-      if (cancelled || !roadsRef.current) return
-      roadsRef.current.clearLayers()
-      lines.forEach((line, i) => {
-        const day = days[i]
-        const latlngs =
+    const drawn: Array<L.Polyline | null> = days.map(() => null)
+
+    // 一天返回一天就画一天：多天路线是串行取的，先到的先上屏，不用等所有天都回来。
+    const draw = (i: number, latlngs: [number, number][]) => {
+      const host = roadsRef.current
+      if (cancelled || !host || latlngs.length < 2) return
+      drawn[i]?.remove()
+      drawn[i] = L.polyline(latlngs, {
+        color: dayInk(i),
+        weight: 5.5,
+        opacity: 1,
+        lineJoin: 'round',
+      }).addTo(host)
+    }
+
+    days.forEach((day, i) => {
+      void fetchRoadLine(day.places).then((line) => {
+        if (cancelled) return
+        draw(
+          i,
           line?.map(([lng, lat]) => [lat, lng] as [number, number]) ??
-          day.places.map((p) => {
-            const [lng, lat] = toGcj(p)
-            return [lat, lng] as [number, number]
-          })
-        if (latlngs.length < 2) return
-        L.polyline(latlngs, {
-          color: dayInk(i),
-          weight: 5.5,
-          opacity: 1,
-          lineJoin: 'round',
-        }).addTo(roadsRef.current!)
+            day.places.map((p) => {
+              const [lng, lat] = toGcj(p)
+              return [lat, lng] as [number, number]
+            }),
+        )
       })
     })
+
     return () => {
       cancelled = true
     }
