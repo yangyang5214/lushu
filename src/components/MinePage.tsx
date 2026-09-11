@@ -135,7 +135,7 @@ export function MinePage() {
                   <p>把想去的点一路搜进来，定好起点终点，再在过夜的地方钉上分割针。</p>
                   <div className="empty-ops">
                     <button type="button" className="btn-primary" onClick={startNew}>
-                      新建一本路书
+                      新建路书
                     </button>
                   </div>
                 </div>

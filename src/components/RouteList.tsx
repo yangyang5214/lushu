@@ -2,6 +2,7 @@ import { requireLogin, useAuth } from '../lib/auth'
 import { navigateBook, navigatePublic } from '../lib/router'
 import { useLushu } from '../store'
 import { SiteNav } from './Chrome'
+import { HeroDiagram } from './HeroDiagram'
 
 function IconSearch() {
   return (
@@ -105,54 +106,6 @@ const EXTRA_FEATURES = [
   },
 ] as const
 
-function HeroDiagram() {
-  return (
-    <div className="hero-diagram" aria-hidden>
-      <div className="hero-diagram-head">
-        <span>随意添加</span>
-        <span className="hero-diagram-arrow">→</span>
-        <span>自动串联</span>
-        <span className="hero-diagram-arrow">→</span>
-        <span>过夜分天</span>
-      </div>
-      <svg className="hero-diagram-svg" viewBox="0 0 360 220" fill="none">
-        <g opacity="0.45">
-          <circle cx="58" cy="44" r="7" fill="#7c5cff" />
-          <circle cx="118" cy="28" r="7" fill="#7c5cff" />
-          <circle cx="198" cy="52" r="7" fill="#7c5cff" />
-          <circle cx="268" cy="34" r="7" fill="#7c5cff" />
-          <circle cx="312" cy="68" r="7" fill="#7c5cff" />
-        </g>
-        <path
-          d="M58 44 C 88 72, 108 58, 118 78 C 138 108, 168 92, 198 88 C 228 84, 248 72, 268 92 C 288 112, 302 108, 312 128"
-          stroke="#7c5cff"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="58" cy="44" r="9" stroke="#7c5cff" strokeWidth="2" fill="#fff" />
-        <circle cx="118" cy="78" r="9" stroke="#7c5cff" strokeWidth="2" fill="#fff" />
-        <circle cx="198" cy="88" r="9" stroke="#7c5cff" strokeWidth="2" fill="#fff" />
-        <circle cx="268" cy="92" r="9" stroke="#7c5cff" strokeWidth="2" fill="#fff" />
-        <circle cx="312" cy="128" r="9" stroke="#7c5cff" strokeWidth="2" fill="#fff" />
-        <line x1="198" y1="128" x2="198" y2="156" stroke="#b8a8ff" strokeWidth="1.5" strokeDasharray="4 3" />
-        <rect x="24" y="162" width="150" height="36" rx="8" fill="rgba(124,92,255,0.12)" stroke="rgba(124,92,255,0.35)" />
-        <rect x="186" y="162" width="150" height="36" rx="8" fill="rgba(124,92,255,0.06)" stroke="rgba(124,92,255,0.2)" />
-        <text x="99" y="185" textAnchor="middle" fill="#6b46f5" fontSize="12" fontWeight="600" fontFamily="Manrope, Noto Sans SC, sans-serif">
-          第 1 天
-        </text>
-        <text x="261" y="185" textAnchor="middle" fill="#8a7bb8" fontSize="12" fontWeight="600" fontFamily="Manrope, Noto Sans SC, sans-serif">
-          第 2 天
-        </text>
-        <circle cx="198" cy="162" r="5" fill="#7c5cff" />
-        <text x="198" y="206" textAnchor="middle" fill="#6c6c7c" fontSize="10" fontFamily="Manrope, Noto Sans SC, sans-serif">
-          过夜点
-        </text>
-      </svg>
-    </div>
-  )
-}
-
 /** `/`：首页，首屏 + 核心功能；书单都在独立的 `/list`、`/public` 页。 */
 export function RouteList() {
   const createBook = useLushu((s) => s.createBook)
@@ -169,7 +122,6 @@ export function RouteList() {
         <section className="hero">
           <div className="shell hero-grid">
             <div className="hero-copy">
-              <p className="eyebrow">自驾游路书</p>
               <h1>
                 想去的都加进来，
                 <br />
@@ -180,7 +132,7 @@ export function RouteList() {
               </p>
               <div className="hero-cta">
                 <button type="button" className="btn-primary" onClick={startNew}>
-                  新建一本路书
+                  新建路书
                 </button>
                 <button type="button" className="btn-ghost" onClick={navigatePublic}>
                   看看公开路书

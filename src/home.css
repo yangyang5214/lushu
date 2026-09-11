@@ -187,7 +187,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 40px;
+  gap: 44px;
   text-align: center;
 }
 
@@ -237,10 +237,10 @@
 
 .hero-diagram {
   width: 100%;
-  max-width: 560px;
-  padding: 18px 18px 14px;
+  max-width: min(920px, 100%);
+  padding: 22px 24px 18px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: linear-gradient(165deg, #fff 0%, #faf9ff 100%);
   box-shadow: var(--shadow);
 }
@@ -249,10 +249,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
   color: var(--text-2);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -266,6 +266,430 @@
   display: block;
   width: 100%;
   height: auto;
+}
+
+.hero-diagram-step {
+  transition: color 0.2s;
+}
+
+.hero-diagram-step--add {
+  animation: hero-head-add var(--hero-cycle, 14s) linear infinite;
+}
+
+.hero-diagram-step--route {
+  animation: hero-head-route var(--hero-cycle, 14s) linear infinite;
+}
+
+.hero-diagram-step--split {
+  animation: hero-head-split var(--hero-cycle, 14s) linear infinite;
+}
+
+@keyframes hero-head-add {
+  0%,
+  4% {
+    color: var(--accent-hi);
+  }
+  28%,
+  100% {
+    color: var(--text-2);
+  }
+}
+
+@keyframes hero-head-route {
+  0%,
+  28% {
+    color: var(--text-2);
+  }
+  32%,
+  54% {
+    color: var(--accent-hi);
+  }
+  58%,
+  100% {
+    color: var(--text-2);
+  }
+}
+
+@keyframes hero-head-split {
+  0%,
+  58% {
+    color: var(--text-2);
+  }
+  62%,
+  88% {
+    color: var(--accent-hi);
+  }
+  92%,
+  100% {
+    color: var(--text-2);
+  }
+}
+
+.hero-map {
+  opacity: 1;
+}
+
+.hero-search {
+  animation: hero-search var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-search {
+  0%,
+  3% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  8%,
+  22% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  28%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+}
+
+.hero-pin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-pin var(--hero-cycle, 14s) var(--hero-delay, 0s) ease infinite;
+}
+
+.hero-pin-dot,
+.hero-pin-badge,
+.hero-pin-name {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.hero-pin-halo {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-pin-halo var(--hero-cycle, 14s) var(--hero-delay, 0s) ease infinite;
+}
+
+.hero-pin:has(.hero-split-flash) .hero-pin-badge {
+  animation: hero-pin-badge-hide var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-pin {
+  0%,
+  5% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.4);
+  }
+  10%,
+  20% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) scale(1);
+  }
+  30%,
+  90% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes hero-pin-halo {
+  0%,
+  28% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  32%,
+  36% {
+    opacity: 0.35;
+    transform: scale(1.2);
+  }
+  42%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes hero-pin-badge-hide {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  62%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.hero-route {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+.hero-route--1 {
+  animation: hero-route-1 var(--hero-cycle, 14s) ease infinite;
+}
+
+.hero-route--2 {
+  animation: hero-route-2 var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-route-1 {
+  0%,
+  28% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  32% {
+    opacity: 1;
+  }
+  48%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes hero-route-2 {
+  0%,
+  58% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  62% {
+    opacity: 1;
+  }
+  76%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.hero-split-flash {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-split-flash var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-split-flash {
+  0%,
+  58% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  62%,
+  64% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  68%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.hero-rail {
+  opacity: 0;
+  animation: hero-rail var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-rail {
+  0%,
+  50% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  56%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+.hero-rail-seg--2 {
+  opacity: 0;
+  animation: hero-rail-seg-2 var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-rail-seg-2 {
+  0%,
+  58% {
+    opacity: 0;
+  }
+  64%,
+  90% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.hero-bead-dot--split {
+  animation: hero-bead-split var(--hero-cycle, 14s) ease infinite;
+}
+
+.hero-bead-num {
+  animation: hero-bead-num var(--hero-cycle, 14s) ease infinite;
+}
+
+.hero-bead-night {
+  opacity: 0;
+  animation: hero-bead-night var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-bead-split {
+  0%,
+  60% {
+    fill: #3d7eff;
+  }
+  64%,
+  90% {
+    fill: #ef4444;
+  }
+  96%,
+  100% {
+    fill: #3d7eff;
+  }
+}
+
+@keyframes hero-bead-num {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  62%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-bead-night {
+  0%,
+  60% {
+    opacity: 0;
+  }
+  62%,
+  90% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.hero-rail-days {
+  opacity: 0;
+  animation: hero-rail-days var(--hero-cycle, 14s) ease infinite;
+}
+
+@keyframes hero-rail-days {
+  0%,
+  66% {
+    opacity: 0;
+  }
+  72%,
+  90% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-diagram-step--add,
+  .hero-diagram-step--route,
+  .hero-diagram-step--split,
+  .hero-search,
+  .hero-pin,
+  .hero-pin-halo,
+  .hero-route--1,
+  .hero-route--2,
+  .hero-split-flash,
+  .hero-rail,
+  .hero-rail-seg--2,
+  .hero-bead-dot--split,
+  .hero-bead-num,
+  .hero-bead-night,
+  .hero-rail-days {
+    animation: none !important;
+  }
+
+  .hero-diagram-step--split {
+    color: var(--accent-hi);
+  }
+
+  .hero-search {
+    opacity: 0.45;
+  }
+
+  .hero-pin {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  .hero-route--1,
+  .hero-route--2 {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  .hero-split-flash,
+  .hero-rail,
+  .hero-rail-seg--2,
+  .hero-rail-days {
+    opacity: 1;
+  }
+
+  .hero-bead-dot--split {
+    fill: #ef4444;
+  }
+
+  .hero-bead-num {
+    opacity: 0;
+  }
+
+  .hero-bead-night {
+    opacity: 1;
+  }
+
+  .hero-pin:has(.hero-split-flash) .hero-pin-badge {
+    opacity: 0;
+  }
 }
 
 /* ---------- 独立子页（/list、/public） ---------- */
