@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { requireLogin, useAuth } from '../lib/auth'
 import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
 import { t, useI18n } from '../lib/i18n'
-import { navigateBookOrigin } from '../lib/router'
+import { navigateBook, navigateBookOrigin } from '../lib/router'
+import { copyPublicBook } from '../lib/sync'
 import type { Place } from '../types'
-import { useJourney, useLushu, useSelectedId } from '../store'
+import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 
 function cityOf(place: Place | undefined): string {
   if (!place) return ''
@@ -40,6 +42,8 @@ function CarIcon() {
 export function Sidebar() {
   const { t } = useI18n()
   const journey = useJourney()
+  const readonly = useReadonly()
+  const activeId = useLushu((s) => s.activeId)
   const selectedId = useSelectedId()
   const startId = useLushu((s) => s.startId)
   const endId = useLushu((s) => s.endId)
@@ -57,6 +61,22 @@ export function Sidebar() {
     navigateBookOrigin()
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
+  const [copying, setCopying] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
+
+  // 别人的路书：复制一份到自己名下再改（复制要登录）。
+  const copyToMine = () =>
+    requireLogin(() => {
+      if (!activeId) return
+      setCopying(true)
+      setCopyFailed(false)
+      void copyPublicBook(activeId)
+        .then((newId) => {
+          if (newId) navigateBook(newId, useAuth.getState().user?.hashId)
+          else setCopyFailed(true)
+        })
+        .finally(() => setCopying(false))
+    })
 
   const valid = new Set(validSplitIndexes(journey.ordered, journey.isLoop).map((i) => journey.ordered[i]?.id))
   const splitSet = new Set(journey.splitIds)
@@ -86,8 +106,20 @@ export function Sidebar() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t('sidebar.titlePlaceholder')}
           aria-label={t('sidebar.routeName')}
+          readOnly={readonly}
+          disabled={readonly}
         />
       </div>
+
+      {readonly ? (
+        <div className="readonly-note">
+          <strong>{t('readonly.title')}</strong>
+          <p>{copyFailed ? t('readonly.failed') : t('readonly.hint')}</p>
+          <button type="button" className="btn-primary btn-sm" disabled={copying} onClick={copyToMine}>
+            {copying ? t('readonly.copying') : t('readonly.copy')}
+          </button>
+        </div>
+      ) : null}
 
       <div className="place-scroll">
         {journey.ready
@@ -145,7 +177,7 @@ export function Sidebar() {
                                 </strong>
                               </button>
                               <div className="stop-ops">
-                                {canSplit ? (
+                                {readonly ? null : canSplit ? (
                                   overnight ? (
                                     <button type="button" onClick={() => removeSplit(place.id)}>
                                       {t('sidebar.cancelOvernight')}
@@ -156,9 +188,11 @@ export function Sidebar() {
                                     </button>
                                   )
                                 ) : null}
-                                <button type="button" onClick={() => removePlace(place.id)}>
-                                  {t('common.delete')}
-                                </button>
+                                {readonly ? null : (
+                                  <button type="button" onClick={() => removePlace(place.id)}>
+                                    {t('common.delete')}
+                                  </button>
+                                )}
                               </div>
                             </div>
                             {next ? (
@@ -189,23 +223,27 @@ export function Sidebar() {
                       </strong>
                     </button>
                     <div className="stop-ops always">
-                      <button
-                        type="button"
-                        className={place.id === startId ? 'on' : ''}
-                        onClick={() => setStart(place.id)}
-                      >
-                        {t('sidebar.setStart')}
-                      </button>
-                      <button
-                        type="button"
-                        className={place.id === endId ? 'on' : ''}
-                        onClick={() => setEnd(place.id)}
-                      >
-                        {t('sidebar.setEnd')}
-                      </button>
-                      <button type="button" onClick={() => removePlace(place.id)}>
-                        {t('common.delete')}
-                      </button>
+                      {readonly ? null : (
+                        <>
+                          <button
+                            type="button"
+                            className={place.id === startId ? 'on' : ''}
+                            onClick={() => setStart(place.id)}
+                          >
+                            {t('sidebar.setStart')}
+                          </button>
+                          <button
+                            type="button"
+                            className={place.id === endId ? 'on' : ''}
+                            onClick={() => setEnd(place.id)}
+                          >
+                            {t('sidebar.setEnd')}
+                          </button>
+                          <button type="button" onClick={() => removePlace(place.id)}>
+                            {t('common.delete')}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -214,7 +252,7 @@ export function Sidebar() {
             )}
       </div>
 
-      {journey.ready ? null : (
+      {journey.ready || readonly ? null : (
         <div className="sheet-foot">
           <p className="hint">
             {journey.places.length === 0

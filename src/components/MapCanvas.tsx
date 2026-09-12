@@ -5,12 +5,13 @@ import { dayInk, toGcj } from '../lib/geo'
 import { useI18n, getLang } from '../lib/i18n'
 import { markerHtml, TILE_SUBDOMAINS, tileUrl } from '../lib/map'
 import { fetchRoadLine } from '../lib/route'
-import { useJourney, useLushu, useSelectedId } from '../store'
+import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { SearchBox } from './SearchBox'
 
 export function MapCanvas() {
   const { lang, t } = useI18n()
   const journey = useJourney()
+  const readonly = useReadonly()
   const selectedId = useSelectedId()
   const selectPlace = useLushu((s) => s.selectPlace)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -162,9 +163,11 @@ export function MapCanvas() {
   return (
     <div className="map-stage">
       <div ref={hostRef} className="map" />
-      <div className="map-search">
-        <SearchBox />
-      </div>
+      {readonly ? null : (
+        <div className="map-search">
+          <SearchBox />
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { buildJourney } from './lib/journey'
 import { insertNearest, isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
 import { t } from './lib/i18n'
+import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
 import type { Book, Journey, Place, Visibility } from './types'
 
@@ -49,6 +50,11 @@ type State = {
   activeId: string | null
   view: View
   selectedId: string | null
+  /**
+   * 服务端不属于自己的路书（别人的分享链接）：只读，不进「我的路书」，
+   * 编辑器里所有改动都被 activePatch 拦下。
+   */
+  readonlyIds: Record<string, true>
 }
 
 type Actions = {
@@ -56,7 +62,7 @@ type Actions = {
   createBook: (seed?: NewBook) => string
   openBook: (id: string) => void
   closeBook: () => void
-  upsertRemoteBook: (book: Book) => void
+  upsertRemoteBook: (book: Book, opts?: { own?: boolean }) => void
   duplicateBook: (id: string) => string
   /** 把整本路书（含公开页拉下来的）复制进个人书架，新副本默认私密。 */
   importBookCopy: (source: Book) => string
@@ -129,6 +135,8 @@ function activePatch(s: Store, f: (b: Book) => Partial<Book>): Partial<Store> {
   if (!id) return {}
   const b = s.books[id]
   if (!b) return {}
+  // 别人的路书只读：任何编辑动作都不改动 store（UI 也会隐藏对应入口）。
+  if (s.readonlyIds[id]) return {}
   return {
     books: { ...s.books, [id]: { ...b, ...f(b), updatedAt: Date.now() } },
   }
@@ -174,6 +182,16 @@ function defaultVisibility(persisted: unknown): unknown {
   return { ...p, books }
 }
 
+/**
+ * 升级到 v7：以前把别人的公开路书也当自己书架里的书存进 order。
+ * 本机编辑口令可以确认是「自己的」；已标记 remote 的一律从书架里剔掉。
+ */
+function dropReadonlyFromOrder(persisted: unknown): unknown {
+  const p = (persisted ?? {}) as Partial<State>
+  if (!p.order) return persisted
+  return { ...p, order: p.order.filter((id) => getMeta(id).remote !== true) }
+}
+
 const initialRoute = readRoute()
 const initialBookId = initialRoute.name === 'book' ? initialRoute.bookId : null
 const initialView: View = initialRoute.name === 'book' ? 'edit' : initialRoute.name
@@ -186,6 +204,7 @@ export const useStore = create<Store>()(
       activeId: initialBookId,
       view: initialView,
       selectedId: null,
+      readonlyIds: {},
 
       setView: (view) => set({ view }),
 
@@ -223,11 +242,23 @@ export const useStore = create<Store>()(
       closeBook: () => set({ view: 'list', selectedId: null }),
 
       // 从服务端取回来的路书：原样入册，不动 updatedAt（避免触发回声推送）。
-      upsertRemoteBook: (book) =>
-        set((s) => ({
-          books: { ...s.books, [book.id]: book },
-          order: s.order.includes(book.id) ? s.order : [book.id, ...s.order],
-        })),
+      // own=false（别人的分享）只留在 books 里供渲染，不进 order，并标记只读。
+      upsertRemoteBook: (book, opts) =>
+        set((s) => {
+          const own = opts?.own === true
+          const readonlyIds = { ...s.readonlyIds }
+          if (own) delete readonlyIds[book.id]
+          else readonlyIds[book.id] = true
+          return {
+            books: { ...s.books, [book.id]: book },
+            order: own
+              ? s.order.includes(book.id)
+                ? s.order
+                : [book.id, ...s.order]
+              : s.order.filter((id) => id !== book.id),
+            readonlyIds,
+          }
+        }),
 
       duplicateBook: (id) => {
         const src = get().books[id]
@@ -256,10 +287,13 @@ export const useStore = create<Store>()(
           if (!s.books[id]) return {}
           const books = { ...s.books }
           delete books[id]
+          const readonlyIds = { ...s.readonlyIds }
+          delete readonlyIds[id]
           const wasActive = s.activeId === id
           return {
             books,
             order: s.order.filter((x) => x !== id),
+            readonlyIds,
             // 只清 activeId，不改 view：在 /list 删书时 view 仍是 mine，避免跳回首页。
             ...(wasActive ? { activeId: null, selectedId: null } : {}),
           }
@@ -440,19 +474,28 @@ export const useStore = create<Store>()(
 
       selectPlace: (id) => set({ selectedId: id }),
 
-      reset: () => set({ books: {}, order: [], activeId: null, view: 'list', selectedId: null }),
+      reset: () =>
+        set({
+          books: {},
+          order: [],
+          activeId: null,
+          view: 'list',
+          selectedId: null,
+          readonlyIds: {},
+        }),
     }),
     {
       name: 'lushu-v1',
-      version: 6,
+      version: 7,
       // The open book / view come from the URL path, so only the library is stored.
-      partialize: (s) => ({ books: s.books, order: s.order }),
+      partialize: (s) => ({ books: s.books, order: s.order, readonlyIds: s.readonlyIds }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>
         return {
           ...current,
           books: p.books ?? current.books,
           order: p.order ?? current.order,
+          readonlyIds: p.readonlyIds ?? current.readonlyIds,
         }
       },
       migrate: (persisted, version) => {
@@ -491,6 +534,7 @@ export const useStore = create<Store>()(
         if (version < 4) state = remapBookIds(state)
         if (version < 5) state = dropSampleBooks(state)
         if (version < 6) state = defaultVisibility(state)
+        if (version < 7) state = dropReadonlyFromOrder(state)
         return state
       },
     },
@@ -526,4 +570,9 @@ export function useJourney(): Journey {
 
 export function useSelectedId(): string | null {
   return useStore((s) => s.selectedId)
+}
+
+/** 当前打开的路书是不是「别人的分享」——是则编辑器只读。 */
+export function useReadonly(): boolean {
+  return useStore((s) => (s.activeId ? s.readonlyIds[s.activeId] === true : false))
 }

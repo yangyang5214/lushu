@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayInk, formatKm, haversineKm, validSplitIndexes } from '../lib/geo'
 import { useI18n } from '../lib/i18n'
-import { useJourney, useLushu, useSelectedId } from '../store'
+import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 
 export function SplitRail() {
   const { t } = useI18n()
   const journey = useJourney()
+  const readonly = useReadonly()
   const selectedId = useSelectedId()
   const addSplit = useLushu((s) => s.addSplit)
   const removeSplit = useLushu((s) => s.removeSplit)
@@ -106,12 +107,12 @@ export function SplitRail() {
                 onClick={() => {
                   if (isGhostReturn) return
                   selectPlace(place.id)
-                  if (!canSplit) return
+                  if (readonly || !canSplit) return
                   if (isSplit) removeSplit(place.id)
                   else addSplit(place.id)
                 }}
                 onPointerDown={(e) => {
-                  if (!isSplit || isGhostReturn) return
+                  if (readonly || !isSplit || isGhostReturn) return
                   e.preventDefault()
                   dragRef.current = place.id
                   hoverRef.current = place.id

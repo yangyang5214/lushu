@@ -67,10 +67,13 @@ function usePathRoute() {
   }, [])
 
   // 账号是异步探测的：刚打开页面时还不知道 hashId，登录态就位后补一次规范化。
+  // 归属会随登录态变化：之前判成只读的路书，登录后可能正是自己的，再对一次账。
   const user = useAuth((s) => s.user)
   useEffect(() => {
     const route = readRoute()
-    if (route.name === 'book') canonicalizeBookUrl(route.bookId)
+    if (route.name !== 'book') return
+    canonicalizeBookUrl(route.bookId)
+    if (useStore.getState().readonlyIds[route.bookId]) void pullBook(route.bookId)
   }, [user])
 }
 

@@ -54,6 +54,11 @@ const zh = {
   'sidebar.setEnd': '终点',
   'sidebar.hintEmpty': '搜索添加地点，再设起点和终点。起终点相同即为环线。',
   'sidebar.hintReady': '设好起点和终点后，其余点会按路程串成一条线。',
+  'readonly.title': '这是别人的路书，只能查看',
+  'readonly.hint': '想改的话，复制一份到自己名下再编辑。',
+  'readonly.copy': '复制到我的路书',
+  'readonly.copying': '复制中…',
+  'readonly.failed': '复制失败，请稍后再试',
 
   // ── 里程 / 时间 ──────────────────────────────────────────────────────────
   'unit.meters': '{n}米',
@@ -325,6 +330,11 @@ const en: Record<MsgKey, string> = {
     'Search to add places, then set a start and an end. The same start and end makes a loop.',
   'sidebar.hintReady':
     'Once a start and an end are set, the other stops are strung into a route by distance.',
+  'readonly.title': 'This Roadbook belongs to someone else — view only',
+  'readonly.hint': 'To make changes, copy it to your own shelf and edit that.',
+  'readonly.copy': 'Copy to my Roadbooks',
+  'readonly.copying': 'Copying…',
+  'readonly.failed': 'Copy failed, please try again later',
 
   'unit.meters': '{n} m',
   'unit.km': '{n} km',

@@ -98,7 +98,7 @@ async function push(id: string): Promise<void> {
       const remote = res.remote
       // 服务端已被写入了更新的版本 → 直接采用；否则以服务端当前版本为基线再写一次。
       if (remote.doc.updatedAt > book.updatedAt) {
-        useStore.getState().upsertRemoteBook(remote.doc)
+        useStore.getState().upsertRemoteBook(remote.doc, { own: true })
         setMeta(id, { base: remote.updatedAt, pushed: remote.doc.updatedAt })
         update({ status: 'saved', at: Date.now() })
         return
@@ -195,6 +195,8 @@ export async function refreshPublic(): Promise<void> {
  * 打开路书时从服务端取当前版本，覆盖本机副本。
  * 云端是展示源：不比较 updatedAt，避免本机旧缓存挡住线上更新。
  * `own`：账号书架里的书（换设备同步），本机补编辑口令后可继续改。
+ * 只读归属：本机创建过（有编辑口令）、账号书架里的、或服务端标注的书主就是本人；
+ * 其余（别人的分享）一律只读，不进「我的路书」，编辑器也改不动。
  * 离线 / 无权读（404）时返回 false，调用方再决定是否退回本地。
  */
 export async function pullBook(id: string, opts?: { own?: boolean }): Promise<boolean> {
@@ -207,21 +209,18 @@ export async function pullBook(id: string, opts?: { own?: boolean }): Promise<bo
     const remote = await fetchBook(id)
     if (!remote) return false
     const updatedAt = Math.max(remote.doc.updatedAt, remote.updatedAt)
-    useStore.getState().upsertRemoteBook({ ...remote.doc, updatedAt })
     const meta = getMeta(id)
-    // 书主公开 ID 一并记下（可能为空串 = 匿名书架），地址栏才能规范成 `/{userId}/{bookId}`。
-    const owner = { owner: remote.owner }
-    const synced = {
-      base: remote.updatedAt,
-      pushed: updatedAt,
-      ...owner,
-      remote: undefined as boolean | undefined,
-    }
-    if (meta.token || opts?.own) {
+    const myHashId = useAuth.getState().user?.hashId ?? ''
+    const mine = Boolean(
+      meta.token || opts?.own || (remote.owner && myHashId && remote.owner === myHashId),
+    )
+    useStore.getState().upsertRemoteBook({ ...remote.doc, updatedAt }, { own: mine })
+    if (mine) {
       if (opts?.own) ensureToken(id)
-      setMeta(id, synced)
+      setMeta(id, { base: remote.updatedAt, pushed: updatedAt, owner: remote.owner })
     } else {
-      setMeta(id, { ...synced, remote: true })
+      // 别人的路书：只记书主与只读，不参与推送。
+      setMeta(id, { owner: remote.owner, remote: true })
     }
     return true
   } catch {
