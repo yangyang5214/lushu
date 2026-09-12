@@ -36,7 +36,6 @@ export function MinePage() {
   const myId = useAuth((s) => s.user?.hashId)
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [publicConfirmId, setPublicConfirmId] = useState<string | null>(null)
 
   // 每次打开「我的路书」都刷新账号书架，并把云端有、本机缺的路书拉下来。
   useEffect(() => {
@@ -73,15 +72,9 @@ export function MinePage() {
       void pushBook(book.id).then(done)
     })
 
-  const makePrivate = (book: Book) => {
-    setPublicConfirmId(null)
-    applyVisibility(book, 'private')
-  }
+  const makePrivate = (book: Book) => applyVisibility(book, 'private')
 
-  const makePublic = (book: Book) => {
-    setPublicConfirmId(null)
-    applyVisibility(book, 'public')
-  }
+  const makePublic = (book: Book) => applyVisibility(book, 'public')
 
   const shown = useMemo(() => {
     const cloudAt = new Map(cloud.map((c) => [c.id, c.updatedAt]))
@@ -150,10 +143,10 @@ export function MinePage() {
                       key={book.id}
                       className={
                         book.id === activeId
-                          ? deleteConfirmId === book.id || publicConfirmId === book.id
+                          ? deleteConfirmId === book.id
                             ? 'card on confirming'
                             : 'card on'
-                          : deleteConfirmId === book.id || publicConfirmId === book.id
+                          : deleteConfirmId === book.id
                             ? 'card confirming'
                             : 'card'
                       }
@@ -199,29 +192,12 @@ export function MinePage() {
                           {t('card.copy')}
                         </button>
                         {canToggle ? (
-                          publicConfirmId === book.id ? (
-                            <>
-                              <button
-                                type="button"
-                                className="on"
-                                onClick={() => makePublic(book)}
-                              >
-                                {t('mine.confirmPublic')}
-                              </button>
-                              <button type="button" onClick={() => setPublicConfirmId(null)}>
-                                {t('common.cancel')}
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                isPrivate ? setPublicConfirmId(book.id) : makePrivate(book)
-                              }
-                            >
-                              {isPrivate ? t('mine.makePublic') : t('mine.makePrivate')}
-                            </button>
-                          )
+                          <button
+                            type="button"
+                            onClick={() => (isPrivate ? makePublic(book) : makePrivate(book))}
+                          >
+                            {isPrivate ? t('mine.makePublic') : t('mine.makePrivate')}
+                          </button>
                         ) : null}
                         {deleteConfirmId === book.id ? (
                           <>
@@ -243,10 +219,7 @@ export function MinePage() {
                           <button
                             type="button"
                             className="danger"
-                            onClick={() => {
-                              setPublicConfirmId(null)
-                              setDeleteConfirmId(book.id)
-                            }}
+                            onClick={() => setDeleteConfirmId(book.id)}
                           >
                             {t('common.delete')}
                           </button>

@@ -1125,11 +1125,17 @@
   background: var(--accent-soft);
 }
 
-.card-ops button.danger:hover,
-.card-ops button.danger.on {
+.card-ops button.danger {
   color: #fff;
   background: #b4413a;
   border-color: #b4413a;
+}
+
+.card-ops button.danger:hover,
+.card-ops button.danger.on {
+  color: #fff;
+  background: #9c352f;
+  border-color: #9c352f;
 }
 
 /* 新建卡片 */
