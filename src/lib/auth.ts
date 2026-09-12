@@ -2,7 +2,7 @@
 //
 // 设计（和 functions/lib/auth.ts 一一对应）：
 //   · 没有游客账号。登录名就是邮箱；注册和登录是两个明确的动作，登录不会
-//     顺手注册。口令至少 6 位。
+//     顺手注册。口令长度门槛在 shared/password.ts，前后端共用一份。
 //   · 注册后须点击邮件里的激活链接才能登录。
 //   · 登录 / 注册时带上本机旧的 owner_key，服务端把此前匿名创建的书过户到账号。
 //   · 「我的路书」= 未登录时的本机匿名书架（x-owner-key）；登录后按账号归属。
@@ -72,6 +72,7 @@ export type AuthError =
   | 'email_taken'
   | 'email_not_activated'
   | 'weak_password'
+  | 'invalid_password'
   | 'activation_cooldown'
   | 'activation_rate_limit'
   | 'email_failed'
@@ -86,6 +87,7 @@ const ERROR_KEY: Record<AuthError, MsgKey> = {
   email_taken: 'err.email_taken',
   email_not_activated: 'err.email_not_activated',
   weak_password: 'err.weak_password',
+  invalid_password: 'err.invalid_password',
   activation_cooldown: 'err.activation_cooldown',
   activation_rate_limit: 'err.activation_rate_limit',
   email_failed: 'err.email_failed',
@@ -95,8 +97,10 @@ const ERROR_KEY: Record<AuthError, MsgKey> = {
   backend_unavailable: 'common.backendUnavailable',
 }
 
+import { MAX_PASSWORD, MIN_PASSWORD } from '../../shared/password'
+
 export function authErrorText(error: AuthError): string {
-  return t(ERROR_KEY[error] ?? 'err.generic')
+  return t(ERROR_KEY[error] ?? 'err.generic', { min: MIN_PASSWORD, max: MAX_PASSWORD })
 }
 
 const TIMEOUT_MS = 12_000
@@ -121,6 +125,7 @@ const KNOWN_ERRORS: AuthError[] = [
   'email_taken',
   'email_not_activated',
   'weak_password',
+  'invalid_password',
   'activation_cooldown',
   'activation_rate_limit',
   'email_failed',

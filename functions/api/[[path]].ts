@@ -60,6 +60,7 @@ import {
   toUser,
   updatePendingUserPassword,
   validateEmail,
+  validateLoginPassword,
   validatePassword,
   verifyPassword,
 } from '../lib/auth'
@@ -312,7 +313,7 @@ async function authLogin(ctx: Ctx): Promise<Response> {
 
   const emailError = validateEmail(email)
   if (emailError) return json({ error: emailError }, 400)
-  const pwError = validatePassword(password)
+  const pwError = validateLoginPassword(password)
   if (pwError) return json({ error: pwError }, 400)
 
   const row = await findUserByEmail(env, email)

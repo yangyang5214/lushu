@@ -13,6 +13,7 @@ import {
 } from '../lib/auth'
 import { navigateList, readRoute } from '../lib/router'
 import { getLang, useI18n } from '../lib/i18n'
+import { MAX_PASSWORD, MIN_PASSWORD, hasInvalidPasswordChars, passwordStrength } from '../../shared/password'
 import { flushPending } from '../lib/sync'
 import { mountTurnstile, turnstileConfigured } from '../lib/turnstile'
 import { SiteNav } from './Chrome'
@@ -42,6 +43,16 @@ function IconLock() {
     <svg viewBox="0 0 24 24" aria-hidden>
       <rect x="5" y="10.5" width="14" height="9.5" rx="2.2" />
       <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+    </svg>
+  )
+}
+
+function IconEye({ off }: { off?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3.2" />
+      {off ? <path d="m4 4 16 16" /> : null}
     </svg>
   )
 }
@@ -87,6 +98,7 @@ function AuthPanel() {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const [turnstileKey, setTurnstileKey] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -125,6 +137,7 @@ function AuthPanel() {
     setMode(next)
     setError(null)
     setPassword('')
+    setShowPassword(false)
     setRegisterPending(false)
     setActivationNotice(null)
     resetTurnstile()
@@ -175,11 +188,16 @@ function AuthPanel() {
       emailRef.current?.focus()
       return
     }
-    if (password.length < 6) {
-      setError('weak_password')
-      return
-    }
+    // 登录不做口令形态校验（老账号可能更短或含中文），交给服务端验证。
     if (mode === 'register') {
+      if (password.length < MIN_PASSWORD) {
+        setError('weak_password')
+        return
+      }
+      if (hasInvalidPasswordChars(password)) {
+        setError('invalid_password')
+        return
+      }
       if (needTurnstile && !turnstileToken) {
         setError('turnstile_required')
         return
@@ -212,6 +230,14 @@ function AuthPanel() {
   }
 
   const disabled = status !== 'ready' || busy
+  const strength = passwordStrength(password)
+  const strengthLabel =
+    strength === 'strong'
+      ? 'auth.pwStrong'
+      : strength === 'fair'
+        ? 'auth.pwFair'
+        : 'auth.pwWeak'
+  const badChars = hasInvalidPasswordChars(password)
   const showResend =
     error === 'email_not_activated' ||
     registerPending ||
@@ -322,14 +348,36 @@ function AuthPanel() {
           <div className="auth-input">
             <IconLock />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder={t('auth.passwordPlaceholder')}
-              maxLength={128}
+              placeholder={t('auth.passwordPlaceholder', { min: MIN_PASSWORD })}
+              maxLength={MAX_PASSWORD}
             />
+            <button
+              type="button"
+              className="auth-eye"
+              aria-label={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+              aria-pressed={showPassword}
+              title={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              <IconEye off={showPassword} />
+            </button>
           </div>
+          {mode === 'register' && password ? (
+            <div className="pw-hint" data-level={badChars ? 'invalid' : strength}>
+              <span className="pw-bars" aria-hidden>
+                <i />
+                <i />
+                <i />
+              </span>
+              <span className="pw-text">
+                {badChars ? t('auth.pwInvalid') : t(strengthLabel)}
+              </span>
+            </div>
+          ) : null}
         </label>
 
         {mode === 'register' ? (

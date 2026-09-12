@@ -10,8 +10,11 @@
 //   · 会话是 httpOnly cookie，库里的 sessions 只存 token 的 SHA-256 摘要，
 //     即使 D1 被读走也换不到登录态。
 //   · 口令用 PBKDF2-SHA256 迭代 10 万次，明文永不落库。
+//   · 口令强度门槛（长度 / 允许字符）在 shared/password.ts，前后端共用一份。
 //
 // 免费档开销：读一次会话 = 1 行读（带主键索引）；登录/注册 = 1 行写。
+
+import { MAX_PASSWORD, MIN_PASSWORD, hasInvalidPasswordChars } from '../../shared/password'
 
 export type AuthUser = {
   id: string
@@ -44,8 +47,8 @@ export const ID_RE = /^[0-9a-f]{32}$/
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 export const MAX_EMAIL = 254
 export const MAX_DISPLAY_NAME = 32
-export const MIN_PASSWORD = 6
-export const MAX_PASSWORD = 128
+
+export { MAX_PASSWORD, MIN_PASSWORD }
 export const SESSION_COOKIE = 'lushu_session'
 
 const PBKDF2_ITERATIONS = 100_000
@@ -165,9 +168,21 @@ export function normalizeDisplayName(raw: unknown, email: string): string {
   return (name || fallback).slice(0, MAX_DISPLAY_NAME)
 }
 
+/** 注册口令：长度 8–128 位，且只用字母 / 数字 / 特殊字符（不允许中文、空格）。 */
 export function validatePassword(password: string): string | null {
   if (password.length < MIN_PASSWORD) return 'weak_password'
   if (password.length > MAX_PASSWORD) return 'weak_password'
+  if (hasInvalidPasswordChars(password)) return 'invalid_password'
+  return null
+}
+
+/**
+ * 登录口令：只卡长度上界，不做字符种类与最小长度校验。
+ * 老账号（更短或含中文的口令）仍然能登录，验证交给 verifyPassword。
+ */
+export function validateLoginPassword(password: string): string | null {
+  if (!password) return 'invalid_credentials'
+  if (password.length > MAX_PASSWORD) return 'invalid_credentials'
   return null
 }
 

@@ -1504,6 +1504,88 @@
   outline: none;
 }
 
+.auth-eye {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-right: -4px;
+  padding: 4px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.auth-eye:hover {
+  background: var(--border);
+}
+
+.auth-eye svg {
+  stroke: var(--muted);
+}
+
+.auth-eye:hover svg,
+.auth-eye[aria-pressed='true'] svg {
+  stroke: var(--text-2);
+}
+
+.pw-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pw-bars {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+
+.pw-bars i {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.pw-hint[data-level='weak'] .pw-bars i:nth-child(1) {
+  background: var(--bad);
+}
+
+.pw-hint[data-level='invalid'] .pw-bars i {
+  background: var(--bad);
+}
+
+.pw-hint[data-level='invalid'] .pw-text {
+  color: var(--bad);
+}
+
+.pw-hint[data-level='fair'] .pw-bars i:nth-child(-n + 2) {
+  background: var(--warn);
+}
+
+.pw-hint[data-level='strong'] .pw-bars i {
+  background: var(--good);
+}
+
+.pw-hint[data-level='weak'] .pw-text {
+  color: var(--bad);
+}
+
+.pw-hint[data-level='fair'] .pw-text {
+  color: var(--warn);
+}
+
+.pw-hint[data-level='strong'] .pw-text {
+  color: var(--good);
+}
+
 .auth-code-row {
   display: flex;
   align-items: stretch;
