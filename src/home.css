@@ -2178,3 +2178,62 @@
     gap: 4px;
   }
 }
+
+/* ============================================================
+   语言切换：中文 / EN 两段式
+   ============================================================ */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border, #d8cbb3);
+  border-radius: var(--r-sm, 6px);
+  background: var(--surface-2, rgba(251, 246, 236, 0.72));
+}
+
+.lang-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted, #7a6f62);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.lang-switch button:hover {
+  color: var(--text, #1b1712);
+}
+
+.lang-switch button.on {
+  background: var(--text, #1b1712);
+  color: #ffffff;
+}
+
+.admin-lang {
+  margin-top: 16px;
+}
+
+.admin-sidebar-foot .admin-lang {
+  margin: 4px 0 4px;
+  align-self: flex-start;
+}
+
+@media (max-width: 560px) {
+  .lang-switch button {
+    padding: 6px 7px;
+    font-size: 11px;
+  }
+
+  .admin-sidebar-foot .admin-lang {
+    flex-direction: column;
+    align-self: center;
+    margin: 4px auto 6px;
+  }
+}

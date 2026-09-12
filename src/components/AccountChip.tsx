@@ -1,9 +1,10 @@
-import { BACKEND_UNAVAILABLE } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useI18n } from '../lib/i18n'
 import { navigateAccount } from '../lib/router'
 
 /** 页头右侧的账户入口：未登录显示「账户」，登录后显示昵称。 */
 export function AccountChip() {
+  const { t } = useI18n()
   const status = useAuth((s) => s.status)
   const user = useAuth((s) => s.user)
 
@@ -15,9 +16,9 @@ export function AccountChip() {
         type="button"
         className="account-chip error"
         onClick={() => navigateAccount()}
-        title={BACKEND_UNAVAILABLE}
+        title={t('common.backendUnavailable')}
       >
-        服务不可用
+        {t('nav.serviceDown')}
       </button>
     )
   }
@@ -29,14 +30,14 @@ export function AccountChip() {
           type="button"
           className="account-chip who"
           onClick={() => navigateAccount()}
-          title={`账户 · ${user.email}`}
+          title={t('nav.accountTitle', { email: user.email })}
         >
           <span className="account-avatar">{user.displayName.slice(0, 1).toUpperCase()}</span>
           {user.displayName}
         </button>
       ) : (
         <button type="button" className="account-chip" onClick={() => navigateAccount()}>
-          账户
+          {t('nav.account')}
         </button>
       )}
     </div>

@@ -1,5 +1,6 @@
 import type { DayPlan, Place } from '../types'
 import { wgs84ToGcj02 } from '../../shared/coords'
+import { t } from './i18n'
 
 export { wgs84ToGcj02 }
 
@@ -39,15 +40,15 @@ export function isSamePlace(a: LngLat, b: LngLat, meters = LOOP_METERS): boolean
 }
 
 export function formatKm(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} 米`
-  return `${km < 10 ? km.toFixed(1) : Math.round(km)} 公里`
+  if (km < 1) return t('unit.meters', { n: Math.round(km * 1000) })
+  return t('unit.km', { n: km < 10 ? km.toFixed(1) : Math.round(km) })
 }
 
 export function formatDuration(min: number): string {
-  if (min < 60) return `${min} 分钟`
+  if (min < 60) return t('eta.minutes', { n: min })
   const h = Math.floor(min / 60)
   const m = min % 60
-  return m ? `${h} 小时 ${m} 分` : `${h} 小时`
+  return m ? t('eta.hoursMinutes', { h, m }) : t('eta.hours', { n: h })
 }
 
 function nearestNeighbor(start: Place, rest: Place[]): Place[] {

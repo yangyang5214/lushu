@@ -1,10 +1,6 @@
 import type { Book, Visibility } from '../types'
 import { getMeta, ownerKey } from './keys'
 
-/** 后端 / Worker 不可达时的统一提示（纯前端 dev 或 wrangler.toml 未配时会看到）。 */
-export const BACKEND_UNAVAILABLE =
-  '连不上后端：请确认已配置 wrangler.toml 并运行 pnpm pages:dev，或已完成部署'
-
 export type RemoteBook = { id: string; doc: Book; updatedAt: number; owner: string }
 export type BookSummary = {
   id: string

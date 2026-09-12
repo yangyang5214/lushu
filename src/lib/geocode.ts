@@ -1,5 +1,6 @@
 import type { SearchHit } from '../types'
 import { searchGazetteer } from './gazetteer'
+import { t } from './i18n'
 
 type PhotonFeature = {
   geometry: { coordinates: [number, number] }
@@ -22,7 +23,7 @@ type NominatimHit = {
 }
 
 function labelOf(props: PhotonFeature['properties']): { name: string; address: string } {
-  const name = props.name || props.street || props.city || '未命名地点'
+  const name = props.name || props.street || props.city || t('search.unknownPlace')
   const parts = [props.district, props.city, props.county, props.state, props.country].filter(
     (part, i, arr) => part && arr.indexOf(part) === i && part !== name,
   )

@@ -16,28 +16,29 @@ import {
   type AdminStats,
   type AdminUser,
 } from '../lib/admin-api'
-import { BACKEND_UNAVAILABLE } from '../lib/api'
+import { getLang, t, useI18n, type MsgKey } from '../lib/i18n'
 import { bookPath, navigateList } from '../lib/router'
 import { BrandMark } from './BrandMark'
+import { LangSwitch } from './LangSwitch'
 
 type Tab = 'overview' | 'users' | 'books'
 
 const PAGE_SIZE = 30
 
-const TAB_LABEL: Record<Tab, string> = {
-  overview: '概览',
-  users: '用户',
-  books: '路书',
+const TAB_KEY: Record<Tab, MsgKey> = {
+  overview: 'admin.overview',
+  users: 'admin.users',
+  books: 'admin.books',
 }
 
 function fmtTime(ts: number): string {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('zh-CN', { hour12: false })
+  return d.toLocaleString(getLang() === 'en' ? 'en-US' : 'zh-CN', { hour12: false })
 }
 
 function visLabel(v: 'public' | 'private'): string {
-  return v === 'private' ? '私密' : '公开'
+  return v === 'private' ? t('admin.visPrivate') : t('admin.visPublic')
 }
 
 function AdminScreen({ children }: { children: ReactNode }) {
@@ -49,6 +50,7 @@ function AdminScreen({ children }: { children: ReactNode }) {
 }
 
 function AdminLogin({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n()
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -76,21 +78,19 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
       return
     }
     if (result === 'offline') {
-      setError(BACKEND_UNAVAILABLE)
+      setError(t('common.backendUnavailable'))
       return
     }
-    setError('口令不正确')
+    setError(t('admin.wrongPassphrase'))
   }
 
   if (disabled) {
     return (
       <AdminScreen>
         <div className="admin-card">
-          <h1>管理后台</h1>
-          <p className="admin-muted">
-            管理功能未启用：请在 wrangler.toml 的 [vars] 或 .dev.vars 中设置 ADMIN_SECRET（至少 6
-            字符），然后重启 Worker。
-          </p>
+          <h1>{t('admin.title')}</h1>
+          <p className="admin-muted">{t('admin.disabled')}</p>
+          <LangSwitch className="admin-lang" />
         </div>
       </AdminScreen>
     )
@@ -101,13 +101,13 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
       <div className="admin-card">
         <div className="admin-card-brand">
           <BrandMark />
-          <span>lushu 管理</span>
+          <span>lushu {t('admin.brand')}</span>
         </div>
-        <h1>登录</h1>
-        <p className="admin-muted">请输入管理员口令以继续。</p>
+        <h1>{t('admin.login')}</h1>
+        <p className="admin-muted">{t('admin.enterPrompt')}</p>
         <form className="admin-form" onSubmit={(e) => void submit(e)}>
           <label>
-            <span>管理员口令</span>
+            <span>{t('admin.passphrase')}</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -118,36 +118,34 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
           </label>
           {error ? <p className="admin-error">{error}</p> : null}
           <button type="submit" className="btn-primary" disabled={busy || !token.trim()}>
-            {busy ? '验证中…' : '进入'}
+            {busy ? t('admin.verifying') : t('admin.enter')}
           </button>
         </form>
+        <LangSwitch className="admin-lang" />
       </div>
     </AdminScreen>
   )
 }
 
 function StatCards({ stats }: { stats: AdminStats }) {
+  const { t } = useI18n()
   return (
     <div className="admin-stats">
       <div className="admin-stat">
         <b>{stats.users}</b>
-        <span>注册用户</span>
+        <span>{t('admin.statUsers')}</span>
       </div>
       <div className="admin-stat">
         <b>{stats.books}</b>
-        <span>路书总数</span>
+        <span>{t('admin.statBooks')}</span>
       </div>
       <div className="admin-stat">
         <b>{stats.publicBooks}</b>
-        <span>公开路书</span>
+        <span>{t('admin.statPublic')}</span>
       </div>
       <div className="admin-stat">
         <b>{stats.privateBooks}</b>
-        <span>私密路书</span>
-      </div>
-      <div className="admin-stat">
-        <b>{stats.activeSessions}</b>
-        <span>活跃会话</span>
+        <span>{t('admin.statPrivate')}</span>
       </div>
     </div>
   )
@@ -164,22 +162,21 @@ function Pager({
   pageSize: number
   onChange: (next: number) => void
 }) {
+  const { t } = useI18n()
   const page = Math.floor(offset / pageSize) + 1
   const pages = Math.max(1, Math.ceil(total / pageSize))
   return (
     <div className="admin-pager">
       <button type="button" disabled={offset <= 0} onClick={() => onChange(Math.max(0, offset - pageSize))}>
-        上一页
+        {t('admin.prevPage')}
       </button>
-      <span>
-        第 {page} / {pages} 页（共 {total} 条）
-      </span>
+      <span>{t('admin.pageInfo', { page, pages, total })}</span>
       <button
         type="button"
         disabled={offset + pageSize >= total}
         onClick={() => onChange(offset + pageSize)}
       >
-        下一页
+        {t('admin.nextPage')}
       </button>
     </div>
   )
@@ -189,7 +186,7 @@ function Pager({
 function DangerConfirm({
   busy,
   onConfirm,
-  label = '删除',
+  label,
   hint,
 }: {
   busy: boolean
@@ -197,6 +194,7 @@ function DangerConfirm({
   label?: string
   hint?: string
 }) {
+  const { t } = useI18n()
   const [asking, setAsking] = useState(false)
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
@@ -210,7 +208,7 @@ function DangerConfirm({
           setAsking(true)
         }}
       >
-        {label}
+        {label ?? t('common.delete')}
       </button>
     )
   }
@@ -218,10 +216,10 @@ function DangerConfirm({
     <span className="admin-danger-group" onClick={stop}>
       {hint ? <span className="admin-danger-hint">{hint}</span> : null}
       <button type="button" className="admin-danger on" disabled={busy} onClick={onConfirm}>
-        {busy ? '删除中…' : '确认删除'}
+        {busy ? t('admin.deleting') : t('admin.confirmDelete')}
       </button>
       <button type="button" className="admin-cancel" disabled={busy} onClick={() => setAsking(false)}>
-        取消
+        {t('common.cancel')}
       </button>
     </span>
   )
@@ -234,6 +232,7 @@ function UsersPanel({
   onSelect: (user: AdminUser) => void
   onChanged: () => void
 }) {
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
@@ -285,12 +284,12 @@ function UsersPanel({
       >
         <input
           type="search"
-          placeholder="搜索邮箱或昵称"
+          placeholder={t('admin.searchEmailPlaceholder')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <button type="submit" className="btn-ghost">
-          搜索
+          {t('admin.search')}
         </button>
       </form>
       {error ? <p className="admin-error">{error}</p> : null}
@@ -298,14 +297,14 @@ function UsersPanel({
         <table className="admin-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>邮箱</th>
-              <th>昵称</th>
-              <th>公开 ID</th>
-              <th>路书</th>
-              <th>状态</th>
-              <th>注册时间</th>
-              <th>操作</th>
+              <th>{t('admin.colId')}</th>
+              <th>{t('admin.colEmail')}</th>
+              <th>{t('admin.colName')}</th>
+              <th>{t('admin.colHashId')}</th>
+              <th>{t('admin.colBooks')}</th>
+              <th>{t('admin.colStatus')}</th>
+              <th>{t('admin.colCreated')}</th>
+              <th>{t('admin.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -316,12 +315,12 @@ function UsersPanel({
                 <td>{u.displayName}</td>
                 <td className="mono">{u.hashId || '—'}</td>
                 <td>{u.bookCount}</td>
-                <td>{u.activated ? '已激活' : '待激活'}</td>
+                <td>{u.activated ? t('admin.activated') : t('admin.pending')}</td>
                 <td>{fmtTime(u.createdAt)}</td>
                 <td>
                   <DangerConfirm
                     busy={busyId === u.id}
-                    hint={u.bookCount > 0 ? `连同 ${u.bookCount} 本路书` : undefined}
+                    hint={u.bookCount > 0 ? t('admin.withBooks', { n: u.bookCount }) : undefined}
                     onConfirm={() => void remove(u.id)}
                   />
                 </td>
@@ -342,6 +341,7 @@ function BooksPanel({
   onSelect: (book: AdminBookSummary) => void
   onChanged: () => void
 }) {
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [visibility, setVisibility] = useState<'all' | 'public' | 'private'>('all')
@@ -394,17 +394,17 @@ function BooksPanel({
       >
         <input
           type="search"
-          placeholder="搜索路书标题"
+          placeholder={t('admin.searchBookPlaceholder')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select value={visibility} onChange={(e) => setVisibility(e.target.value as typeof visibility)}>
-          <option value="all">全部可见性</option>
-          <option value="public">仅公开</option>
-          <option value="private">仅私密</option>
+          <option value="all">{t('admin.allVisibility')}</option>
+          <option value="public">{t('admin.onlyPublic')}</option>
+          <option value="private">{t('admin.onlyPrivate')}</option>
         </select>
         <button type="submit" className="btn-ghost">
-          搜索
+          {t('admin.search')}
         </button>
       </form>
       {error ? <p className="admin-error">{error}</p> : null}
@@ -412,23 +412,23 @@ function BooksPanel({
         <table className="admin-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>标题</th>
-              <th>可见性</th>
-              <th>地点</th>
-              <th>书主</th>
-              <th>更新时间</th>
-              <th>操作</th>
+              <th>{t('admin.colId')}</th>
+              <th>{t('admin.colTitle')}</th>
+              <th>{t('admin.colVisibility')}</th>
+              <th>{t('admin.colPlaces')}</th>
+              <th>{t('admin.colOwner')}</th>
+              <th>{t('admin.colUpdated')}</th>
+              <th>{t('admin.colActions')}</th>
             </tr>
           </thead>
           <tbody>
             {books.map((b) => (
               <tr key={b.id} className="admin-row-click" onClick={() => onSelect(b)}>
                 <td className="mono">{b.id}</td>
-                <td>{b.title || '（未命名）'}</td>
+                <td>{b.title || t('admin.untitled')}</td>
                 <td>{visLabel(b.visibility)}</td>
                 <td>{b.places}</td>
-                <td>{b.ownerEmail ?? b.ownerHashId ?? '匿名'}</td>
+                <td>{b.ownerEmail ?? b.ownerHashId ?? t('common.anonymous')}</td>
                 <td>{fmtTime(b.updatedAt)}</td>
                 <td>
                   <DangerConfirm busy={busyId === b.id} onConfirm={() => void remove(b.id)} />
@@ -452,6 +452,7 @@ function UserDetail({
   onBack: () => void
   onDeleted: () => void
 }) {
+  const { t } = useI18n()
   const [books, setBooks] = useState<
     Array<{
       id: string
@@ -487,62 +488,62 @@ function UserDetail({
     <div className="admin-detail">
       <div className="admin-detail-head">
         <button type="button" className="btn-ghost admin-back" onClick={onBack}>
-          ← 返回用户列表
+          {t('admin.backUsers')}
         </button>
         <DangerConfirm
           busy={busy}
-          hint={books.length > 0 ? `连同 ${books.length} 本路书` : undefined}
+          hint={books.length > 0 ? t('admin.withBooks', { n: books.length }) : undefined}
           onConfirm={() => void remove()}
         />
       </div>
       <h2>{user.displayName}</h2>
       <dl className="admin-kv">
         <div>
-          <dt>邮箱</dt>
+          <dt>{t('admin.colEmail')}</dt>
           <dd>{user.email}</dd>
         </div>
         <div>
-          <dt>用户 ID</dt>
+          <dt>{t('admin.publicId')}</dt>
           <dd className="mono">{user.hashId || '—'}</dd>
         </div>
         <div>
-          <dt>内部 owner_key</dt>
+          <dt>{t('admin.internalOwner')}</dt>
           <dd className="mono">{user.id}</dd>
         </div>
         <div>
-          <dt>状态</dt>
-          <dd>{user.activated ? '已激活' : '待激活'}</dd>
+          <dt>{t('admin.status')}</dt>
+          <dd>{user.activated ? t('admin.activated') : t('admin.pending')}</dd>
         </div>
         <div>
-          <dt>注册时间</dt>
+          <dt>{t('admin.colCreated')}</dt>
           <dd>{fmtTime(user.createdAt)}</dd>
         </div>
       </dl>
       {error ? <p className="admin-error">{error}</p> : null}
-      <h3>路书（{books.length}）</h3>
+      <h3>{t('admin.booksCount', { n: books.length })}</h3>
       <div className="admin-table-wrap">
         <table className="admin-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>标题</th>
-              <th>可见性</th>
-              <th>地点</th>
-              <th>更新时间</th>
-              <th>链接</th>
+              <th>{t('admin.colId')}</th>
+              <th>{t('admin.colTitle')}</th>
+              <th>{t('admin.colVisibility')}</th>
+              <th>{t('admin.colPlaces')}</th>
+              <th>{t('admin.colUpdated')}</th>
+              <th>{t('admin.colLink')}</th>
             </tr>
           </thead>
           <tbody>
             {books.map((b) => (
               <tr key={b.id}>
                 <td className="mono">{b.id}</td>
-                <td>{b.title || '（未命名）'}</td>
+                <td>{b.title || t('admin.untitled')}</td>
                 <td>{visLabel(b.visibility)}</td>
                 <td>{b.places}</td>
                 <td>{fmtTime(b.updatedAt)}</td>
                 <td>
                   <a href={bookPath(b.id, user.hashId || undefined)} target="_blank" rel="noreferrer">
-                    打开
+                    {t('admin.open')}
                   </a>
                 </td>
               </tr>
@@ -563,6 +564,7 @@ function BookDetail({
   onBack: () => void
   onDeleted: () => void
 }) {
+  const { t } = useI18n()
   const [book, setBook] = useState<AdminBookDetail | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -593,40 +595,40 @@ function BookDetail({
     <div className="admin-detail">
       <div className="admin-detail-head">
         <button type="button" className="btn-ghost admin-back" onClick={onBack}>
-          ← 返回路书列表
+          {t('admin.backBooks')}
         </button>
         <DangerConfirm busy={busy} onConfirm={() => void remove()} />
       </div>
       {error ? <p className="admin-error">{error}</p> : null}
-      {!book ? <p className="admin-muted">加载中…</p> : null}
+      {!book ? <p className="admin-muted">{t('common.loading')}</p> : null}
       {book ? (
         <>
-          <h2>{title || '（未命名）'}</h2>
+          <h2>{title || t('admin.untitled')}</h2>
           <dl className="admin-kv">
             <div>
-              <dt>路书 ID</dt>
+              <dt>{t('admin.bookId')}</dt>
               <dd className="mono">{book.id}</dd>
             </div>
             <div>
-              <dt>可见性</dt>
+              <dt>{t('admin.colVisibility')}</dt>
               <dd>{visLabel(visibility)}</dd>
             </div>
             <div>
-              <dt>地点数</dt>
+              <dt>{t('admin.placesCount')}</dt>
               <dd>{places}</dd>
             </div>
             <div>
-              <dt>书主</dt>
-              <dd>{book.ownerEmail ?? book.ownerHashId ?? '匿名'}</dd>
+              <dt>{t('admin.colOwner')}</dt>
+              <dd>{book.ownerEmail ?? book.ownerHashId ?? t('common.anonymous')}</dd>
             </div>
             <div>
-              <dt>创建 / 更新</dt>
+              <dt>{t('admin.createdUpdated')}</dt>
               <dd>
                 {fmtTime(book.createdAt)} / {fmtTime(book.updatedAt)}
               </dd>
             </div>
           </dl>
-          <h3>完整数据</h3>
+          <h3>{t('admin.rawData')}</h3>
           <pre className="admin-json">{JSON.stringify(book.doc, null, 2)}</pre>
         </>
       ) : null}
@@ -643,6 +645,7 @@ function AdminSidebar({
   onTab: (tab: Tab) => void
   onLogout: () => void
 }) {
+  const { t } = useI18n()
   const items: Tab[] = ['overview', 'users', 'books']
   return (
     <aside className="admin-sidebar">
@@ -650,7 +653,7 @@ function AdminSidebar({
         <BrandMark />
         <div>
           <b>lushu</b>
-          <span>管理后台</span>
+          <span>{t('admin.title')}</span>
         </div>
       </div>
       <nav className="admin-sidebar-nav">
@@ -661,16 +664,17 @@ function AdminSidebar({
             className={tab === key ? 'on' : undefined}
             onClick={() => onTab(key)}
           >
-            {TAB_LABEL[key]}
+            {t(TAB_KEY[key])}
           </button>
         ))}
       </nav>
       <div className="admin-sidebar-foot">
+        <LangSwitch className="admin-lang" />
         <button type="button" className="admin-sidebar-link" onClick={() => navigateList()}>
-          返回站点
+          {t('admin.backToSite')}
         </button>
         <button type="button" className="admin-sidebar-link danger" onClick={onLogout}>
-          退出登录
+          {t('admin.signOut')}
         </button>
       </div>
     </aside>
@@ -678,6 +682,7 @@ function AdminSidebar({
 }
 
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
+  const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('overview')
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [error, setError] = useState('')
@@ -688,8 +693,8 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     setError('')
     return fetchAdminStats()
       .then(setStats)
-      .catch((err) => setError(err instanceof Error ? err.message : BACKEND_UNAVAILABLE))
-  }, [])
+      .catch((err) => setError(err instanceof Error ? err.message : t('common.backendUnavailable')))
+  }, [t])
 
   useEffect(() => {
     void refreshStats()
@@ -705,9 +710,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     setSelectedBook(null)
   }
 
-  let title = TAB_LABEL[tab]
-  if (selectedUser) title = '用户详情'
-  if (selectedBook) title = '路书详情'
+  let title = t(TAB_KEY[tab])
+  if (selectedUser) title = t('admin.userDetail')
+  if (selectedBook) title = t('admin.bookDetail')
 
   let body: ReactNode = null
   if (selectedUser) {
@@ -733,7 +738,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       />
     )
   } else if (tab === 'overview') {
-    body = stats ? <StatCards stats={stats} /> : <p className="admin-muted">加载中…</p>
+    body = stats ? <StatCards stats={stats} /> : <p className="admin-muted">{t('common.loading')}</p>
   } else if (tab === 'users') {
     body = <UsersPanel onSelect={setSelectedUser} onChanged={() => void refreshStats()} />
   } else {
@@ -762,6 +767,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
 /** `/admin`：管理后台（需 ADMIN_SECRET 口令）。 */
 export function AdminPage() {
+  const { t } = useI18n()
   const [probe, setProbe] = useState<AdminProbe>('loading')
 
   const refresh = useCallback(() => {
@@ -776,7 +782,8 @@ export function AdminPage() {
     return (
       <AdminScreen>
         <div className="admin-card">
-          <p className="admin-muted">正在确认权限…</p>
+          <p className="admin-muted">{t('admin.checking')}</p>
+          <LangSwitch className="admin-lang" />
         </div>
       </AdminScreen>
     )
@@ -786,8 +793,9 @@ export function AdminPage() {
     return (
       <AdminScreen>
         <div className="admin-card">
-          <h1>管理后台</h1>
-          <p className="admin-muted">{BACKEND_UNAVAILABLE}</p>
+          <h1>{t('admin.title')}</h1>
+          <p className="admin-muted">{t('common.backendUnavailable')}</p>
+          <LangSwitch className="admin-lang" />
         </div>
       </AdminScreen>
     )

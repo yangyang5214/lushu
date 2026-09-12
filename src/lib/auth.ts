@@ -10,7 +10,7 @@
 // 这里只负责账号态；路书同步仍由 sync.ts 负责。
 
 import { create } from 'zustand'
-import { BACKEND_UNAVAILABLE } from './api'
+import { t, type MsgKey } from './i18n'
 import { ownerKey } from './keys'
 import { markBookOrigin, navigateAccount } from './router'
 
@@ -80,23 +80,23 @@ export type AuthError =
   | 'network'
   | 'backend_unavailable'
 
-const ERROR_TEXT: Record<AuthError, string> = {
-  invalid_credentials: '邮箱或密码不对',
-  invalid_email: '请输入有效的邮箱地址',
-  email_taken: '这个邮箱已经注册过了，直接登录即可',
-  email_not_activated: '账号尚未激活，请查收邮件并点击激活链接',
-  weak_password: '密码至少 6 位',
-  activation_cooldown: '发送太频繁，请稍后再试',
-  activation_rate_limit: '该邮箱今日发信次数已达上限，请稍后再试',
-  email_failed: '激活邮件发送失败，请稍后再试',
-  turnstile_required: '请先完成人机验证',
-  turnstile_failed: '人机验证失败，请重试',
-  network: '网络不可用，账号暂时用不了',
-  backend_unavailable: BACKEND_UNAVAILABLE,
+const ERROR_KEY: Record<AuthError, MsgKey> = {
+  invalid_credentials: 'err.invalid_credentials',
+  invalid_email: 'err.invalid_email',
+  email_taken: 'err.email_taken',
+  email_not_activated: 'err.email_not_activated',
+  weak_password: 'err.weak_password',
+  activation_cooldown: 'err.activation_cooldown',
+  activation_rate_limit: 'err.activation_rate_limit',
+  email_failed: 'err.email_failed',
+  turnstile_required: 'err.turnstile_required',
+  turnstile_failed: 'err.turnstile_failed',
+  network: 'err.network',
+  backend_unavailable: 'common.backendUnavailable',
 }
 
 export function authErrorText(error: AuthError): string {
-  return ERROR_TEXT[error] ?? '出了点问题，请重试'
+  return t(ERROR_KEY[error] ?? 'err.generic')
 }
 
 const TIMEOUT_MS = 12_000

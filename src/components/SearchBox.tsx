@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchGazetteer } from '../lib/gazetteer'
 import { searchPlaces } from '../lib/geocode'
+import { useI18n } from '../lib/i18n'
 import type { SearchHit } from '../types'
 import { useLushu } from '../store'
 
@@ -8,7 +9,8 @@ type Props = {
   placeholder?: string
 }
 
-export function SearchBox({ placeholder = '搜索添加新目的地' }: Props) {
+export function SearchBox({ placeholder }: Props) {
+  const { t } = useI18n()
   const addPlace = useLushu((s) => s.addPlace)
   const selectPlace = useLushu((s) => s.selectPlace)
   const [q, setQ] = useState('')
@@ -33,24 +35,24 @@ export function SearchBox({ placeholder = '搜索添加新目的地' }: Props) {
     setOpen(true)
     setErr('')
     setBusy(true)
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       searchPlaces(qn)
         .then((rows) => {
           if (gen !== genRef.current) return
           setHits(rows)
-          setErr(rows.length ? '' : '没有找到，试试更具体的地名')
+          setErr(rows.length ? '' : t('search.noResults'))
           setOpen(true)
         })
         .catch(() => {
           if (gen !== genRef.current) return
-          if (local.length === 0) setErr('在线搜索暂时不可用，请稍后再试')
+          if (local.length === 0) setErr(t('search.offline'))
         })
         .finally(() => {
           if (gen === genRef.current) setBusy(false)
         })
     }, 280)
-    return () => window.clearTimeout(t)
-  }, [q])
+    return () => window.clearTimeout(timer)
+  }, [q, t])
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -77,7 +79,7 @@ export function SearchBox({ placeholder = '搜索添加新目的地' }: Props) {
         <input
           id="place-search"
           value={q}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('search.placeholder')}
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => (hits.length || err) && setOpen(true)}
           autoComplete="off"

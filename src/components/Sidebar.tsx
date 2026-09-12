@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
+import { t, useI18n } from '../lib/i18n'
 import { navigateBookOrigin } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useSelectedId } from '../store'
@@ -14,11 +15,15 @@ function cityOf(place: Place | undefined): string {
 function legLabel(from: Place, to: Place): string {
   const km = haversineKm(from, to)
   const min = driveMinutes(km)
-  const kmText = km < 1 ? `${Math.round(km * 1000)}米` : `${Math.round(km)}公里`
-  if (min < 60) return `${kmText}  约${min}分钟`
+  const kmText =
+    km < 1
+      ? t('unit.meters', { n: Math.round(km * 1000) })
+      : t('unit.km', { n: Math.round(km) })
+  if (min < 60) return `${kmText}  ${t('eta.minutes', { n: min })}`
   const h = Math.floor(min / 60)
   const m = min % 60
-  return m ? `${kmText}  约${h}小时${m}分钟` : `${kmText}  约${h}小时`
+  const eta = m ? t('eta.hoursMinutes', { h, m }) : t('eta.hours', { n: h })
+  return `${kmText}  ${eta}`
 }
 
 function CarIcon() {
@@ -33,6 +38,7 @@ function CarIcon() {
 }
 
 export function Sidebar() {
+  const { t } = useI18n()
   const journey = useJourney()
   const selectedId = useSelectedId()
   const startId = useLushu((s) => s.startId)
@@ -66,8 +72,8 @@ export function Sidebar() {
           type="button"
           className="sheet-back"
           onClick={back}
-          title="返回上一页"
-          aria-label="返回上一页"
+          title={t('sidebar.back')}
+          aria-label={t('sidebar.back')}
         >
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M19 12H5" />
@@ -78,8 +84,8 @@ export function Sidebar() {
           className="title-input"
           value={journey.title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="未命名路书"
-          aria-label="路线名"
+          placeholder={t('sidebar.titlePlaceholder')}
+          aria-label={t('sidebar.routeName')}
         />
       </div>
 
@@ -92,7 +98,7 @@ export function Sidebar() {
               return (
                 <section key={day.index} className="day-block">
                   <button type="button" className="day-head" onClick={() => toggleFold(day.index)}>
-                    <strong>第{day.index + 1}天</strong>
+                    <strong>{t('sidebar.day', { n: day.index + 1 })}</strong>
                     <span>{cityOf(cityPlace)}</span>
                     <i className={folded[day.index] ? 'chev folded' : 'chev'} />
                   </button>
@@ -127,25 +133,31 @@ export function Sidebar() {
                                 <b>{no}</b>
                                 <strong>
                                   {place.name}
-                                  {place.id === startId && !isReturn ? <mark>起</mark> : null}
-                                  {place.id === endId && !journey.isLoop ? <mark>终</mark> : null}
-                                  {overnight ? <mark className="night">夜</mark> : null}
+                                  {place.id === startId && !isReturn ? (
+                                    <mark>{t('sidebar.startBadge')}</mark>
+                                  ) : null}
+                                  {place.id === endId && !journey.isLoop ? (
+                                    <mark>{t('sidebar.endBadge')}</mark>
+                                  ) : null}
+                                  {overnight ? (
+                                    <mark className="night">{t('sidebar.nightBadge')}</mark>
+                                  ) : null}
                                 </strong>
                               </button>
                               <div className="stop-ops">
                                 {canSplit ? (
                                   overnight ? (
                                     <button type="button" onClick={() => removeSplit(place.id)}>
-                                      取消过夜
+                                      {t('sidebar.cancelOvernight')}
                                     </button>
                                   ) : (
                                     <button type="button" onClick={() => addSplit(place.id)}>
-                                      过夜
+                                      {t('sidebar.overnight')}
                                     </button>
                                   )
                                 ) : null}
                                 <button type="button" onClick={() => removePlace(place.id)}>
-                                  删除
+                                  {t('common.delete')}
                                 </button>
                               </div>
                             </div>
@@ -172,8 +184,8 @@ export function Sidebar() {
                       <b>{i + 1}</b>
                       <strong>
                         {place.name}
-                        {place.id === startId ? <mark>起</mark> : null}
-                        {place.id === endId ? <mark>终</mark> : null}
+                        {place.id === startId ? <mark>{t('sidebar.startBadge')}</mark> : null}
+                        {place.id === endId ? <mark>{t('sidebar.endBadge')}</mark> : null}
                       </strong>
                     </button>
                     <div className="stop-ops always">
@@ -182,17 +194,17 @@ export function Sidebar() {
                         className={place.id === startId ? 'on' : ''}
                         onClick={() => setStart(place.id)}
                       >
-                        起点
+                        {t('sidebar.setStart')}
                       </button>
                       <button
                         type="button"
                         className={place.id === endId ? 'on' : ''}
                         onClick={() => setEnd(place.id)}
                       >
-                        终点
+                        {t('sidebar.setEnd')}
                       </button>
                       <button type="button" onClick={() => removePlace(place.id)}>
-                        删除
+                        {t('common.delete')}
                       </button>
                     </div>
                   </div>
@@ -206,8 +218,8 @@ export function Sidebar() {
         <div className="sheet-foot">
           <p className="hint">
             {journey.places.length === 0
-              ? '搜索添加地点，再设起点和终点。起终点相同即为环线。'
-              : '设好起点和终点后，其余点会按路程串成一条线。'}
+              ? t('sidebar.hintEmpty')
+              : t('sidebar.hintReady')}
           </p>
         </div>
       )}

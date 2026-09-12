@@ -36,7 +36,6 @@ export async function adminStats(env: Env): Promise<{
   books: number
   publicBooks: number
   privateBooks: number
-  activeSessions: number
 }> {
   const users = (await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>())?.n ?? 0
   const books = (await env.DB.prepare('SELECT COUNT(*) AS n FROM books').first<{ n: number }>())?.n ?? 0
@@ -47,13 +46,7 @@ export async function adminStats(env: Env): Promise<{
           WHERE COALESCE(json_extract(doc, '$.visibility'), 'public') = 'public'`,
       ).first<{ n: number }>()
     )?.n ?? 0
-  const activeSessions =
-    (
-      await env.DB.prepare('SELECT COUNT(*) AS n FROM sessions WHERE expires_at > ?')
-        .bind(Date.now())
-        .first<{ n: number }>()
-    )?.n ?? 0
-  return { users, books, publicBooks, privateBooks: books - publicBooks, activeSessions }
+  return { users, books, publicBooks, privateBooks: books - publicBooks }
 }
 
 export type AdminUserRow = {

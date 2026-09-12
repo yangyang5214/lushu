@@ -5,6 +5,40 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>路书 · 随意加点，自动串线与分天</title>
+    <script>
+      // 首屏前先按「上次选择 / 浏览器语言」定好 <html lang> 与标题，避免闪一下中文。
+      (function () {
+        try {
+          var raw = localStorage.getItem('lushu-lang-v1')
+          var lang = raw ? (JSON.parse(raw).state || {}).lang : null
+          if (lang !== 'zh' && lang !== 'en') {
+            var list =
+              navigator.languages && navigator.languages.length
+                ? navigator.languages
+                : [navigator.language]
+            lang = 'zh'
+            for (var i = 0; i < list.length; i += 1) {
+              var tag = (list[i] || '').toLowerCase()
+              if (tag.indexOf('zh') === 0) {
+                lang = 'zh'
+                break
+              }
+              if (tag.indexOf('en') === 0) {
+                lang = 'en'
+                break
+              }
+            }
+          }
+          document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN'
+          document.title =
+            lang === 'en'
+              ? 'Lushu · Add places freely, auto-link and split into days'
+              : '路书 · 随意加点，自动串线与分天'
+        } catch (e) {
+          /* 隐私模式：保持默认 */
+        }
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

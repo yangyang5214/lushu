@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { buildJourney } from './lib/journey'
 import { insertNearest, isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
+import { t } from './lib/i18n'
 import { readRoute } from './lib/router'
 import type { Book, Journey, Place, Visibility } from './types'
 
@@ -85,7 +86,7 @@ type Store = State & Actions
 
 const EMPTY_BOOK: Book = {
   id: '',
-  title: '未命名路书',
+  title: '',
   startDate: '',
   visibility: 'private',
   places: [],
@@ -193,7 +194,7 @@ export const useStore = create<Store>()(
         const now = Date.now()
         const book: Book = {
           id,
-          title: seed?.title ?? '未命名路书',
+          title: seed?.title ?? t('common.untitled'),
           startDate: seed?.startDate ?? '',
           visibility: seed?.visibility ?? 'private',
           places: seed?.places ?? [],
@@ -240,7 +241,7 @@ export const useStore = create<Store>()(
         const copy: Book = {
           ...src,
           id: nid,
-          title: `${src.title} 副本`,
+          title: t('card.copySuffix', { title: src.title }),
           visibility: 'private',
           places: src.places.map((p) => ({ ...p })),
           createdAt: now,
@@ -471,7 +472,7 @@ export const useStore = create<Store>()(
           const hasContent = Boolean(old.places?.length)
           const book: Book = {
             id,
-            title: old.title ?? '未命名路书',
+            title: old.title ?? t('common.untitled'),
             startDate: old.startDate ?? '',
             visibility: 'public',
             places: old.places ?? [],

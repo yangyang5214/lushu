@@ -1,4 +1,4 @@
-import { BACKEND_UNAVAILABLE } from './api'
+import { t } from './i18n'
 
 const TIMEOUT_MS = 12_000
 
@@ -21,7 +21,6 @@ export type AdminStats = {
   books: number
   publicBooks: number
   privateBooks: number
-  activeSessions: number
 }
 
 export type AdminUser = {
@@ -97,7 +96,7 @@ export async function adminLogout(): Promise<void> {
 
 export async function fetchAdminStats(): Promise<AdminStats> {
   const res = await request('/api/admin/stats')
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`stats ${res.status}`)
   return (await res.json()) as AdminStats
@@ -113,7 +112,7 @@ export async function fetchAdminUsers(opts: {
   if (opts.offset) params.set('offset', String(opts.offset))
   if (opts.q?.trim()) params.set('q', opts.q.trim())
   const res = await request(`/api/admin/users?${params}`)
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`users ${res.status}`)
   return (await res.json()) as { users: AdminUser[]; total: number }
@@ -131,7 +130,7 @@ export async function fetchAdminUser(id: string): Promise<{
   }>
 }> {
   const res = await request(`/api/admin/users/${encodeURIComponent(id)}`)
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (res.status === 404) throw new Error('not_found')
   if (!res.ok) throw new Error(`user ${res.status}`)
@@ -160,7 +159,7 @@ export async function fetchAdminBooks(opts: {
   if (opts.q?.trim()) params.set('q', opts.q.trim())
   if (opts.visibility && opts.visibility !== 'all') params.set('visibility', opts.visibility)
   const res = await request(`/api/admin/books?${params}`)
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`books ${res.status}`)
   return (await res.json()) as { books: AdminBookSummary[]; total: number }
@@ -168,7 +167,7 @@ export async function fetchAdminBooks(opts: {
 
 export async function fetchAdminBook(id: string): Promise<AdminBookDetail> {
   const res = await request(`/api/admin/books/${encodeURIComponent(id)}`)
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (res.status === 404) throw new Error('not_found')
   if (!res.ok) throw new Error(`book ${res.status}`)
@@ -178,7 +177,7 @@ export async function fetchAdminBook(id: string): Promise<AdminBookDetail> {
 /** 删除一本路书（硬删，不可恢复）。 */
 export async function deleteAdminBook(id: string): Promise<void> {
   const res = await request(`/api/admin/books/${encodeURIComponent(id)}`, { method: 'DELETE' })
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (res.status === 404) throw new Error('not_found')
   if (!res.ok) throw new Error(`delete book ${res.status}`)
@@ -187,7 +186,7 @@ export async function deleteAdminBook(id: string): Promise<void> {
 /** 删除一个账号（连同其路书与会话，硬删不可恢复）。 */
 export async function deleteAdminUser(id: string): Promise<{ books: number }> {
   const res = await request(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' })
-  if (!isJson(res)) throw new Error(BACKEND_UNAVAILABLE)
+  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
   if (res.status === 401) throw new Error('unauthorized')
   if (res.status === 404) throw new Error('not_found')
   if (!res.ok) throw new Error(`delete user ${res.status}`)

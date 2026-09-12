@@ -12,6 +12,7 @@ import {
   type AuthError,
 } from '../lib/auth'
 import { navigateList, readRoute } from '../lib/router'
+import { getLang, useI18n } from '../lib/i18n'
 import { flushPending } from '../lib/sync'
 import { mountTurnstile, turnstileConfigured } from '../lib/turnstile'
 import { SiteNav } from './Chrome'
@@ -21,6 +22,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 function fmtDate(ts: number): string {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ''
+  if (getLang() === 'en') {
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
   return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
 }
 
@@ -45,6 +49,7 @@ function IconLock() {
 // ── 登录 / 注册表单 ──────────────────────────────────────────────────────────
 
 type Mode = 'login' | 'register'
+type ActivationNotice = 'expired' | 'invalid' | 'resent'
 
 function TurnstileField({
   resetKey,
@@ -76,6 +81,7 @@ function TurnstileField({
 }
 
 function AuthPanel() {
+  const { t } = useI18n()
   const status = useAuth((s) => s.status)
   const backendError = useAuth((s) => s.error)
   const [mode, setMode] = useState<Mode>('login')
@@ -86,7 +92,7 @@ function AuthPanel() {
   const [busy, setBusy] = useState(false)
   const [resending, setResending] = useState(false)
   const [registerPending, setRegisterPending] = useState(false)
-  const [activationNotice, setActivationNotice] = useState<string | null>(null)
+  const [activationNotice, setActivationNotice] = useState<ActivationNotice | null>(null)
   const [error, setError] = useState<AuthError | null>(null)
   const emailRef = useRef<HTMLInputElement>(null)
   const needTurnstile = turnstileConfigured()
@@ -106,10 +112,10 @@ function AuthPanel() {
     const params = new URLSearchParams(window.location.search)
     const activate = params.get('activate')
     if (activate === 'expired') {
-      setActivationNotice('激活链接已过期，请重新注册或重发激活邮件。')
+      setActivationNotice('expired')
       window.history.replaceState(null, '', window.location.pathname)
     } else if (activate === 'invalid') {
-      setActivationNotice('激活链接无效，请重新注册或重发激活邮件。')
+      setActivationNotice('invalid')
       window.history.replaceState(null, '', window.location.pathname)
     }
   }, [])
@@ -156,7 +162,7 @@ function AuthPanel() {
       }
       return
     }
-    setActivationNotice('激活邮件已重新发送，请查收。')
+    setActivationNotice('resent')
     resetTurnstile()
   }
 
@@ -207,17 +213,20 @@ function AuthPanel() {
 
   const disabled = status !== 'ready' || busy
   const showResend =
-    error === 'email_not_activated' || registerPending || activationNotice?.includes('过期')
+    error === 'email_not_activated' ||
+    registerPending ||
+    activationNotice === 'expired' ||
+    activationNotice === 'invalid'
 
   if (status === 'error') {
     return (
       <div className="auth-panel">
         <div className="auth-intro">
-          <h1>连不上服务</h1>
+          <h1>{t('auth.serviceDownTitle')}</h1>
           <p>{authErrorText(backendError ?? 'backend_unavailable')}</p>
         </div>
         <button type="button" className="btn-primary auth-submit" onClick={retryAuth}>
-          重试
+          {t('auth.retry')}
         </button>
       </div>
     )
@@ -227,10 +236,11 @@ function AuthPanel() {
     return (
       <div className="auth-panel">
         <div className="auth-intro">
-          <h1>查收激活邮件</h1>
+          <h1>{t('auth.checkEmailTitle')}</h1>
           <p>
-            我们已向 <strong>{email.trim().toLowerCase()}</strong> 发送了一封激活邮件，
-            请点击邮件中的链接完成注册。链接 24 小时内有效。
+            {t('auth.checkEmailBefore')}
+            <strong>{email.trim().toLowerCase()}</strong>
+            {t('auth.checkEmailAfter')}
           </p>
         </div>
         <TurnstileField
@@ -244,12 +254,12 @@ function AuthPanel() {
           disabled={disabled || resending}
           onClick={() => void resend()}
         >
-          {resending ? '发送中…' : '没收到？重新发送'}
+          {resending ? t('auth.sending') : t('auth.resendPrompt')}
         </button>
         <p className="auth-switch">
-          已经有账号了？
+          {t('auth.haveAccount')}
           <button type="button" onClick={() => switchMode('login')}>
-            去登录
+            {t('auth.goLogin')}
           </button>
         </p>
       </div>
@@ -266,7 +276,7 @@ function AuthPanel() {
           className={mode === 'login' ? 'auth-tab on' : 'auth-tab'}
           onClick={() => switchMode('login')}
         >
-          登录
+          {t('auth.tabLogin')}
         </button>
         <button
           type="button"
@@ -275,15 +285,23 @@ function AuthPanel() {
           className={mode === 'register' ? 'auth-tab on' : 'auth-tab'}
           onClick={() => switchMode('register')}
         >
-          注册
+          {t('auth.tabRegister')}
         </button>
       </div>
 
-      {activationNotice ? <p className="auth-notice">{activationNotice}</p> : null}
+      {activationNotice ? (
+        <p className="auth-notice">
+          {activationNotice === 'expired'
+            ? t('auth.activateExpired')
+            : activationNotice === 'invalid'
+              ? t('auth.activateInvalid')
+              : t('auth.resendDone')}
+        </p>
+      ) : null}
 
       <form className="auth-form" onSubmit={submit} noValidate>
         <label className="auth-field">
-          <span>邮箱</span>
+          <span>{t('auth.email')}</span>
           <div className="auth-input">
             <IconMail />
             <input
@@ -300,7 +318,7 @@ function AuthPanel() {
         </label>
 
         <label className="auth-field">
-          <span>密码</span>
+          <span>{t('auth.password')}</span>
           <div className="auth-input">
             <IconLock />
             <input
@@ -308,7 +326,7 @@ function AuthPanel() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder="至少 6 位"
+              placeholder={t('auth.passwordPlaceholder')}
               maxLength={128}
             />
           </div>
@@ -331,28 +349,28 @@ function AuthPanel() {
             disabled={disabled || resending}
             onClick={() => void resend()}
           >
-            {resending ? '发送中…' : '重发激活邮件'}
+            {resending ? t('auth.sending') : t('auth.resend')}
           </button>
         ) : null}
 
         <button type="submit" className="btn-primary auth-submit" disabled={disabled}>
-          {busy ? '请稍候…' : mode === 'login' ? '登录' : '注册'}
+          {busy ? t('auth.busy') : mode === 'login' ? t('auth.tabLogin') : t('auth.tabRegister')}
         </button>
       </form>
 
       <p className="auth-switch">
         {mode === 'login' ? (
           <>
-            还没有账号？
+            {t('auth.noAccount')}
             <button type="button" onClick={() => switchMode('register')}>
-              立即注册
+              {t('auth.registerNow')}
             </button>
           </>
         ) : (
           <>
-            已经有账号了？
+            {t('auth.haveAccount')}
             <button type="button" onClick={() => switchMode('login')}>
-              去登录
+              {t('auth.goLogin')}
             </button>
           </>
         )}
@@ -364,6 +382,7 @@ function AuthPanel() {
 // ── 已登录：账号信息 ────────────────────────────────────────────────────────
 
 function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
+  const { t } = useI18n()
   const user = useAuth((s) => s.user)
   if (!user) return null
 
@@ -379,22 +398,22 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
 
       <dl className="account-rows">
         <div>
-          <dt>登录邮箱</dt>
+          <dt>{t('account.email')}</dt>
           <dd>{user.email}</dd>
         </div>
         <div>
-          <dt>用户 ID</dt>
+          <dt>{t('account.userId')}</dt>
           <dd>{user.hashId || '—'}</dd>
         </div>
         <div>
-          <dt>注册时间</dt>
+          <dt>{t('account.joined')}</dt>
           <dd>{fmtDate(user.createdAt) || '—'}</dd>
         </div>
       </dl>
 
       <div className="account-danger">
         <button type="button" className="btn-ghost" onClick={onSignOut}>
-          退出登录
+          {t('account.signOut')}
         </button>
       </div>
     </div>
@@ -406,6 +425,7 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
 const POST_ACTIVATE_KEY = 'lushu-post-activate'
 
 export function AccountPage() {
+  const { t } = useI18n()
   const status = useAuth((s) => s.status)
   const user = useAuth((s) => s.user)
 
@@ -451,7 +471,7 @@ export function AccountPage() {
         <div className="shell account-shell">
           {status === 'loading' ? (
             <div className="account-card">
-              <p className="account-loading">正在确认登录状态…</p>
+              <p className="account-loading">{t('account.checking')}</p>
             </div>
           ) : user ? (
             <div className="account-card">

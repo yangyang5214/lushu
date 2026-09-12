@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { saveVisibility } from '../lib/api'
 import { requireLogin, useAuth } from '../lib/auth'
 import { fmtDay } from '../lib/format'
+import { t, useI18n } from '../lib/i18n'
 import { buildJourney } from '../lib/journey'
 import { getMeta, hasToken } from '../lib/keys'
 import { navigateBook } from '../lib/router'
@@ -12,15 +13,16 @@ import { SiteNav } from './Chrome'
 import { RoutePreview } from './RoutePreview'
 
 function routeLabel(journey: Journey): string {
-  if (!journey.ready) return '未设起点与终点'
+  if (!journey.ready) return t('card.noEnds')
   const from = journey.start?.name ?? ''
-  if (journey.isLoop) return `${from} 出发 · 环线`
+  if (journey.isLoop) return t('card.loopFrom', { from })
   const to = journey.end?.name ?? ''
-  return `${from} → ${to}`
+  return t('card.fromTo', { from, to })
 }
 
 /** `/list`：我的路书，独立页面。 */
 export function MinePage() {
+  const { t } = useI18n()
   const books = useLushu((s) => s.books)
   const order = useLushu((s) => s.order)
   const activeId = useLushu((s) => s.activeId)
@@ -114,7 +116,7 @@ export function MinePage() {
         active="mine"
         extra={
           <button type="button" className="btn-primary btn-sm" onClick={startNew}>
-            新建路书
+            {t('mine.newBook')}
           </button>
         }
       />
@@ -123,15 +125,15 @@ export function MinePage() {
         <section className="shelf page-first">
           <div className="shell">
             <header className="shelf-head">
-              <h2>我的路书</h2>
+              <h2>{t('mine.heading')}</h2>
             </header>
 
             {shown.length === 0 ? (
               syncing ? (
-                <p className="empty-note">正在同步路书…</p>
+                <p className="empty-note">{t('mine.syncing')}</p>
               ) : (
                 <div className="empty-state">
-                  <h3>还没有自己的路书</h3>
+                  <h3>{t('mine.empty')}</h3>
                 </div>
               )
             ) : (
@@ -142,7 +144,7 @@ export function MinePage() {
                   const canToggle = canToggleVisibility(book.id)
                   const footDate = book.startDate
                     ? fmtDay(book.startDate)
-                    : `更新于 ${fmtDay(book.updatedAt)}`
+                    : t('card.updatedAt', { date: fmtDay(book.updatedAt) })
                   return (
                     <li
                       key={book.id}
@@ -164,23 +166,24 @@ export function MinePage() {
                         <div className="card-cover">
                           <RoutePreview journey={journey} />
                           <span className="card-days">
-                            {dayCount > 0 ? `${dayCount} 天` : '草稿'}
+                            {dayCount > 0 ? t('card.days', { n: dayCount }) : t('card.draft')}
                           </span>
                           {journey.isLoop && journey.ready ? (
-                            <span className="card-loop">环线</span>
+                            <span className="card-loop">{t('card.loop')}</span>
                           ) : null}
-                          {isPrivate ? <span className="card-vis">仅自己可见</span> : null}
+                          {isPrivate ? <span className="card-vis">{t('card.private')}</span> : null}
                         </div>
                         <div className="card-body">
-                          <h3>{book.title || '未命名路书'}</h3>
+                          <h3>{book.title || t('common.untitled')}</h3>
                           <p className="card-route">{routeLabel(journey)}</p>
                           <div className="card-meta">
                             <span>
-                              <b>{journey.places.length}</b> 个地点
+                              <b>{journey.places.length}</b> {t('card.placesUnit')}
                             </span>
                             {journey.ready ? (
                               <span>
-                                <b>{Math.round(journey.totalKm).toLocaleString()}</b> 公里
+                                <b>{Math.round(journey.totalKm).toLocaleString()}</b>{' '}
+                                {t('card.kmUnit')}
                               </span>
                             ) : null}
                             <span className="card-date">{footDate}</span>
@@ -193,7 +196,7 @@ export function MinePage() {
                           type="button"
                           onClick={() => requireLogin(() => duplicateBook(book.id))}
                         >
-                          复制
+                          {t('card.copy')}
                         </button>
                         {canToggle ? (
                           publicConfirmId === book.id ? (
@@ -203,10 +206,10 @@ export function MinePage() {
                                 className="on"
                                 onClick={() => makePublic(book)}
                               >
-                                确认公开
+                                {t('mine.confirmPublic')}
                               </button>
                               <button type="button" onClick={() => setPublicConfirmId(null)}>
-                                取消
+                                {t('common.cancel')}
                               </button>
                             </>
                           ) : (
@@ -216,7 +219,7 @@ export function MinePage() {
                                 isPrivate ? setPublicConfirmId(book.id) : makePrivate(book)
                               }
                             >
-                              {isPrivate ? '设为公开' : '设为私密'}
+                              {isPrivate ? t('mine.makePublic') : t('mine.makePrivate')}
                             </button>
                           )
                         ) : null}
@@ -230,10 +233,10 @@ export function MinePage() {
                                 setDeleteConfirmId(null)
                               }}
                             >
-                              确认删除
+                              {t('mine.confirmDelete')}
                             </button>
                             <button type="button" onClick={() => setDeleteConfirmId(null)}>
-                              取消
+                              {t('common.cancel')}
                             </button>
                           </>
                         ) : (
@@ -245,7 +248,7 @@ export function MinePage() {
                               setDeleteConfirmId(book.id)
                             }}
                           >
-                            删除
+                            {t('common.delete')}
                           </button>
                         )}
                       </div>

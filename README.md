@@ -4,6 +4,8 @@
 
 ## 中文
 
+界面支持简体中文 / English，页头右上角一键切换；首次访问按浏览器语言自动选择，之后记住选择。新建路书的默认书名使用创建时的界面语言。
+
 ### 前置
 
 - Node.js 18+、pnpm
@@ -63,6 +65,8 @@ pnpm lint         # oxlint
 ---
 
 ## English
+
+The UI ships in Simplified Chinese and English; toggle it from the top-right of the header. The first visit follows your browser language and the choice is remembered. A new book's default title uses whichever language was active when it was created.
 
 ### Prerequisites
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { dayInk, toGcj } from '../lib/geo'
+import { useI18n, getLang } from '../lib/i18n'
 import { fetchRoadLine } from '../lib/route'
 import { useJourney, useLushu, useSelectedId } from '../store'
 import { SearchBox } from './SearchBox'
@@ -10,7 +11,12 @@ function markerHtml(label: string, color: string, active: boolean): string {
   return `<div class="pin${active ? ' on' : ''}" style="--ink:${color}"><span>${label}</span></div>`
 }
 
+function tileUrl(lang: 'zh' | 'en'): string {
+  return `https://webrd0{s}.is.autonavi.com/appmaptile?lang=${lang === 'en' ? 'en' : 'zh_cn'}&size=1&scale=1&style=8&x={x}&y={y}&z={z}`
+}
+
 export function MapCanvas() {
+  const { lang, t } = useI18n()
   const journey = useJourney()
   const selectedId = useSelectedId()
   const selectPlace = useLushu((s) => s.selectPlace)
@@ -18,6 +24,7 @@ export function MapCanvas() {
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
   const roadsRef = useRef<L.LayerGroup | null>(null)
+  const tileRef = useRef<L.TileLayer | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const journeyRef = useRef(journey)
   journeyRef.current = journey
@@ -33,10 +40,11 @@ export function MapCanvas() {
       maxZoom: 17,
     }).setView([30.6, 119.3], 6)
 
-    L.tileLayer(
-      'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-      { subdomains: '1234', maxZoom: 18 },
-    ).addTo(map)
+    const tiles = L.tileLayer(tileUrl(getLang()), {
+      subdomains: '1234',
+      maxZoom: 18,
+    }).addTo(map)
+    tileRef.current = tiles
 
     L.control.zoom({ position: 'topright' }).addTo(map)
     layerRef.current = L.layerGroup().addTo(map)
@@ -55,9 +63,15 @@ export function MapCanvas() {
       mapRef.current = null
       layerRef.current = null
       roadsRef.current = null
+      tileRef.current = null
       setMapReady(false)
     }
   }, [selectPlace])
+
+  // 底图语言跟随界面语言（高德瓦片支持 lang=zh_cn / en）。
+  useEffect(() => {
+    tileRef.current?.setUrl(tileUrl(lang))
+  }, [lang])
 
   useEffect(() => {
     const map = mapRef.current
@@ -75,7 +89,11 @@ export function MapCanvas() {
       const color = dayIndex >= 0 ? dayInk(dayIndex) : '#1b1712'
       const [lng, lat] = toGcj(place)
       const label =
-        place.id === journey.start?.id ? '起' : place.id === journey.end?.id && !isLoop ? '终' : String(i + 1)
+        place.id === journey.start?.id
+          ? t('sidebar.startBadge')
+          : place.id === journey.end?.id && !isLoop
+            ? t('sidebar.endBadge')
+            : String(i + 1)
       const icon = L.divIcon({
         className: 'pin-wrap',
         html: markerHtml(label, color, selectedId === place.id),
@@ -89,7 +107,7 @@ export function MapCanvas() {
         })
         .addTo(group)
     })
-  }, [journey, selectedId, selectPlace])
+  }, [journey, selectedId, selectPlace, lang, t])
 
   useEffect(() => {
     const map = mapRef.current

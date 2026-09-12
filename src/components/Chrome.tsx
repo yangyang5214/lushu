@@ -1,7 +1,9 @@
 import type { MouseEvent, ReactNode } from 'react'
+import { useI18n } from '../lib/i18n'
 import { navigateList, navigateMine, navigatePublic } from '../lib/router'
 import { AccountChip } from './AccountChip'
 import { BrandMark } from './BrandMark'
+import { LangSwitch } from './LangSwitch'
 
 export type NavKey = 'mine' | 'public'
 
@@ -20,6 +22,7 @@ export function SiteNav({
   active?: NavKey
   extra?: ReactNode
 }) {
+  const { t } = useI18n()
   return (
     <header className="nav">
       <div className="shell nav-in">
@@ -29,17 +32,18 @@ export function SiteNav({
         </a>
         <nav className="nav-links">
           <a href="/list" className={active === 'mine' ? 'on' : undefined} onClick={jump(navigateMine)}>
-            我的路书
+            {t('nav.mine')}
           </a>
           <a
             href="/public"
             className={active === 'public' ? 'on' : undefined}
             onClick={jump(navigatePublic)}
           >
-            公开路书
+            {t('nav.public')}
           </a>
         </nav>
         <div className="nav-actions">
+          <LangSwitch />
           <AccountChip />
           {extra}
         </div>

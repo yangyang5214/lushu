@@ -8,6 +8,7 @@ import { RouteList } from './components/RouteList'
 import { Sidebar } from './components/Sidebar'
 import { SplitRail } from './components/SplitRail'
 import { initAuth, useAuth } from './lib/auth'
+import { t, useI18n } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { bookPath, readRoute, ROOT_PATH } from './lib/router'
 import { pullBook, startSync } from './lib/sync'
@@ -81,6 +82,13 @@ function usePathRoute() {
 
 export default function App() {
   usePathRoute()
+
+  // 文档层面跟随语言：<html lang> 与标题。
+  const { lang } = useI18n()
+  useEffect(() => {
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
+    document.title = t('meta.title')
+  }, [lang])
 
   useEffect(() => {
     startSync()

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { dayInk } from '../lib/geo'
+import { useI18n } from '../lib/i18n'
 import type { Journey } from '../types'
 
 const W = 100
@@ -57,6 +58,7 @@ export function PointsPreview({
   dayBreaks?: number[]
   days?: number
 }) {
+  const { t } = useI18n()
   const view = useMemo(() => {
     if (points.length === 0) return null
     const geo: Geo[] = points.map(([lng, lat], i) => ({ id: String(i), lng, lat }))
@@ -100,7 +102,7 @@ export function PointsPreview({
   if (!view) {
     return (
       <div className="cover-empty" aria-hidden>
-        <span>还没有地点</span>
+        <span>{t('card.noPlaces')}</span>
       </div>
     )
   }
@@ -139,6 +141,7 @@ export function PointsPreview({
 }
 
 export function RoutePreview({ journey }: { journey: Journey }) {
+  const { t } = useI18n()
   const view = useMemo(() => {
     const all = journey.ready ? journey.ordered : journey.places
     if (all.length === 0) return null
@@ -182,7 +185,7 @@ export function RoutePreview({ journey }: { journey: Journey }) {
   if (!view) {
     return (
       <div className="cover-empty" aria-hidden>
-        <span>还没有地点</span>
+        <span>{t('card.noPlaces')}</span>
       </div>
     )
   }

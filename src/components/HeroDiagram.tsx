@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { useI18n, type MsgKey } from '../lib/i18n'
 
 const CYCLE = '14s'
 const DAY1 = '#ff4d4f'
@@ -11,15 +12,16 @@ const PINS: readonly {
   y: number
   dx: number
   dy: number
-  name: string
+  nameKey: MsgKey
   badge: string
+  badgeKey?: MsgKey
   split?: boolean
 }[] = [
-  { x: 58, y: 118, dx: 34, dy: -68, name: '杭州', badge: '起' },
-  { x: 148, y: 88, dx: 78, dy: -48, name: '千岛湖', badge: '2' },
-  { x: 258, y: 72, dx: 118, dy: -12, name: '黄山', badge: '3', split: true },
-  { x: 372, y: 96, dx: -208, dy: 42, name: '宏村', badge: '4' },
-  { x: 478, y: 128, dx: -36, dy: -82, name: '景德镇', badge: '终' },
+  { x: 58, y: 118, dx: 34, dy: -68, nameKey: 'diagram.hangzhou', badge: '', badgeKey: 'sidebar.startBadge' },
+  { x: 148, y: 88, dx: 78, dy: -48, nameKey: 'diagram.qiandaohu', badge: '2' },
+  { x: 258, y: 72, dx: 118, dy: -12, nameKey: 'diagram.huangshan', badge: '3', split: true },
+  { x: 372, y: 96, dx: -208, dy: 42, nameKey: 'diagram.hongcun', badge: '4' },
+  { x: 478, y: 128, dx: -36, dy: -82, nameKey: 'diagram.jingdezhen', badge: '', badgeKey: 'sidebar.endBadge' },
 ]
 
 const ROUTE1 =
@@ -39,14 +41,15 @@ const RAIL = {
 } as const
 
 export function HeroDiagram() {
+  const { t } = useI18n()
   return (
     <div className="hero-diagram" aria-hidden style={{ '--hero-cycle': CYCLE } as CSSProperties}>
       <div className="hero-diagram-head">
-        <span className="hero-diagram-step hero-diagram-step--add">随意添加</span>
+        <span className="hero-diagram-step hero-diagram-step--add">{t('diagram.add')}</span>
         <span className="hero-diagram-arrow">→</span>
-        <span className="hero-diagram-step hero-diagram-step--route">自动串联</span>
+        <span className="hero-diagram-step hero-diagram-step--route">{t('diagram.route')}</span>
         <span className="hero-diagram-arrow">→</span>
-        <span className="hero-diagram-step hero-diagram-step--split">过夜分天</span>
+        <span className="hero-diagram-step hero-diagram-step--split">{t('diagram.split')}</span>
       </div>
       <svg className="hero-diagram-svg" viewBox="0 0 520 284" fill="none">
         <defs>
@@ -68,7 +71,7 @@ export function HeroDiagram() {
           <circle cx="28" cy="25" r="3.2" stroke="#7a6f62" strokeWidth="1.2" opacity="0.55" />
           <path d="M30.2 27.2 32.8 29.8" stroke="#7a6f62" strokeWidth="1.2" strokeLinecap="round" opacity="0.55" />
           <text x="36" y="28" fill="#8a93a0" fontSize="8" fontFamily="Manrope, Noto Sans SC, sans-serif">
-            搜地点…
+            {t('diagram.search')}
           </text>
         </g>
 
@@ -90,7 +93,7 @@ export function HeroDiagram() {
         />
 
         {PINS.map((pin, i) => (
-          <g key={pin.name} transform={`translate(${pin.x} ${pin.y})`}>
+          <g key={pin.nameKey} transform={`translate(${pin.x} ${pin.y})`}>
             <g
               className="hero-pin"
               style={
@@ -112,7 +115,7 @@ export function HeroDiagram() {
                 fontWeight="600"
                 fontFamily="Manrope, Noto Sans SC, sans-serif"
               >
-                {pin.badge}
+                {pin.badgeKey ? t(pin.badgeKey) : pin.badge}
               </text>
               <text
                 className="hero-pin-name"
@@ -123,7 +126,7 @@ export function HeroDiagram() {
                 fontWeight="500"
                 fontFamily="Manrope, Noto Sans SC, sans-serif"
               >
-                {pin.name}
+                {t(pin.nameKey)}
               </text>
               {pin.split ? (
                 <g className="hero-split-flash">
@@ -136,7 +139,7 @@ export function HeroDiagram() {
                     fontWeight="600"
                     fontFamily="Manrope, Noto Sans SC, sans-serif"
                   >
-                    夜
+                    {t('diagram.night')}
                   </text>
                 </g>
               ) : null}
@@ -163,7 +166,7 @@ export function HeroDiagram() {
             fontWeight="600"
             fontFamily="Manrope, Noto Sans SC, sans-serif"
           >
-            行程尺
+            {t('diagram.ruler')}
           </text>
 
           {RAIL_X.slice(0, -1).map((x, i) => (
@@ -207,7 +210,7 @@ export function HeroDiagram() {
                       fontWeight="600"
                       fontFamily="Manrope, Noto Sans SC, sans-serif"
                     >
-                      夜
+                      {t('diagram.night')}
                     </text>
                   </>
                 ) : (
@@ -219,7 +222,7 @@ export function HeroDiagram() {
                     fontWeight="600"
                     fontFamily="Manrope, Noto Sans SC, sans-serif"
                   >
-                    {pin.badge}
+                    {pin.badgeKey ? t(pin.badgeKey) : pin.badge}
                   </text>
                 )}
                 <text
@@ -229,7 +232,7 @@ export function HeroDiagram() {
                   fontSize="8"
                   fontFamily="Manrope, Noto Sans SC, sans-serif"
                 >
-                  {pin.name}
+                  {t(pin.nameKey)}
                 </text>
               </g>
             )
@@ -246,7 +249,7 @@ export function HeroDiagram() {
               fontSize="9"
               fontFamily="Manrope, Noto Sans SC, sans-serif"
             >
-              第1天 · 286 km
+              {t('diagram.day1')}
             </text>
             <circle cx="152" cy={RAIL.daysCy} r="4" fill={DAY2} />
             <text
@@ -256,7 +259,7 @@ export function HeroDiagram() {
               fontSize="9"
               fontFamily="Manrope, Noto Sans SC, sans-serif"
             >
-              第2天 · 198 km
+              {t('diagram.day2')}
             </text>
           </g>
         </g>

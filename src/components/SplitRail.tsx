@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayInk, formatKm, haversineKm, validSplitIndexes } from '../lib/geo'
+import { useI18n } from '../lib/i18n'
 import { useJourney, useLushu, useSelectedId } from '../store'
 
 export function SplitRail() {
+  const { t } = useI18n()
   const journey = useJourney()
   const selectedId = useSelectedId()
   const addSplit = useLushu((s) => s.addSplit)
@@ -67,7 +69,7 @@ export function SplitRail() {
   if (!ready || ordered.length < 2) {
     return (
       <footer className="rail empty">
-        <p>定好起点和终点后，整条路会铺在这根尺上。分割针钉在过夜的点上，可左右拖动改天数。</p>
+        <p>{t('rail.empty')}</p>
       </footer>
     )
   }
@@ -82,7 +84,7 @@ export function SplitRail() {
   return (
     <footer className="rail">
       <div className="rail-meta">
-        <strong>行程尺</strong>
+        <strong>{t('rail.title')}</strong>
       </div>
       <div className="rail-track" ref={railRef}>
         {beads.map((place, i) => {
@@ -117,7 +119,15 @@ export function SplitRail() {
                   setHoverId(place.id)
                 }}
               >
-                <b>{isGhostReturn ? '回' : i === 0 ? '起' : isSplit || preview ? '夜' : i + 1}</b>
+                <b>
+                  {isGhostReturn
+                    ? t('rail.returnBadge')
+                    : i === 0
+                      ? t('rail.startBadge')
+                      : isSplit || preview
+                        ? t('rail.nightBadge')
+                        : i + 1}
+                </b>
                 <em>{place.name}</em>
               </button>
               {i < beads.length - 1 ? (
@@ -136,7 +146,8 @@ export function SplitRail() {
       <ol className="rail-days">
         {days.map((day) => (
           <li key={day.index}>
-            <i style={{ background: dayInk(day.index) }} />第{day.index + 1}天 · {formatKm(day.distanceKm)}
+            <i style={{ background: dayInk(day.index) }} />
+            {t('rail.day', { n: day.index + 1, km: formatKm(day.distanceKm) })}
           </li>
         ))}
       </ol>

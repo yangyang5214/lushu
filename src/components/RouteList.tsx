@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react'
 import { requireLogin, useAuth } from '../lib/auth'
+import { useI18n, type MsgKey } from '../lib/i18n'
 import { navigateBook, navigatePublic } from '../lib/router'
 import { useLushu } from '../store'
 import { SiteNav } from './Chrome'
@@ -61,53 +63,69 @@ function IconShare() {
   )
 }
 
-const FLOW_STEPS = [
+type FlowStep = {
+  step: string
+  labelKey: MsgKey
+  titleKey: MsgKey
+  textKey: MsgKey
+  icon: ReactNode
+}
+
+const FLOW_STEPS: FlowStep[] = [
   {
     step: '01',
-    key: '地点',
+    labelKey: 'flow.1.key',
+    titleKey: 'flow.1.title',
+    textKey: 'flow.1.text',
     icon: <IconSearch />,
-    title: '随意加点',
-    text: '城市、寺庙、老街、营地，想到什么就加什么。不用管顺序，也不用先想第几天。',
   },
   {
     step: '02',
-    key: '路线',
+    labelKey: 'flow.2.key',
+    titleKey: 'flow.2.title',
+    textKey: 'flow.2.text',
     icon: <IconPin />,
-    title: '自动串线',
-    text: '所有地点按路程自动排成合理顺序。需要的话还能钉起终点，起终点相同就是环线。',
   },
   {
     step: '03',
-    key: '天数',
+    labelKey: 'flow.3.key',
+    titleKey: 'flow.3.title',
+    textKey: 'flow.3.text',
     icon: <IconCut />,
-    title: '过夜分天',
-    text: '在任意地点设过夜分割针，行程自动分成第几天。拖动分割针还能调整每天走多远。',
   },
-] as const
+]
 
-const EXTRA_FEATURES = [
+type Feature = {
+  labelKey: MsgKey
+  titleKey: MsgKey
+  textKey: MsgKey
+  icon: ReactNode
+}
+
+const EXTRA_FEATURES: Feature[] = [
   {
-    key: '地图',
+    labelKey: 'feature.1.key',
+    titleKey: 'feature.1.title',
+    textKey: 'feature.1.text',
     icon: <IconMap />,
-    title: '地图按天画路',
-    text: '地图按天着色，画出当天要走的路，点与点之间标出大概路程和时间。',
   },
   {
-    key: '书架',
+    labelKey: 'feature.2.key',
+    titleKey: 'feature.2.title',
+    textKey: 'feature.2.text',
     icon: <IconShelf />,
-    title: '我的路书',
-    text: '写过的路书都在书架上，可复制、可改名，也可设为仅自己可见。',
   },
   {
-    key: '公开',
+    labelKey: 'feature.3.key',
+    titleKey: 'feature.3.title',
+    textKey: 'feature.3.text',
     icon: <IconShare />,
-    title: '公开路书',
-    text: '公开后出现在「公开路书」里，别人用链接也能看完整路线和每天行程。',
   },
-] as const
+]
 
 /** `/`：首页，首屏 + 核心功能；书单都在独立的 `/list`、`/public` 页。 */
 export function RouteList() {
+  const { t } = useI18n()
   const createBook = useLushu((s) => s.createBook)
 
   // 新建路书要先登录；未登录会跳到账户页，登录后接着把动作做完。
@@ -123,19 +141,17 @@ export function RouteList() {
           <div className="shell hero-grid">
             <div className="hero-copy">
               <h1>
-                想去的都加进来，
+                {t('home.heroTitle1')}
                 <br />
-                顺序和天数自动排好
+                {t('home.heroTitle2')}
               </h1>
-              <p className="lede">
-                不用纠结先去哪、第几天走哪段。地点搜进来就好，路书按路程串联所有点；在过夜处钉分割针，行程自动分成一天天。
-              </p>
+              <p className="lede">{t('home.lede')}</p>
               <div className="hero-cta">
                 <button type="button" className="btn-primary" onClick={startNew}>
-                  新建路书
+                  {t('home.newBook')}
                 </button>
                 <button type="button" className="btn-ghost" onClick={navigatePublic}>
-                  看看公开路书
+                  {t('home.seePublic')}
                 </button>
               </div>
             </div>
@@ -146,20 +162,20 @@ export function RouteList() {
         <section className="flow">
           <div className="shell">
             <header className="section-head">
-              <h2>三步搞定行程</h2>
-              <p>先加点，再串线，最后分天——顺序不用你操心。</p>
+              <h2>{t('home.flowHeading')}</h2>
+              <p>{t('home.flowSub')}</p>
             </header>
             <ol className="flow-steps">
               {FLOW_STEPS.map((f, i) => (
-                <li key={f.key} className="flow-step">
+                <li key={f.labelKey} className="flow-step">
                   <div className="flow-step-card">
                     <div className="flow-step-top">
                       <span className="flow-step-num">{f.step}</span>
                       <span className="feature-icon">{f.icon}</span>
                     </div>
-                    <span className="flow-step-key">{f.key}</span>
-                    <h3>{f.title}</h3>
-                    <p>{f.text}</p>
+                    <span className="flow-step-key">{t(f.labelKey)}</span>
+                    <h3>{t(f.titleKey)}</h3>
+                    <p>{t(f.textKey)}</p>
                   </div>
                   {i < FLOW_STEPS.length - 1 ? <span className="flow-connector" aria-hidden /> : null}
                 </li>
@@ -171,15 +187,15 @@ export function RouteList() {
         <section className="features">
           <div className="shell">
             <header className="section-head">
-              <h2>还有这些</h2>
-              <p>地图、书架与分享，写完之后随时查看和发布。</p>
+              <h2>{t('home.featuresHeading')}</h2>
+              <p>{t('home.featuresSub')}</p>
             </header>
             <div className="feature-grid feature-grid--aux">
               {EXTRA_FEATURES.map((f) => (
-                <div key={f.key} className="feature feature--aux">
+                <div key={f.labelKey} className="feature feature--aux">
                   <span className="feature-icon">{f.icon}</span>
-                  <h3>{f.title}</h3>
-                  <p>{f.text}</p>
+                  <h3>{t(f.titleKey)}</h3>
+                  <p>{t(f.textKey)}</p>
                 </div>
               ))}
             </div>
