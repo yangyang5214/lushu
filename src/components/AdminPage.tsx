@@ -16,10 +16,14 @@ import {
   type AdminStats,
   type AdminUser,
 } from '../lib/admin-api'
+import { useMemo } from 'react'
+import { buildJourney } from '../lib/journey'
 import { getLang, t, useI18n, type MsgKey } from '../lib/i18n'
 import { bookPath, navigateList } from '../lib/router'
+import type { Journey, Place } from '../types'
 import { BrandMark } from './BrandMark'
 import { LangSwitch } from './LangSwitch'
+import { RouteMap } from './RouteMap'
 
 type Tab = 'overview' | 'users' | 'books'
 
@@ -39,6 +43,52 @@ function fmtTime(ts: number): string {
 
 function visLabel(v: 'public' | 'private'): string {
   return v === 'private' ? t('admin.visPrivate') : t('admin.visPublic')
+}
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function asId(v: unknown): string | null {
+  return typeof v === 'string' && v ? v : null
+}
+
+function asIds(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+/** 后台详情只有服务端原样的 doc（未经类型校验）：逐字段挑出可用的地点。 */
+function placesFromDoc(doc: Record<string, unknown>): Place[] {
+  const raw = Array.isArray(doc.places) ? doc.places : []
+  const out: Place[] = []
+  raw.forEach((item, i) => {
+    if (!item || typeof item !== 'object') return
+    const p = item as Record<string, unknown>
+    const lng = Number(p.lng)
+    const lat = Number(p.lat)
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
+    out.push({
+      id: asId(p.id) ?? `place-${i}`,
+      name: asString(p.name),
+      address: asString(p.address),
+      lng,
+      lat,
+    })
+  })
+  return out
+}
+
+/** 把服务端 doc 还原成与编辑页同构的 Journey，喂给只读地图。 */
+function journeyFromDoc(doc: Record<string, unknown>): Journey {
+  return buildJourney({
+    title: asString(doc.title),
+    startDate: asString(doc.startDate),
+    places: placesFromDoc(doc),
+    startId: asId(doc.startId),
+    endId: asId(doc.endId),
+    orderedIds: asIds(doc.orderedIds),
+    splitIds: asIds(doc.splitIds),
+  })
 }
 
 function AdminScreen({ children }: { children: ReactNode }) {
@@ -578,6 +628,7 @@ function BookDetail({
   const title = typeof book?.doc.title === 'string' ? book.doc.title : ''
   const places = Array.isArray(book?.doc.places) ? book.doc.places.length : 0
   const visibility = book?.doc.visibility === 'private' ? 'private' : 'public'
+  const journey = useMemo(() => (book ? journeyFromDoc(book.doc) : null), [book])
 
   const remove = async () => {
     setError('')
@@ -628,6 +679,14 @@ function BookDetail({
               </dd>
             </div>
           </dl>
+          {journey && journey.places.length > 0 ? (
+            <>
+              <h3>{t('admin.routeMap')}</h3>
+              <div className="admin-map">
+                <RouteMap journey={journey} />
+              </div>
+            </>
+          ) : null}
           <h3>{t('admin.rawData')}</h3>
           <pre className="admin-json">{JSON.stringify(book.doc, null, 2)}</pre>
         </>

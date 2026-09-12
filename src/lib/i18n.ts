@@ -270,6 +270,7 @@ const zh = {
   'admin.placesCount': '地点数',
   'admin.createdUpdated': '创建 / 更新',
   'admin.rawData': '完整数据',
+  'admin.routeMap': '路线地图',
   'admin.backToSite': '返回站点',
   'admin.signOut': '退出登录',
 
@@ -532,6 +533,7 @@ const en: Record<MsgKey, string> = {
   'admin.placesCount': 'Stops',
   'admin.createdUpdated': 'Created / Updated',
   'admin.rawData': 'Raw data',
+  'admin.routeMap': 'Route map',
   'admin.backToSite': 'Back to site',
   'admin.signOut': 'Sign out',
 

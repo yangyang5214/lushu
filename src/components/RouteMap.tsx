@@ -2,20 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { dayInk, toGcj } from '../lib/geo'
-import { useI18n, getLang } from '../lib/i18n'
+import { getLang, useI18n } from '../lib/i18n'
 import { markerHtml, TILE_SUBDOMAINS, tileUrl } from '../lib/map'
 import { fetchRoadLine } from '../lib/route'
-import { useJourney, useLushu, useSelectedId } from '../store'
-import { SearchBox } from './SearchBox'
+import type { Journey } from '../types'
 
-export function MapCanvas() {
+/**
+ * 只读路线地图（后台路书详情用）：与编辑页共用同一套底图、按天着色和路网线，
+ * 但不接全局 store，也没有选点 / 搜索等交互。
+ */
+export function RouteMap({ journey }: { journey: Journey }) {
   const { lang, t } = useI18n()
-  const journey = useJourney()
-  const selectedId = useSelectedId()
-  const selectPlace = useLushu((s) => s.selectPlace)
   const hostRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
-  const layerRef = useRef<L.LayerGroup | null>(null)
+  const pinsRef = useRef<L.LayerGroup | null>(null)
   const roadsRef = useRef<L.LayerGroup | null>(null)
   const tileRef = useRef<L.TileLayer | null>(null)
   const [mapReady, setMapReady] = useState(false)
@@ -33,14 +33,13 @@ export function MapCanvas() {
       maxZoom: 17,
     }).setView([30.6, 119.3], 6)
 
-    const tiles = L.tileLayer(tileUrl(getLang()), {
+    tileRef.current = L.tileLayer(tileUrl(getLang()), {
       subdomains: TILE_SUBDOMAINS,
       maxZoom: 18,
     }).addTo(map)
-    tileRef.current = tiles
 
     L.control.zoom({ position: 'topright' }).addTo(map)
-    layerRef.current = L.layerGroup().addTo(map)
+    pinsRef.current = L.layerGroup().addTo(map)
     roadsRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
     setMapReady(true)
@@ -54,22 +53,21 @@ export function MapCanvas() {
       ro.disconnect()
       map.remove()
       mapRef.current = null
-      layerRef.current = null
+      pinsRef.current = null
       roadsRef.current = null
       tileRef.current = null
       setMapReady(false)
     }
-  }, [selectPlace])
+  }, [])
 
-  // 底图语言跟随界面语言（高德瓦片支持 lang=zh_cn / en）。
+  // 底图语言跟随界面语言。
   useEffect(() => {
     tileRef.current?.setUrl(tileUrl(lang))
   }, [lang])
 
   useEffect(() => {
-    const map = mapRef.current
-    const group = layerRef.current
-    if (!map || !group) return
+    const group = pinsRef.current
+    if (!group) return
     group.clearLayers()
 
     const { ordered, days, isLoop, ready, places } = journey
@@ -89,24 +87,18 @@ export function MapCanvas() {
             : String(i + 1)
       const icon = L.divIcon({
         className: 'pin-wrap',
-        html: markerHtml(label, color, selectedId === place.id),
+        html: markerHtml(label, color),
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       })
-      L.marker([lat, lng], { icon })
-        .on('click', (e) => {
-          L.DomEvent.stopPropagation(e)
-          selectPlace(place.id)
-        })
-        .addTo(group)
+      L.marker([lat, lng], { icon, interactive: false }).addTo(group)
     })
-  }, [journey, selectedId, selectPlace, lang, t])
+  }, [journey, t])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const current = journeyRef.current
-    const shown = current.ready ? current.ordered : current.places
+    const shown = journeyRef.current.ready ? journeyRef.current.ordered : journeyRef.current.places
     if (shown.length === 0) return
     const b = L.latLngBounds(
       shown.map((p) => {
@@ -127,7 +119,7 @@ export function MapCanvas() {
     let cancelled = false
     const drawn: Array<L.Polyline | null> = days.map(() => null)
 
-    // 一天返回一天就画一天：多天路线是串行取的，先到的先上屏，不用等所有天都回来。
+    // 与编辑页一致：多天路线串行取路网线，先回来的先上屏。
     const draw = (i: number, latlngs: [number, number][]) => {
       const host = roadsRef.current
       if (cancelled || !host || latlngs.length < 2) return
@@ -145,7 +137,7 @@ export function MapCanvas() {
         if (cancelled) return
         draw(
           i,
-          line?.map(([lng, lat]) => [lat, lng] as [number, number]) ??
+          line ??
             day.places.map((p) => {
               const [lng, lat] = toGcj(p)
               return [lat, lng] as [number, number]
@@ -159,12 +151,5 @@ export function MapCanvas() {
     }
   }, [routeKey, mapReady])
 
-  return (
-    <div className="map-stage">
-      <div ref={hostRef} className="map" />
-      <div className="map-search">
-        <SearchBox />
-      </div>
-    </div>
-  )
+  return <div ref={hostRef} className="route-map" />
 }

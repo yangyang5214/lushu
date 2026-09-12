@@ -2205,6 +2205,20 @@
   white-space: normal;
 }
 
+/* 后台路书详情里的只读路线地图：固定高度 + 圆角，内部 Leaflet 铺满。 */
+.admin-map {
+  height: min(52vh, 420px);
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.route-map {
+  height: 100%;
+  min-height: 0;
+  background: #d7d2c6;
+}
+
 .admin-json {
   margin: 0;
   padding: 14px;
