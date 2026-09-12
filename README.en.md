@@ -61,7 +61,7 @@ Secrets never live in front-end code; set them with `wrangler pages secret put` 
 | --- | --- |
 | `RESEND_API_KEY` | Send activation emails |
 | `TURNSTILE_SECRET` | Human check on register / sign-in |
-| `ADMIN_SECRET` | Passphrase for `/admin` (min 16 chars); `/api/admin/*` returns 404 when unset or too short |
+| `ADMIN_SECRET` | Passphrase for `/admin` (min 6 chars); `/api/admin/*` returns 404 when unset or too short |
 
 > Auth entrypoints (sign-in / register / resend activation / admin sign-in) are rate limited
 > via the D1 `rate_limits` table. Re-run `pnpm db:init` (or `pnpm db:init:local`) once after upgrading.

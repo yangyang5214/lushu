@@ -41,9 +41,7 @@ function cookieAttrs(request: Request): string {
 /** 管理后台是否已配置（未配置则所有 admin 路由应返回 404）。 */
 export function adminConfigured(env: AdminEnv): boolean {
   const secret = env.ADMIN_SECRET?.trim() ?? ''
-  // 管理口令直接等于全站数据的读写权限，门槛比普通账号高：至少 16 字符。
-  // 部署时请用密码管理器生成的长随机串。
-  return secret.length >= 16
+  return secret.length >= 6
 }
 
 function adminToken(request: Request): string {

@@ -8,7 +8,7 @@ import { RouteList } from './components/RouteList'
 import { Sidebar } from './components/Sidebar'
 import { SplitRail } from './components/SplitRail'
 import { initAuth, useAuth } from './lib/auth'
-import { t, useI18n } from './lib/i18n'
+import { adminT, t, useI18n } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { bookPath, readRoute, ROOT_PATH } from './lib/router'
 import { pullBook, startSync } from './lib/sync'
@@ -91,6 +91,14 @@ export default function App() {
   }, [])
 
   const view = useLushu((s) => s.view)
+
+  // 管理后台固定中文，不跟随站点语言。
+  useEffect(() => {
+    if (view !== 'admin') return
+    document.documentElement.lang = 'zh-CN'
+    document.title = `${adminT('admin.title')} · 路书`
+  }, [view])
+
   const activeId = useLushu((s) => s.activeId)
   const hasBook = useLushu((s) => (s.activeId ? Boolean(s.books[s.activeId]) : false))
   // 账号是异步探测的：探测完成前 user 还是 null，先按未登录处理，免得闪出书架。

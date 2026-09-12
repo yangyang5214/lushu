@@ -18,18 +18,17 @@ import {
 } from '../lib/admin-api'
 import { useMemo } from 'react'
 import { buildJourney } from '../lib/journey'
-import { getLang, t, useI18n, type MsgKey } from '../lib/i18n'
+import { adminT, type AdminMsgKey } from '../lib/i18n'
 import { bookPath, navigateList } from '../lib/router'
 import type { Journey, Place } from '../types'
 import { BrandMark } from './BrandMark'
-import { LangSwitch } from './LangSwitch'
 import { RouteMap } from './RouteMap'
 
 type Tab = 'overview' | 'users' | 'books'
 
 const PAGE_SIZE = 30
 
-const TAB_KEY: Record<Tab, MsgKey> = {
+const TAB_KEY: Record<Tab, AdminMsgKey> = {
   overview: 'admin.overview',
   users: 'admin.users',
   books: 'admin.books',
@@ -38,11 +37,11 @@ const TAB_KEY: Record<Tab, MsgKey> = {
 function fmtTime(ts: number): string {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString(getLang() === 'en' ? 'en-US' : 'zh-CN', { hour12: false })
+  return d.toLocaleString('zh-CN', { hour12: false })
 }
 
 function visLabel(v: 'public' | 'private'): string {
-  return v === 'private' ? t('admin.visPrivate') : t('admin.visPublic')
+  return v === 'private' ? adminT('admin.visPrivate') : adminT('admin.visPublic')
 }
 
 function asString(v: unknown): string {
@@ -100,7 +99,7 @@ function AdminScreen({ children }: { children: ReactNode }) {
 }
 
 function AdminLogin({ onDone }: { onDone: () => void }) {
-  const { t } = useI18n()
+  const t = adminT
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -144,7 +143,6 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
         <div className="admin-card">
           <h1>{t('admin.title')}</h1>
           <p className="admin-muted">{t('admin.disabled')}</p>
-          <LangSwitch className="admin-lang" />
         </div>
       </AdminScreen>
     )
@@ -175,14 +173,13 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
             {busy ? t('admin.verifying') : t('admin.enter')}
           </button>
         </form>
-        <LangSwitch className="admin-lang" />
       </div>
     </AdminScreen>
   )
 }
 
 function StatCards({ stats }: { stats: AdminStats }) {
-  const { t } = useI18n()
+  const t = adminT
   return (
     <div className="admin-stats">
       <div className="admin-stat">
@@ -216,7 +213,7 @@ function Pager({
   pageSize: number
   onChange: (next: number) => void
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const page = Math.floor(offset / pageSize) + 1
   const pages = Math.max(1, Math.ceil(total / pageSize))
   return (
@@ -248,7 +245,7 @@ function DangerConfirm({
   label?: string
   hint?: string
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const [asking, setAsking] = useState(false)
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
@@ -286,7 +283,7 @@ function UsersPanel({
   onSelect: (user: AdminUser) => void
   onChanged: () => void
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
@@ -395,7 +392,7 @@ function BooksPanel({
   onSelect: (book: AdminBookSummary) => void
   onChanged: () => void
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [visibility, setVisibility] = useState<'all' | 'public' | 'private'>('all')
@@ -506,7 +503,7 @@ function UserDetail({
   onBack: () => void
   onDeleted: () => void
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const [books, setBooks] = useState<
     Array<{
       id: string
@@ -618,7 +615,7 @@ function BookDetail({
   onBack: () => void
   onDeleted: () => void
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const [book, setBook] = useState<AdminBookDetail | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -708,7 +705,7 @@ function AdminSidebar({
   onTab: (tab: Tab) => void
   onLogout: () => void
 }) {
-  const { t } = useI18n()
+  const t = adminT
   const items: Tab[] = ['overview', 'users', 'books']
   return (
     <aside className="admin-sidebar">
@@ -732,7 +729,6 @@ function AdminSidebar({
         ))}
       </nav>
       <div className="admin-sidebar-foot">
-        <LangSwitch className="admin-lang" />
         <button type="button" className="admin-sidebar-link" onClick={() => navigateList()}>
           {t('admin.backToSite')}
         </button>
@@ -745,7 +741,7 @@ function AdminSidebar({
 }
 
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
-  const { t } = useI18n()
+  const t = adminT
   const [tab, setTab] = useState<Tab>('overview')
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [error, setError] = useState('')
@@ -830,7 +826,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
 /** `/admin`：管理后台（需 ADMIN_SECRET 口令）。 */
 export function AdminPage() {
-  const { t } = useI18n()
+  const t = adminT
   const [probe, setProbe] = useState<AdminProbe>('loading')
 
   const refresh = useCallback(() => {
@@ -846,7 +842,6 @@ export function AdminPage() {
       <AdminScreen>
         <div className="admin-card">
           <p className="admin-muted">{t('admin.checking')}</p>
-          <LangSwitch className="admin-lang" />
         </div>
       </AdminScreen>
     )
@@ -858,7 +853,6 @@ export function AdminPage() {
         <div className="admin-card">
           <h1>{t('admin.title')}</h1>
           <p className="admin-muted">{t('common.backendUnavailable')}</p>
-          <LangSwitch className="admin-lang" />
         </div>
       </AdminScreen>
     )

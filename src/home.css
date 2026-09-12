@@ -2318,24 +2318,9 @@
   color: #ffffff;
 }
 
-.admin-lang {
-  margin-top: 16px;
-}
-
-.admin-sidebar-foot .admin-lang {
-  margin: 4px 0 4px;
-  align-self: flex-start;
-}
-
 @media (max-width: 560px) {
   .lang-switch button {
     padding: 6px 7px;
     font-size: 11px;
-  }
-
-  .admin-sidebar-foot .admin-lang {
-    flex-direction: column;
-    align-self: center;
-    margin: 4px auto 6px;
   }
 }

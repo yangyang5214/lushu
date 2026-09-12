@@ -208,7 +208,14 @@ const zh = {
   'diagram.day1': '第1天 · 286 km',
   'diagram.day2': '第2天 · 198 km',
 
-  // ── 管理后台 ─────────────────────────────────────────────────────────────
+  // ── 文档 ─────────────────────────────────────────────────────────────────
+  'meta.title': '路书 · 随意加点，自动串线与分天',
+} as const
+
+export type MsgKey = keyof typeof zh
+
+// 管理后台只用中文，不跟随站点语言，因此独立于上面的双语表。
+const adminZh = {
   'admin.title': '管理后台',
   'admin.brand': '管理',
   'admin.overview': '概览',
@@ -274,12 +281,9 @@ const zh = {
   'admin.routeMap': '路线地图',
   'admin.backToSite': '返回站点',
   'admin.signOut': '退出登录',
-
-  // ── 文档 ─────────────────────────────────────────────────────────────────
-  'meta.title': '路书 · 随意加点，自动串线与分天',
 } as const
 
-export type MsgKey = keyof typeof zh
+export type AdminMsgKey = keyof typeof adminZh
 
 const en: Record<MsgKey, string> = {
   'common.backendUnavailable':
@@ -473,72 +477,6 @@ const en: Record<MsgKey, string> = {
   'diagram.day1': 'Day 1 · 286 km',
   'diagram.day2': 'Day 2 · 198 km',
 
-  'admin.title': 'Admin',
-  'admin.brand': 'Admin',
-  'admin.overview': 'Overview',
-  'admin.users': 'Users',
-  'admin.books': 'Roadbooks',
-  'admin.userDetail': 'User details',
-  'admin.bookDetail': 'Roadbook details',
-  'admin.login': 'Sign in',
-  'admin.disabled':
-    'Admin is disabled: set ADMIN_SECRET (at least 6 characters) under [vars] in wrangler.toml or in .dev.vars, then restart the Worker.',
-  'admin.enterPrompt': 'Enter the admin passphrase to continue.',
-  'admin.passphrase': 'Admin passphrase',
-  'admin.verifying': 'Verifying…',
-  'admin.enter': 'Enter',
-  'admin.wrongPassphrase': 'Incorrect passphrase',
-  'admin.checking': 'Checking permissions…',
-  'admin.statUsers': 'Registered users',
-  'admin.statBooks': 'Total Roadbooks',
-  'admin.statPublic': 'Public Roadbooks',
-  'admin.statPrivate': 'Private Roadbooks',
-  'admin.prevPage': 'Previous',
-  'admin.nextPage': 'Next',
-  'admin.pageInfo': 'Page {page} of {pages} ({total} total)',
-  'admin.deleting': 'Deleting…',
-  'admin.confirmDelete': 'Confirm delete',
-  'admin.searchEmailPlaceholder': 'Search email or name',
-  'admin.searchBookPlaceholder': 'Search Roadbook title',
-  'admin.search': 'Search',
-  'admin.colId': 'ID',
-  'admin.colEmail': 'Email',
-  'admin.colName': 'Name',
-  'admin.colHashId': 'Public ID',
-  'admin.colBooks': 'Roadbooks',
-  'admin.colStatus': 'Status',
-  'admin.colCreated': 'Joined',
-  'admin.colActions': 'Actions',
-  'admin.colTitle': 'Title',
-  'admin.colVisibility': 'Visibility',
-  'admin.colPlaces': 'Stops',
-  'admin.colOwner': 'Owner',
-  'admin.colUpdated': 'Updated',
-  'admin.colLink': 'Link',
-  'admin.activated': 'Activated',
-  'admin.pending': 'Pending',
-  'admin.allVisibility': 'All visibility',
-  'admin.onlyPublic': 'Public only',
-  'admin.onlyPrivate': 'Private only',
-  'admin.withBooks': 'Including {n} Roadbook(s)',
-  'admin.untitled': '(Untitled)',
-  'admin.visPublic': 'Public',
-  'admin.visPrivate': 'Private',
-  'admin.backUsers': '← Back to users',
-  'admin.backBooks': '← Back to Roadbooks',
-  'admin.publicId': 'Public ID',
-  'admin.internalOwner': 'Internal owner_key',
-  'admin.status': 'Status',
-  'admin.booksCount': 'Roadbooks ({n})',
-  'admin.open': 'Open',
-  'admin.bookId': 'Roadbook ID',
-  'admin.placesCount': 'Stops',
-  'admin.createdUpdated': 'Created / Updated',
-  'admin.rawData': 'Raw data',
-  'admin.routeMap': 'Route map',
-  'admin.backToSite': 'Back to site',
-  'admin.signOut': 'Sign out',
-
   'meta.title': 'Roadbook · Add places freely, auto-link and split into days',
 }
 
@@ -594,6 +532,14 @@ export function getLang(): Lang {
 export function t(key: MsgKey, params?: TParams): string {
   const lang = getLang()
   return interpolate(CATALOG[lang][key] ?? zh[key] ?? key, params)
+}
+
+/**
+ * 管理后台文案：固定中文，优先取 adminZh，其余（common.* 等）回落到中文主表。
+ */
+export function adminT(key: AdminMsgKey | MsgKey, params?: TParams): string {
+  const table: Record<string, string> = adminZh
+  return interpolate(table[key] ?? (zh as Record<string, string>)[key] ?? key, params)
 }
 
 /**
