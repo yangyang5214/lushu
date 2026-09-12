@@ -3,6 +3,8 @@ import { defineConfig } from 'vite'
 
 // 本地 `pnpm dev` 的代理：
 //   /api/geocode  → 直接打 Nominatim（不需要 Worker，纯 UI 调试也能搜地点）
+//   /api/places   → 转发到本地 Worker（高德 POI 检索；Worker 没起或没配 AMAP_KEY 时
+//                   前端自动回落到 Photon + /api/geocode）
 //   其余 /api/*   → 转发到本地 Worker（`pnpm pages:dev`，默认 8788）
 //
 // 驾车路线统一交给本地 Worker 处理（和线上同一套代码：优先高德、限流自动重试、

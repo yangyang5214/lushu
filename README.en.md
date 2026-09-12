@@ -49,16 +49,6 @@ pnpm pages:dev    # build, then start the Worker on http://localhost:8788
 
 The UI ships in Simplified Chinese and English; toggle it from the top-right of the header. The first visit follows your browser language and the choice is remembered. A new book's default title uses whichever language was active when it was created.
 
-## Data and accounts
-
-- Search and routing (`/api/geocode`, `/api/route`) work without signing in.
-- Driving routes prefer AMap: set `AMAP_KEY` (an AMap "Web Service" key, via `wrangler pages secret put AMAP_KEY`) and `/api/route` uses AMap driving directions; when it is missing or AMap fails, the route falls back to OSRM. AMap keys have a low concurrent QPS, so multi-day routes are sent serially and retried on rate limits to avoid the fallback. Route coordinates are always returned as GCJ02 to line up with the AMap basemap.
-- Personal data always requires signing in: My Books, creating / duplicating a book, editing and saving, the cloud shelf, and cross-device recovery. When signed out, those actions first jump to the account page and finish automatically once you sign in or register.
-- Books are public by default: a new book shows up on the Public books page and anyone with the link can open it. A book link looks like `/{userId}/{bookId}`, where `userId` is the owner's public short ID (the "user ID" on the account page, derived from the email — not a credential); an old link with just `/{bookId}` still opens. In the My Books list you can flip a book to "only me" — it disappears from the public list and the old link stops working for everyone else (the server pretends it does not exist); only the owner can read it. Flipping it back to public works the same way.
-- Storage stays local-first: the UI writes to the browser immediately, then pushes to D1 after a 1.4s debounce. Signing in only attaches local data to the account; the cloud copy is what survives a device change.
-- Signing out clears the local cache (books, tokens, owner key). Cloud data stays with the account and comes back on the next sign-in.
-- These rules are documented here only; the UI does not explain them.
-
 ## Deploy
 
 ```bash

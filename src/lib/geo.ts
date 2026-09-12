@@ -1,8 +1,8 @@
 import type { DayPlan, Place } from '../types'
-import { wgs84ToGcj02 } from '../../shared/coords'
+import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
 import { t } from './i18n'
 
-export { wgs84ToGcj02 }
+export { gcj02ToWgs84, wgs84ToGcj02 }
 
 export type LngLat = { lng: number; lat: number }
 
@@ -226,11 +226,6 @@ export function suggestSplitId(ordered: Place[], splitIds: string[], loop: boole
 
 export function toGcj(place: LngLat): [number, number] {
   return wgs84ToGcj02(place.lng, place.lat)
-}
-
-export function gcj02ToWgs84(lng: number, lat: number): [number, number] {
-  const [glng, glat] = wgs84ToGcj02(lng, lat)
-  return [lng * 2 - glng, lat * 2 - glat]
 }
 
 export const DAY_INKS = [

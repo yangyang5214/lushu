@@ -26,7 +26,8 @@
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
 //   DELETE /api/admin/books/:id → 删除路书
 //   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
-//   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存
+//   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存（高德不可用时的兜底）
+//   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地首选）+ Cache API 缓存
 //   GET    /api/route?coords= → 驾车路线：优先高德，失败回落 OSRM，Cache API 缓存
 //
 // 暴露面控制（公开仓库 = 端点形状全部公开，所以防线必须在服务端）：
@@ -88,7 +89,7 @@ import {
   adminListUsers,
   adminStats,
 } from '../lib/admin-data'
-import { wgs84ToGcj02 } from '../../shared/coords'
+import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
 
 type Env = {
   DB: D1Database
@@ -1027,6 +1028,138 @@ function geocode(ctx: Ctx): Promise<Response> {
 
 type RoutePoint = { lng: number; lat: number }
 
+/** /api/places 的统一形状，坐标一律 WGS84（和地点、线路的存储约定一致）。 */
+type PlaceHit = { name: string; address: string; lng: number; lat: number }
+
+type AmapPoi = {
+  name?: string
+  location?: string
+  address?: string | string[]
+  pname?: string
+  cityname?: string | string[]
+  adname?: string | string[]
+}
+
+/** 高德偶尔把空字段回成 `[]`，统一取首个字符串。 */
+function amapText(value: string | string[] | undefined): string {
+  const text = Array.isArray(value) ? value[0] : value
+  return (text ?? '').trim()
+}
+
+/** 高德 POI 响应 → /api/places 形状。坐标是 GCJ02，要转回 WGS84。 */
+function parseAmapPlaces(data: unknown): PlaceHit[] {
+  const payload = data as { status?: string; pois?: AmapPoi[] }
+  if (payload?.status !== '1') return []
+  const hits: PlaceHit[] = []
+  for (const poi of payload.pois ?? []) {
+    const [glng, glat] = (poi.location ?? '').split(',').map(Number)
+    if (!Number.isFinite(glng) || !Number.isFinite(glat)) continue
+    const name = amapText(poi.name) || amapText(poi.address)
+    if (!name) continue
+    const address = [amapText(poi.pname), amapText(poi.cityname), amapText(poi.adname), amapText(poi.address)]
+      .filter((part, i, arr) => part && part !== name && arr.indexOf(part) === i)
+      .slice(0, 3)
+      .join(' · ')
+    const [lng, lat] = gcj02ToWgs84(glng, glat)
+    hits.push({ name, address, lng, lat })
+  }
+  return hits
+}
+
+const AMAP_PLACE_URL = 'https://restapi.amap.com/v3/place/text'
+
+/** 高德 POI 检索（v3 place/text），限流按退避重试；失败返回 null 交给前端兜底。 */
+async function amapPlaces(key: string, q: string): Promise<PlaceHit[] | null> {
+  const params = new URLSearchParams({
+    key,
+    keywords: q,
+    offset: '10',
+    page: '1',
+    extensions: 'base',
+  })
+  const url = `${AMAP_PLACE_URL}?${params.toString()}`
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(9000),
+      })
+      if (!res.ok) return null
+      const data = (await res.json()) as { status?: string; infocode?: string }
+      if (data?.status === '1') return parseAmapPlaces(data)
+      if (AMAP_RETRYABLE.has(String(data?.infocode)) && attempt < AMAP_RETRY_DELAYS.length) {
+        await sleep(AMAP_RETRY_DELAYS[attempt])
+        continue
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+}
+
+/**
+ * /api/places?q= → 搜索添加目的地的首选上游。
+ * 没配 AMAP_KEY 或高德失败时回 5xx，前端自动回落到 /api/geocode + Photon。
+ */
+async function places(ctx: Ctx): Promise<Response> {
+  const q = (new URL(ctx.request.url).searchParams.get('q') ?? '').trim()
+  if (!q) return json({ error: 'missing_q' }, 400)
+  if (q.length > 200) return json({ error: 'q_too_long' }, 400)
+  const key = ctx.env.AMAP_KEY?.trim()
+  if (!key) return json({ error: 'amap_unconfigured' }, 501)
+
+  // 缓存键不带 key，换 key 不用失效；缓存的是已经转好坐标的统一形状。
+  const cache = typeof caches !== 'undefined' ? caches.default : undefined
+  const cacheKey = new Request(`https://lushu.internal/api/places/v1?q=${encodeURIComponent(q)}`, {
+    method: 'GET',
+  })
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheKey)
+      if (hit) {
+        return new Response(hit.body, {
+          status: 200,
+          headers: {
+            ...JSON_HEADERS,
+            'x-lushu-cache': 'hit',
+            'cache-control': `public, max-age=${GEO_TTL}`,
+          },
+        })
+      }
+    } catch {
+      /* 缓存不可用就直接回源 */
+    }
+  }
+
+  const hits = await amapPlaces(key, q)
+  if (!hits) return json({ error: 'upstream' }, 502)
+
+  const body = JSON.stringify(hits)
+  if (cache) {
+    try {
+      ctx.waitUntil(
+        cache.put(
+          cacheKey,
+          new Response(body, {
+            headers: { ...JSON_HEADERS, 'cache-control': `public, max-age=${GEO_TTL}` },
+          }),
+        ),
+      )
+    } catch {
+      /* 写缓存失败不影响响应 */
+    }
+  }
+  return new Response(body, {
+    status: 200,
+    headers: {
+      ...JSON_HEADERS,
+      'x-lushu-cache': 'miss',
+      'cache-control': `public, max-age=${GEO_TTL}`,
+    },
+  })
+}
+
 /** /api/route 的统一返回：线路坐标一律 GCJ02，直接贴合高德底图。 */
 type RouteLine = {
   source: 'amap' | 'osrm'
@@ -1320,6 +1453,7 @@ async function handle(ctx: Ctx): Promise<Response> {
   }
 
   if (seg[0] === 'geocode' && method === 'GET') return geocode(ctx)
+  if (seg[0] === 'places' && method === 'GET') return places(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)
 
   return json({ error: 'not_found' }, 404)

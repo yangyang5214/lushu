@@ -27,6 +27,19 @@ function transformLng(lng: number, lat: number): number {
   return r
 }
 
+/** 偏移量本身是坐标的连续函数：先按猜测点算一次偏移，差值迭代几次即可收敛到米级以内。 */
+export function gcj02ToWgs84(lng: number, lat: number): [number, number] {
+  if (outOfChina(lng, lat)) return [lng, lat]
+  let wlng = lng
+  let wlat = lat
+  for (let i = 0; i < 3; i += 1) {
+    const [glng, glat] = wgs84ToGcj02(wlng, wlat)
+    wlng += lng - glng
+    wlat += lat - glat
+  }
+  return [wlng, wlat]
+}
+
 /** WGS84 经纬度 → GCJ02 [lng, lat]。 */
 export function wgs84ToGcj02(lng: number, lat: number): [number, number] {
   if (outOfChina(lng, lat)) return [lng, lat]
