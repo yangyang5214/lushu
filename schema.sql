@@ -86,3 +86,13 @@ CREATE TABLE IF NOT EXISTS email_send_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_send_log ON email_send_log (email, sent_at DESC);
+
+-- 认证面限流（固定窗口计数）：登录 / 注册 / 管理登录等。
+-- 只存桶名与计数，不存原始 IP 或口令；过期桶会被顺手清理。
+CREATE TABLE IF NOT EXISTS rate_limits (
+  bucket     TEXT PRIMARY KEY,   -- "<key>:<windowIndex>"
+  expires_at INTEGER NOT NULL,
+  n          INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expiry ON rate_limits (expires_at);

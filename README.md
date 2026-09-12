@@ -60,7 +60,10 @@ pnpm deploy       # wrangler pages deploy dist
 | --- | --- |
 | `RESEND_API_KEY` | 发送注册激活邮件 |
 | `TURNSTILE_SECRET` | 注册 / 登录人机校验 |
-| `ADMIN_SECRET` | 管理后台 `/admin` 口令；未设置时 `/api/admin/*` 返回 404 |
+| `ADMIN_SECRET` | 管理后台 `/admin` 口令（至少 16 字符）；未设置或过短时 `/api/admin/*` 返回 404 |
+
+> 鉴权入口（登录 / 注册 / 重发激活信 / 管理登录）有基于 D1 `rate_limits` 表的限流，
+> 首次升级后请重新执行一次 `pnpm db:init`（或 `pnpm db:init:local`）建表。
 | `AMAP_KEY` | 高德「Web 服务」key（不是 JS API key），用于驾车路线 |
 
 其他可调参数（`MAX_BOOKS`、`MAX_DOC_BYTES` 等）见 `wrangler.toml.example`。

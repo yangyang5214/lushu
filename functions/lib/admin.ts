@@ -8,7 +8,8 @@
 import { parseCookies, randomHex, safeEqual } from './auth'
 
 export const ADMIN_COOKIE = 'lushu_admin_session'
-const ADMIN_TTL_MS = 8 * 86_400_000 / 3 // 8 小时
+// 管理会话有效期 8 小时。
+const ADMIN_TTL_MS = 8 * 60 * 60 * 1000
 
 export type AdminEnv = {
   ADMIN_SECRET?: string
@@ -34,14 +35,15 @@ async function hmacSha256(secret: string, message: string): Promise<string> {
 
 function cookieAttrs(request: Request): string {
   const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : ''
-  return `Path=/; HttpOnly; SameSite=Lax${secure}`
+  return `Path=/; HttpOnly; SameSite=Strict${secure}`
 }
 
 /** 管理后台是否已配置（未配置则所有 admin 路由应返回 404）。 */
 export function adminConfigured(env: AdminEnv): boolean {
   const secret = env.ADMIN_SECRET?.trim() ?? ''
-  // 与账号口令下限一致；部署时仍建议用更长的随机串。
-  return secret.length >= 6
+  // 管理口令直接等于全站数据的读写权限，门槛比普通账号高：至少 16 字符。
+  // 部署时请用密码管理器生成的长随机串。
+  return secret.length >= 16
 }
 
 function adminToken(request: Request): string {

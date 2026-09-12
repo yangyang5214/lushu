@@ -131,6 +131,10 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
       setError(t('common.backendUnavailable'))
       return
     }
+    if (result === 'rate_limited') {
+      setError(t('err.rate_limited'))
+      return
+    }
     setError(t('admin.wrongPassphrase'))
   }
 

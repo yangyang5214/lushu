@@ -80,11 +80,12 @@ function hexToBytes(hex: string): Uint8Array {
   return out
 }
 
-/** 恒定时间比较：口令摘要、会话摘要都用它，避免计时侧信道。 */
+/** 恒定时间比较：口令摘要、会话 / 管理签名都用它，避免计时侧信道。
+ *  长度不同也走完整个循环，不提前 return，长度差一并折进结果。 */
 export function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  const len = Math.max(a.length, b.length)
+  let diff = a.length ^ b.length
+  for (let i = 0; i < len; i += 1) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)
   return diff === 0
 }
 
@@ -250,18 +251,6 @@ export async function createUser(
   return { id, hashId, email: input.email, displayName: input.displayName, createdAt: now }
 }
 
-/** 更新待激活账号的口令（重复注册时覆盖）。 */
-export async function updatePendingUserPassword(
-  env: AuthEnv,
-  userId: string,
-  password: string,
-): Promise<void> {
-  const passHash = await hashPassword(password)
-  await env.DB.prepare('UPDATE users SET pass_hash = ? WHERE id = ? AND activated_at = 0')
-    .bind(passHash, userId)
-    .run()
-}
-
 /** 激活账号并返回最新用户行。 */
 export async function activateUser(env: AuthEnv, email: string): Promise<UserRow | null> {
   const now = Date.now()
@@ -314,10 +303,11 @@ export function parseCookies(header: string | null): Record<string, string> {
   return out
 }
 
-/** 只有 https 才加 Secure，否则本地 http 调试时 cookie 会被浏览器丢掉。 */
+/** 只有 https 才加 Secure，否则本地 http 调试时 cookie 会被浏览器丢掉。
+ *  SameSite=Strict：不接受任何跨站请求携带会话 cookie，顺带关掉登录 CSRF。 */
 function cookieAttrs(request: Request): string {
   const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : ''
-  return `Path=/; HttpOnly; SameSite=Lax${secure}`
+  return `Path=/; HttpOnly; SameSite=Strict${secure}`
 }
 
 export function sessionCookie(request: Request, token: string, expiresAt: number): string {

@@ -186,6 +186,7 @@ const zh = {
   'err.email_failed': '激活邮件发送失败，请稍后再试',
   'err.turnstile_required': '请先完成人机验证',
   'err.turnstile_failed': '人机验证失败，请重试',
+  'err.rate_limited': '操作太频繁，请稍后再试',
   'err.network': '网络不可用，账号暂时用不了',
   'err.generic': '出了点问题，请重试',
 
@@ -452,6 +453,7 @@ const en: Record<MsgKey, string> = {
   'err.email_failed': 'Could not send the activation email. Please try again later.',
   'err.turnstile_required': 'Please complete the human verification first',
   'err.turnstile_failed': 'Human verification failed — please try again',
+  'err.rate_limited': 'Too many attempts — please try again later',
   'err.network': 'Network unavailable — the account is temporarily unusable',
   'err.generic': 'Something went wrong. Please try again.',
 

@@ -12,7 +12,8 @@
 //   GET    /api/library     → 我的书架（会话优先，没会话回退 X-Owner-Key）
 //   GET    /api/auth/me       → 当前登录用户
 //   POST   /api/auth/login    → 登录（邮箱 + 口令）
-//   POST   /api/auth/register → 注册（邮箱 + 口令），发激活邮件，邮箱已激活则 409
+//   POST   /api/auth/register → 注册（邮箱 + 口令），发激活邮件；无论邮箱是否已注册
+//                                都回 200 友好的 pending（不泄露邮箱是否已存在）
 //   GET    /api/auth/activate → 点击邮件链接激活账号并登录
 //   POST   /api/auth/resend-activation → 重发激活邮件（限流 + 可选 Turnstile）
 //   POST   /api/auth/logout   → 退出登录
@@ -38,9 +39,15 @@
 //   5. 口令 PBKDF2-SHA256 加盐迭代，会话 cookie 只存 token 摘要，泄库换不到登录态。
 //   6. 可见性：新建默认 private；缺字段的老书仍当 public；private 不进公开列表。
 //   7. 细节：id 必须是 24-hex 形态、token 恒定时间比较、上游代理 host 写死（无 SSRF）。
+//   8. 账号 id（users.id）不是 bearer 凭证：没会话时它不参与鉴权，只有匿名书架密钥
+//      （从未注册为账号的 32-hex）能当回退凭证，账号 id 泄露也换不到数据。
+//   9. 书归属只落到无主书或当前 owner：仅凭编辑口令不足以把别人的书过户走。
+//  10. 认证入口（登录 / 注册 / 重发激活 / 管理登录）有 D1 固定窗口限流（rate_limits）。
+//  11. 待激活账号不会被再次注册覆盖口令，避免「先注册 → 冒名重注册 → 点激活」接管。
 //   另外建议在 Cloudflare 控制台给 /api/* 加一条免费的速率限制规则（见 README）。
 
 import {
+  type AuthUser,
   activateUser,
   adoptBooks,
   clearedCookie,
@@ -59,7 +66,6 @@ import {
   safeEqual,
   sessionCookie,
   toUser,
-  updatePendingUserPassword,
   validateEmail,
   validateLoginPassword,
   validatePassword,
@@ -73,7 +79,7 @@ import {
   validateActivationTokenFormat,
   verifyAndConsumeActivation,
 } from '../lib/email-activation'
-import { sendActivationEmail } from '../lib/mail'
+import { sendAccountExistsEmail, sendActivationEmail } from '../lib/mail'
 import {
   adminConfigured,
   adminLogin,
@@ -90,6 +96,7 @@ import {
   adminStats,
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
+import { clientIp, rateLimited } from '../lib/rate-limit'
 
 type Env = {
   DB: D1Database
@@ -203,6 +210,9 @@ async function readBody<T>(request: Request): Promise<T | null> {
 
 // ── Turnstile（可选）────────────────────────────────────────────────────────
 
+/** Turnstile widget 固定用的 action；服务端校验它，防止 token 被跨用途重放。 */
+const TURNSTILE_ACTION = 'lushu'
+
 async function verifyTurnstile(env: Env, request: Request, token: string): Promise<boolean> {
   const secret = env.TURNSTILE_SECRET
   if (!secret) return true
@@ -217,8 +227,15 @@ async function verifyTurnstile(env: Env, request: Request, token: string): Promi
       body: form,
     })
     if (!res.ok) return false
-    const data = (await res.json()) as { success?: boolean }
-    return data.success === true
+    const data = (await res.json()) as { success?: boolean; hostname?: string; action?: string }
+    if (data.success !== true) return false
+    // 校验 token 是在本站点、且是本用途下解出的，防止别处拿到的 token 被重放。
+    // 本地 pages:dev 用 Turnstile 测试 key 时会回固定 hostname，故对 localhost 放宽。
+    const host = new URL(request.url).hostname
+    const isLocal = host === 'localhost' || host === '127.0.0.1'
+    if (!isLocal && data.hostname && data.hostname !== host) return false
+    if (data.action && data.action !== TURNSTILE_ACTION) return false
+    return true
   } catch {
     return false
   }
@@ -258,13 +275,25 @@ function ownerHeader(request: Request): string {
 }
 
 /**
+ * 解析请求归属：登录态优先；未登录时只接受「匿名书架密钥」。
+ * 账号 id 也是 32-hex，但它不是可以当 bearer 用的凭证——如果这个 key 已经是一个
+ * 账号，就必须带会话，否则一律拒绝（即使账号 id 泄漏也换不到登录态 / 数据）。
+ */
+async function resolveOwner(env: Env, request: Request, user: AuthUser | null): Promise<string> {
+  if (user) return user.id
+  const key = ownerHeader(request)
+  if (!key) return ''
+  if (await findUserById(env, key)) return ''
+  return key
+}
+
+/**
  * 书架归属：登录后用账号 id，没登录时回退到本机的 X-Owner-Key。
- * 有会话时才读库（1 行读），没登录的匿名请求完全不碰 users/sessions。
+ * 有会话时才读库（1 行读），没登录的匿名请求只在带了 header 时多查一次 users。
  */
 async function ownerFrom(ctx: Ctx): Promise<string> {
   const user = await readUser(ctx.request, ctx.env)
-  if (user) return user.id
-  return ownerHeader(ctx.request)
+  return resolveOwner(ctx.env, ctx.request, user)
 }
 
 /**
@@ -316,6 +345,14 @@ async function authLogin(ctx: Ctx): Promise<Response> {
   if (emailError) return json({ error: emailError }, 400)
   const pwError = validateLoginPassword(password)
   if (pwError) return json({ error: pwError }, 400)
+
+  // 口令爆破防线：按 IP 与邮箱双维度限流。
+  if (await rateLimited(env, `login:ip:${clientIp(request)}`, 50, 600_000)) {
+    return json({ error: 'rate_limited' }, 429)
+  }
+  if (await rateLimited(env, `login:email:${email}`, 10, 600_000)) {
+    return json({ error: 'rate_limited' }, 429)
+  }
 
   const row = await findUserByEmail(env, email)
   if (!row || !(await verifyPassword(password, row.pass_hash))) {
@@ -386,26 +423,36 @@ async function authRegister(ctx: Ctx): Promise<Response> {
   const tsErr = await requireTurnstile(ctx)
   if (tsErr) return tsErr
 
+  if (await rateLimited(env, `register:ip:${clientIp(request)}`, 60, 3_600_000)) {
+    return json({ error: 'rate_limited' }, 429)
+  }
+
   const existing = await findUserByEmail(env, email)
   if (existing && isUserActivated(existing)) {
-    return json({ error: 'email_taken' }, 409)
-  }
-
-  let userId: string
-  if (existing) {
-    userId = existing.id
-    await updatePendingUserPassword(env, userId, password)
-  } else {
-    let user
-    try {
-      user = await createUser(env, { email, displayName, password })
-    } catch {
-      return json({ error: 'email_taken' }, 409)
+    // 不告诉调用方邮箱是否已注册：只给邮箱主人发一封提醒，对外统一回 pending。
+    // 已激活账号的口令绝不因为这次「注册」而被改动。
+    if (!(await rateLimited(env, `notice:email:${email}`, 3, 3_600_000))) {
+      await sendAccountExistsEmail(env, email)
     }
-    userId = user.id
+    return json({ ok: true, pending: true }, 201)
   }
 
-  await adoptIfAnonymous(env, body?.ownerKey, userId)
+  if (existing) {
+    // 待激活账号：只重发激活信，绝不覆盖口令。否则第二个「注册」者可以设好
+    // 自己的口令，等邮箱主人在自己邮箱里点下激活链接后，账号就归他了。
+    const sent = await sendActivationForEmail(ctx, email)
+    if (sent instanceof Response) return sent
+    return json({ ok: true, pending: true }, 201)
+  }
+
+  let user: AuthUser
+  try {
+    user = await createUser(env, { email, displayName, password })
+  } catch {
+    // 并发注册撞唯一约束：和「已存在」同款响应，不泄露内部状态。
+    return json({ ok: true, pending: true }, 201)
+  }
+  await adoptIfAnonymous(env, body?.ownerKey, user.id)
 
   const sent = await sendActivationForEmail(ctx, email)
   if (sent instanceof Response) return sent
@@ -458,6 +505,10 @@ async function authResendActivation(ctx: Ctx): Promise<Response> {
   const tsErr = await requireTurnstile(ctx)
   if (tsErr) return tsErr
 
+  if (await rateLimited(env, `resend:ip:${clientIp(ctx.request)}`, 30, 3_600_000)) {
+    return json({ error: 'rate_limited' }, 429)
+  }
+
   const row = await findUserByEmail(env, email)
   if (!row || isUserActivated(row)) {
     // 不泄露邮箱是否已注册 / 已激活。
@@ -492,6 +543,9 @@ async function adminMe(ctx: Ctx): Promise<Response> {
 
 async function adminAuthLogin(ctx: Ctx): Promise<Response> {
   if (!adminConfigured(ctx.env)) return json({ error: 'not_found' }, 404)
+  if (await rateLimited(ctx.env, `admin:ip:${clientIp(ctx.request)}`, 10, 600_000)) {
+    return json({ error: 'rate_limited' }, 429)
+  }
   const body = await readBody<{ token?: unknown }>(ctx.request)
   const result = await adminLogin(ctx.request, ctx.env, String(body?.token ?? ''))
   if (!result.ok) return json({ error: 'invalid_credentials' }, 401)
@@ -598,7 +652,7 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
   const { request, env } = ctx
   const token = request.headers.get('x-edit-token') ?? ''
   const user = await readUser(request, env)
-  const owner = user ? user.id : ownerHeader(request)
+  const owner = await resolveOwner(env, request, user)
   if (token.length < 16) return json({ error: 'token_required' }, 400)
 
   const body = await readBody<{ doc?: unknown; baseUpdatedAt?: number }>(request)
@@ -667,8 +721,13 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
     )
   }
 
-  const ownerKey = owner || existing.owner_key
-  if (ownerKey && (await hasDuplicateTitle(env, ownerKey, rawDoc.title, id))) {
+  // 归属只写到「本来无主」或「请求方就是当前 owner」的书上：仅凭编辑口令
+  // （例如口令外泄）不足以把别人的书过户到自己名下。
+  const nextOwner =
+    owner && (!existing.owner_key || safeEqual(existing.owner_key, owner))
+      ? owner
+      : existing.owner_key
+  if (nextOwner && (await hasDuplicateTitle(env, nextOwner, rawDoc.title, id))) {
     return json({ error: 'duplicate_title' }, 409)
   }
 
@@ -679,9 +738,9 @@ async function putBook(ctx: Ctx, id: string): Promise<Response> {
   if (doc.length > maxBytes) return json({ error: 'too_large' }, 413)
 
   await env.DB.prepare(
-    'UPDATE books SET doc = ?, owner_key = COALESCE(?, owner_key), updated_at = ? WHERE id = ?',
+    'UPDATE books SET doc = ?, owner_key = ?, updated_at = ? WHERE id = ?',
   )
-    .bind(doc, owner || null, now, id)
+    .bind(doc, nextOwner, now, id)
     .run()
   return json({ id, updatedAt: now })
 }
@@ -762,7 +821,7 @@ async function library(ctx: Ctx): Promise<Response> {
   const { env } = ctx
   // 会话优先：登录后 owner 是账号 id，同时能拿到本人的公开短 ID。
   const user = await readUser(ctx.request, env)
-  const owner = user ? user.id : ownerHeader(ctx.request)
+  const owner = await resolveOwner(env, ctx.request, user)
   if (!owner) return json({ books: [] })
   const ownerId = user?.hashId ?? ''
   const res = await env.DB.prepare(

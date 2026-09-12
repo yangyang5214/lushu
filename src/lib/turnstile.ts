@@ -14,6 +14,7 @@ type TurnstileApi = {
       'timeout-callback'?: () => void
       theme?: 'light' | 'dark' | 'auto'
       size?: 'normal' | 'flexible' | 'compact'
+      action?: string
     },
   ) => string
   remove: (id: string) => void
@@ -68,6 +69,7 @@ export async function mountTurnstile(
       sitekey: SITE_KEY,
       theme: 'light',
       size: 'flexible',
+      action: 'lushu',
       callback: opts.onToken,
       'expired-callback': () => opts.onExpire?.(),
       'error-callback': () => opts.onError?.(),
@@ -123,6 +125,7 @@ export async function requestTurnstileToken(): Promise<string | null> {
         sitekey: SITE_KEY,
         theme: 'light',
         size: 'flexible',
+        action: 'lushu',
         callback: (token) => done(token),
         'error-callback': () => done(null),
         'timeout-callback': () => done(null),

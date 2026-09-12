@@ -22,6 +22,6 @@ MAX_BOOKS = "20000"
 MAX_DOC_BYTES = "262144"
 
 # Secrets (RESEND_API_KEY, TURNSTILE_SECRET, ADMIN_SECRET, AMAP_KEY): local → .dev.vars; deploy → wrangler pages secret put
-# ADMIN_SECRET：管理后台 /admin 口令，至少 6 字符；未设置时 /api/admin/* 返回 404。
+# ADMIN_SECRET：管理后台 /admin 口令，至少 16 字符（请用长随机串）；未设置或过短时 /api/admin/* 返回 404。
 # AMAP_KEY：高德「Web 服务」key（不是 JS API key）。配了 /api/route 就优先走高德驾车规划，
 #           没配或高德失败时自动回落 OSRM；本地 `pnpm dev` 也会读同一个值。

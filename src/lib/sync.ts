@@ -192,50 +192,28 @@ export async function refreshPublic(): Promise<void> {
 }
 
 /**
- * 打开本机已有的路书时和服务端对一次账：同一个 id 每次都去远端确认最新版本，
- * 远端更新就采用远端（作废本机旧副本），本地更新就留着交给正常的推送逻辑。
- * 注意：未登录 / 离线 / 无权读（404）时静默保持本地版本。
- */
-export async function reconcileBook(id: string): Promise<void> {
-  const local = useStore.getState().books[id]
-  if (!local) return
-  const meta = getMeta(id)
-  try {
-    const remote = await fetchBook(id)
-    if (!remote) return
-    if (remote.doc.updatedAt > local.updatedAt) {
-      useStore.getState().upsertRemoteBook(remote.doc)
-      setMeta(id, {
-        base: remote.updatedAt,
-        pushed: remote.doc.updatedAt,
-        owner: remote.owner,
-      })
-      return
-    }
-    // 本地不旧（或更新的本地版本还没推上去）：只刷新同步基线，别误判成冲突。
-    if (remote.updatedAt > (meta.base ?? 0)) {
-      setMeta(id, { base: remote.updatedAt, owner: remote.owner })
-    }
-  } catch {
-    /* 离线 / 后端不可达：保持本地版本 */
-  }
-}
-
-/**
- * 打开一本还没取到的路书时调用：从服务端取下来。
+ * 打开路书时从服务端取当前版本，覆盖本机副本。
+ * 云端是展示源：不比较 updatedAt，避免本机旧缓存挡住线上更新。
  * `own`：账号书架里的书（换设备同步），本机补编辑口令后可继续改。
+ * 离线 / 无权读（404）时返回 false，调用方再决定是否退回本地。
  */
 export async function pullBook(id: string, opts?: { own?: boolean }): Promise<boolean> {
+  const pending = timers.get(id)
+  if (pending) {
+    clearTimeout(pending)
+    timers.delete(id)
+  }
   try {
     const remote = await fetchBook(id)
     if (!remote) return false
-    useStore.getState().upsertRemoteBook(remote.doc)
+    const updatedAt = Math.max(remote.doc.updatedAt, remote.updatedAt)
+    useStore.getState().upsertRemoteBook({ ...remote.doc, updatedAt })
     const meta = getMeta(id)
     // 书主公开 ID 一并记下（可能为空串 = 匿名书架），地址栏才能规范成 `/{userId}/{bookId}`。
     const owner = { owner: remote.owner }
     const synced = {
       base: remote.updatedAt,
-      pushed: remote.doc.updatedAt,
+      pushed: updatedAt,
       ...owner,
       remote: undefined as boolean | undefined,
     }

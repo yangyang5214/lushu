@@ -11,7 +11,7 @@ import { initAuth, useAuth } from './lib/auth'
 import { t, useI18n } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { bookPath, readRoute, ROOT_PATH } from './lib/router'
-import { pullBook, reconcileBook, startSync } from './lib/sync'
+import { pullBook, startSync } from './lib/sync'
 import { useLushu, useStore } from './store'
 
 /**
@@ -45,18 +45,10 @@ function usePathRoute() {
       }
 
       const bookId = route.bookId
-      if (store.books[bookId]) {
-        store.openBook(bookId)
-        canonicalizeBookUrl(bookId)
-        // 本地有这本也要去远端对一次账，否则会一直显示本机缓存的旧副本。
-        void reconcileBook(bookId)
-        return
-      }
-
-      // 本地没有这本 → 可能是别人分享的链接，去服务端取。
+      // 每次打开都拉云端，不用本机缓存当展示源；离线才退回本地副本。
       const found = await pullBook(bookId)
       if (cancelled) return
-      if (found) {
+      if (found || store.books[bookId]) {
         store.openBook(bookId)
         canonicalizeBookUrl(bookId)
         return

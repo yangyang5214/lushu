@@ -70,7 +70,9 @@ export async function probeAdmin(): Promise<AdminProbe> {
   }
 }
 
-export async function adminLogin(token: string): Promise<'ok' | 'invalid' | 'disabled' | 'offline'> {
+export async function adminLogin(
+  token: string,
+): Promise<'ok' | 'invalid' | 'disabled' | 'offline' | 'rate_limited'> {
   try {
     const res = await request('/api/admin/login', {
       method: 'POST',
@@ -79,6 +81,7 @@ export async function adminLogin(token: string): Promise<'ok' | 'invalid' | 'dis
     })
     if (res.status === 404) return 'disabled'
     if (res.status === 401) return 'invalid'
+    if (res.status === 429) return 'rate_limited'
     if (!res.ok || !isJson(res)) return 'offline'
     return 'ok'
   } catch {

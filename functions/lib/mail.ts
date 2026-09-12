@@ -47,6 +47,62 @@ function activationEmailHtml(activateUrl: string): string {
 </html>`
 }
 
+/**
+ * 「这个邮箱已经注册过」的提醒。注册接口对外一律回 pending，不给调用方
+ * 提供邮箱是否已注册的信息；真正该知道的只有邮箱主人，所以用邮件告知。
+ */
+export async function sendAccountExistsEmail(env: MailEnv, to: string): Promise<SendResult> {
+  const key = env.RESEND_API_KEY?.trim()
+  if (!key) {
+    console.log(`[lushu] account exists notice for ${to}`)
+    return 'unconfigured'
+  }
+
+  const from = env.EMAIL_FROM?.trim() || DEFAULT_FROM
+  const subject = '你的路书账号已存在'
+  const text =
+    `这个邮箱已经注册过路书账号了。\n\n` +
+    `如果刚才是你本人操作：直接到登录页用原密码登录即可，不需要重新注册。\n` +
+    `非本人操作可忽略本邮件。\n`
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f2f3f5;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;color:#1f2329;">
+    <div style="background:#ffffff;border-radius:12px;padding:32px 28px;">
+      <h1 style="margin:0 0 12px;font-size:20px;line-height:1.4;">你的路书账号已存在</h1>
+      <p style="margin:0 0 8px;font-size:14px;line-height:1.7;color:#646a73;">
+        这个邮箱已经注册过路书账号，无需重复注册，直接到登录页用原密码登录即可。
+      </p>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:#8f959e;">
+        如非本人操作，请忽略本邮件。
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${key}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ from, to: [to], subject, text, html }),
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) {
+      console.error('[lushu] resend notice failed', res.status, await res.text())
+      return 'failed'
+    }
+    return 'sent'
+  } catch (err) {
+    console.error('[lushu] resend notice error', err)
+    return 'failed'
+  }
+}
+
 export async function sendActivationEmail(
   env: MailEnv,
   to: string,

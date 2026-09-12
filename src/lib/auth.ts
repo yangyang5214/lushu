@@ -78,6 +78,7 @@ export type AuthError =
   | 'email_failed'
   | 'turnstile_required'
   | 'turnstile_failed'
+  | 'rate_limited'
   | 'network'
   | 'backend_unavailable'
 
@@ -93,6 +94,7 @@ const ERROR_KEY: Record<AuthError, MsgKey> = {
   email_failed: 'err.email_failed',
   turnstile_required: 'err.turnstile_required',
   turnstile_failed: 'err.turnstile_failed',
+  rate_limited: 'err.rate_limited',
   network: 'err.network',
   backend_unavailable: 'common.backendUnavailable',
 }
@@ -131,6 +133,7 @@ const KNOWN_ERRORS: AuthError[] = [
   'email_failed',
   'turnstile_required',
   'turnstile_failed',
+  'rate_limited',
 ]
 
 function asError(code: unknown): AuthError {
