@@ -192,6 +192,36 @@ export async function refreshPublic(): Promise<void> {
 }
 
 /**
+ * 打开本机已有的路书时和服务端对一次账：同一个 id 每次都去远端确认最新版本，
+ * 远端更新就采用远端（作废本机旧副本），本地更新就留着交给正常的推送逻辑。
+ * 注意：未登录 / 离线 / 无权读（404）时静默保持本地版本。
+ */
+export async function reconcileBook(id: string): Promise<void> {
+  const local = useStore.getState().books[id]
+  if (!local) return
+  const meta = getMeta(id)
+  try {
+    const remote = await fetchBook(id)
+    if (!remote) return
+    if (remote.doc.updatedAt > local.updatedAt) {
+      useStore.getState().upsertRemoteBook(remote.doc)
+      setMeta(id, {
+        base: remote.updatedAt,
+        pushed: remote.doc.updatedAt,
+        owner: remote.owner,
+      })
+      return
+    }
+    // 本地不旧（或更新的本地版本还没推上去）：只刷新同步基线，别误判成冲突。
+    if (remote.updatedAt > (meta.base ?? 0)) {
+      setMeta(id, { base: remote.updatedAt, owner: remote.owner })
+    }
+  } catch {
+    /* 离线 / 后端不可达：保持本地版本 */
+  }
+}
+
+/**
  * 打开一本还没取到的路书时调用：从服务端取下来。
  * `own`：账号书架里的书（换设备同步），本机补编辑口令后可继续改。
  */
