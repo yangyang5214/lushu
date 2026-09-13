@@ -55,8 +55,20 @@ function pickLine(data: unknown): [number, number][] | null {
   return null
 }
 
-function keyOf(points: LngLat[]): string {
-  return points.map((p) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';')
+/** 单点坐标串：5 位小数约 1 m，避免浮点写法差异打不中缓存。 */
+function pointKey(p: LngLat): string {
+  return `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`
+}
+
+/**
+ * A→B 与 B→A 走的是同一段路，缓存键必须共用一份：取正串 / 反串里字典序小的那个，
+ * 并记下这次请求相对它是正还是反。这样顺 / 逆切换时复用同一条已经规划好的线，
+ * 不会因为驾车规划本身有向（单行、多条等价走廊、正反 tie-break 不同）而换个走向。
+ */
+function canonicalKey(points: LngLat[]): { key: string; reversed: boolean } {
+  const forward = points.map(pointKey).join(';')
+  const backward = [...points].reverse().map(pointKey).join(';')
+  return forward <= backward ? { key: forward, reversed: false } : { key: backward, reversed: true }
 }
 
 const mem = new Map<string, Promise<[number, number][] | null>>()
@@ -182,23 +194,27 @@ async function flushJobs(): Promise<void> {
 }
 
 /**
- * 路线几何。同一坐标内存去重；同一事件循环里的多天请求会合成一次 POST。
+ * 路线几何。同一坐标内存去重；A→B 与 B→A 共用一份（反向请求把线倒过来）；
+ * 同一事件循环里的多天请求会合成一次 POST。
  * 优先 Worker（高德，失败回落 OSRM），再退浏览器直连 OSRM。
  */
 export function fetchRoadLine(points: LngLat[]): Promise<[number, number][] | null> {
   if (points.length < 2) return Promise.resolve(null)
-  const key = keyOf(points)
-  const existing = mem.get(key)
-  if (existing) return existing
-  const pending = new Promise<[number, number][] | null>((resolve) => {
-    queued.push({ key, resolve })
-    scheduleFlush()
-  }).then((line) => {
-    if (!line) mem.delete(key)
-    return line
-  })
-  mem.set(key, pending)
-  return pending
+  const { key, reversed } = canonicalKey(points)
+  let shared = mem.get(key)
+  if (!shared) {
+    shared = new Promise<[number, number][] | null>((resolve) => {
+      queued.push({ key, resolve })
+      scheduleFlush()
+    }).then((line) => {
+      if (!line) mem.delete(key)
+      return line
+    })
+    mem.set(key, shared)
+  }
+  if (!reversed) return shared
+  // 缓存里存的是键的朝向；这次要的是它的反向，倒序即可。
+  return shared.then((line) => (line ? [...line].reverse() : null))
 }
 
 /** 打开路书后立刻预热各天路网，和地图初始化并行，不用等 Leaflet 挂上。 */
