@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { buildJourney } from './lib/journey'
 import { insertNearest, isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
-import { t } from './lib/i18n'
+import { isUntitledTitle, t } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
 import type { Book, Journey, Place, Visibility } from './types'
@@ -102,6 +102,21 @@ const EMPTY_BOOK: Book = {
   splitIds: [],
   createdAt: 0,
   updatedAt: 0,
+}
+
+/**
+ * 完全没动过的空白路书：默认书名、无出发日期、无地点、无起终点。
+ * 用它判断「新建路书」能不能复用，别再堆一摞未命名路书。
+ */
+function isBlankBook(b: Book): boolean {
+  return (
+    isUntitledTitle(b.title) &&
+    !b.startDate &&
+    b.places.length === 0 &&
+    !b.startId &&
+    !b.endId &&
+    b.splitIds.length === 0
+  )
 }
 
 function bothEnds(b: Book): boolean {
@@ -209,6 +224,17 @@ export const useStore = create<Store>()(
       setView: (view) => set({ view }),
 
       createBook: (seed) => {
+        // 已经有一本没动过的空白路书时直接打开它：反复点「新建路书」不该
+        // 每次都在书架上多出一本「未命名路书」。带 seed（复制 / 导入）时照常新建。
+        if (!seed) {
+          const existing = get()
+            .order.map((id) => get().books[id])
+            .find((b) => b && !get().readonlyIds[b.id] && isBlankBook(b))
+          if (existing) {
+            set({ activeId: existing.id, view: 'edit', selectedId: null })
+            return existing.id
+          }
+        }
         const id = hashId()
         const now = Date.now()
         const book: Book = {

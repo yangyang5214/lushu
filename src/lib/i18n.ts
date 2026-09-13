@@ -539,6 +539,14 @@ export function t(key: MsgKey, params?: TParams): string {
 }
 
 /**
+ * 书名是不是「未命名路书」的默认值（任一语言）。默认书名在创建时按当时的
+ * 界面语言落盘，之后切换语言不会改写已有书名，所以两种都要认。
+ */
+export function isUntitledTitle(title: string): boolean {
+  return !title || title === zh['common.untitled'] || title === en['common.untitled']
+}
+
+/**
  * 管理后台文案：固定中文，优先取 adminZh，其余（common.* 等）回落到中文主表。
  */
 export function adminT(key: AdminMsgKey | MsgKey, params?: TParams): string {
