@@ -5,8 +5,9 @@ export type Route =
   | { name: 'account' }
   | { name: 'admin' }
   /**
-   * 路书详情：`/{userId}/{bookId}`。userId 是书主的公开短 ID（账号页的「用户 ID」），
+   * 路书详情：`/d/{userId}/{bookId}`。userId 是书主的公开短 ID（账号页的「用户 ID」），
    * 老链接 / 匿名书架的书只有 bookId 时 userId 为 null。
+   * 旧的无前缀链接 `/{userId}/{bookId}` 也能解析，只是会被规范化成带前缀的形式。
    */
   | { name: 'book'; bookId: string; userId: string | null }
 
@@ -15,6 +16,8 @@ export const MINE_PATH = '/list'
 export const PUBLIC_PATH = '/public'
 export const ACCOUNT_PATH = '/account'
 export const ADMIN_PATH = '/admin'
+/** 路书详情的前缀：`/d/{userId}/{bookId}`，一眼能看出是路书而不是别的页面。 */
+export const BOOK_PATH_PREFIX = '/d'
 
 function safeDecode(value: string): string {
   try {
@@ -26,8 +29,9 @@ function safeDecode(value: string): string {
 
 /**
  * `/` → 首页（含怎么用），`/list` → 我的路书，`/public` → 公开路书，
- * `/account` → 账户，`/1a2b3c4d5e/abbe26963b3f90f90b8ea659` → 某人的某本路书，
- * `/abbe26963b3f90f90b8ea659` → 同一本（老链接 / 匿名书架没有 userId）。
+ * `/account` → 账户，`/d/1a2b3c4d5e/abbe26963b3f90f90b8ea659` → 某人的某本路书，
+ * `/d/abbe26963b3f90f90b8ea659` → 同一本（老链接 / 匿名书架没有 userId）。
+ * 旧的无前缀链接 `/{userId}/{bookId}`、`/{bookId}` 仍然兼容。
  * 每个导航项都是独立页面，URL 里不再出现 `#`。
  */
 export function parsePath(pathname: string): Route {
@@ -44,11 +48,16 @@ export function parsePath(pathname: string): Route {
   if (first === 'public') return { name: 'public' }
   if (first === 'account') return { name: 'account' }
   if (first === 'admin') return { name: 'admin' }
-  // `/{userId}/{bookId}`：第一段是书主公开 ID，第二段是路书 ID。
-  if (segments.length >= 2) {
-    return { name: 'book', bookId: safeDecode(segments[1]), userId: first || null }
+  // 带前缀的新链接去掉 `/r` 这一段，再按路书解析；没有前缀的老链接原样解析。
+  const rest = first === BOOK_PATH_PREFIX.slice(1) ? segments.slice(1) : segments
+  // `/d/{userId}/{bookId}`：第一段是书主公开 ID，第二段是路书 ID。
+  if (rest.length >= 2) {
+    return { name: 'book', bookId: safeDecode(rest[1]), userId: safeDecode(rest[0]) || null }
   }
-  return { name: 'book', bookId: first, userId: null }
+  // `/d/{bookId}` 或旧链接 `/{bookId}`：只有路书 ID。
+  if (rest.length === 1) return { name: 'book', bookId: safeDecode(rest[0]), userId: null }
+  // 只写了前缀（`/r`）没有后续段：当作首页。
+  return { name: 'list' }
 }
 
 export function readRoute(): Route {
@@ -56,10 +65,15 @@ export function readRoute(): Route {
   return parsePath(window.location.pathname)
 }
 
-/** 路书详情的路径：有书主公开 ID 就是 `/{userId}/{bookId}`，否则退回 `/{bookId}`。 */
+/**
+ * 路书详情的路径（带 `/d` 前缀）：有书主公开 ID 就是 `/d/{userId}/{bookId}`，
+ * 否则退回 `/d/{bookId}`。
+ */
 export function bookPath(bookId: string, userId?: string | null): string {
   const book = encodeURIComponent(bookId)
-  return userId ? `/${encodeURIComponent(userId)}/${book}` : `/${book}`
+  return userId
+    ? `${BOOK_PATH_PREFIX}/${encodeURIComponent(userId)}/${book}`
+    : `${BOOK_PATH_PREFIX}/${book}`
 }
 
 /**

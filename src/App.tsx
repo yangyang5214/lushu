@@ -16,7 +16,7 @@ import { pullBook, startSync } from './lib/sync'
 import { useLushu, useStore } from './store'
 
 /**
- * 把地址栏规范成 `/{userId}/{bookId}`：书主公开 ID 优先用本机记下的（从服务端
+ * 把地址栏规范成 `/d/{userId}/{bookId}`：书主公开 ID 优先用本机记下的（从服务端
  * 取回的书），否则用当前登录用户的 hashId。拿不到（未登录 / 匿名书架）就保留原样。
  */
 function canonicalizeBookUrl(bookId: string): void {

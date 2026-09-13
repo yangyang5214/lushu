@@ -32,7 +32,7 @@ export function MinePage() {
   const cloud = useCloud((s) => s.books)
   const cloudLoaded = useCloud((s) => s.loaded)
   const cloudById = useMemo(() => new Map(cloud.map((c) => [c.id, c])), [cloud])
-  // 本人的公开短 ID：自己的路书链接用 `/{userId}/{bookId}`。
+  // 本人的公开短 ID：自己的路书链接用 `/d/{userId}/{bookId}`。
   const myId = useAuth((s) => s.user?.hashId)
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)

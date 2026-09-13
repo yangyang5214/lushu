@@ -23,7 +23,7 @@ export type BookMeta = {
   pushed?: number
   /**
    * 书主的公开短 ID（从服务端取回这本时记下），用来把地址栏规范成
-   * `/{userId}/{bookId}`。本机自己创建的书没有这一项，回退到当前登录用户的 hashId。
+   * `/d/{userId}/{bookId}`。本机自己创建的书没有这一项，回退到当前登录用户的 hashId。
    */
   owner?: string
   /** 书主昵称（从服务端取回这本时记下）。 */
