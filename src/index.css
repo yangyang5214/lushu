@@ -617,9 +617,12 @@ mark {
 }
 
 .rail {
-  padding: 8px 16px 12px;
+  /* 左右多留一点：刻度贴边看着挤 */
+  padding: 8px 24px 12px;
   border-top: 1px solid #eef0f3;
   background: #fff;
+  /* 折行连接线用负 z-index 画在底色之上、刻度之下 */
+  isolation: isolate;
 }
 
 .rail.empty p {
@@ -628,11 +631,25 @@ mark {
   font-size: 12px;
 }
 
+/* 顶部一行：标题 + 环线方向 + 总统计；窄屏放不下时整块折行 */
+.rail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+  margin-bottom: 4px;
+}
+
+.rail-head .rail-stats {
+  margin-bottom: 0;
+}
+
 .rail-meta {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .rail-meta strong {
@@ -720,31 +737,86 @@ mark {
 }
 
 .rail-track {
-  display: flex;
-  align-items: center;
-  overflow-x: auto;
-  padding: 8px 4px 4px;
-  min-height: 72px;
+  /* 装不下就折成多行（见 SplitRail 的 packRows），所以这里不出现横向滚动条 */
+  display: block;
+  overflow: hidden;
+  padding: 8px 8px 6px;
 }
 
-.rail-unit {
+.rail-row {
+  position: relative;
   display: flex;
-  align-items: center;
-  min-width: 0;
+  align-items: flex-start;
+  width: 100%;
+  /* 行尾给连接线留一条缝，竖线不会压在站名上 */
+  padding-right: 6px;
 }
 
-.rail-unit:last-child {
-  flex: none;
+.rail-row + .rail-row {
+  margin-top: 6px;
+}
+
+/* 蛇形：偶数行从左到右，奇数行从右到左接着走 */
+.rail-row.rev {
+  flex-direction: row-reverse;
+  padding-right: 0;
+  padding-left: 6px;
+}
+
+/* 折弯连接线：从行尾圆点拐到下一行行首圆点，两行之间是一条连续的线 */
+.rail-bend {
+  position: absolute;
+  top: 9.5px;
+  bottom: -18.5px;
+  right: 0;
+  width: 3px;
+  border-radius: 99px;
+  background: currentColor;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.rail-bend::before,
+.rail-bend::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  height: 3px;
+  border-radius: 99px;
+  background: currentColor;
+}
+
+/* 分别伸向本行末尾与下一行开头的圆点（长度由 --tail / --head 控制） */
+.rail-bend::before {
+  top: 0;
+  width: var(--tail, 40px);
+}
+
+.rail-bend::after {
+  bottom: 0;
+  width: var(--head, 40px);
+}
+
+.rail-row.rev .rail-bend {
+  right: auto;
+  left: 0;
+}
+
+.rail-row.rev .rail-bend::before,
+.rail-row.rev .rail-bend::after {
+  right: auto;
+  left: 0;
 }
 
 .bead {
   flex: none;
-  min-width: 54px;
-  max-width: 112px;
+  /* 所有刻度等宽：点和点的间距就只由走线长度（= 里程）决定 */
+  width: 76px;
   border: none;
   background: none;
   display: grid;
   justify-items: center;
+  align-content: start;
   gap: 4px;
   padding: 0;
 }
@@ -781,7 +853,11 @@ mark {
   font-size: 12px;
   font-weight: 500;
   max-width: 100%;
-  white-space: normal;
+  /* 名字最多两行：避免长站名把刻度撑得参差不齐 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   overflow-wrap: anywhere;
   text-align: center;
   line-height: 1.25;
@@ -790,19 +866,26 @@ mark {
 
 .rail-seg {
   height: 3px;
-  min-width: 28px;
+  /* 与 SplitRail 的 SEG_MIN 保持一致 */
+  min-width: 10px;
+  /* 与圆点同心（圆点 22px、线 3px），走线不会被文字顶偏 */
+  margin-top: 9.5px;
   border-radius: 99px;
 }
 
 .rail-days {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 6px 14px;
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
   font-size: 12px;
   color: #8a93a0;
+}
+
+.rail-days li {
+  white-space: nowrap;
 }
 
 .rail-days i {
@@ -812,6 +895,51 @@ mark {
   border-radius: 50%;
   margin-right: 6px;
   vertical-align: 0;
+}
+
+/* 小屏 Mac / 矮窗口：行程尺压紧，免得统计与日期多行堆叠把地图挤掉 */
+@media (max-width: 1180px), (max-height: 780px) {
+  .rail {
+    padding: 7px 20px 9px;
+  }
+
+  .rail-head {
+    gap: 2px 12px;
+    margin-bottom: 2px;
+  }
+
+  .rail-meta strong {
+    font-size: 13px;
+  }
+
+  .rail-stats {
+    gap: 2px 12px;
+  }
+
+  .rail-stat b {
+    font-size: 13px;
+  }
+
+  .rail-stat em {
+    font-size: 10.5px;
+  }
+
+  .rail-track {
+    padding: 6px 8px 4px;
+  }
+
+  .bead {
+    width: 72px;
+  }
+
+  .bead em {
+    font-size: 11.5px;
+  }
+
+  .rail-days {
+    gap: 4px 10px;
+    font-size: 11.5px;
+  }
 }
 
 @media (max-width: 980px) {
@@ -871,17 +999,15 @@ mark {
   .rail {
     max-height: 42vh;
     overflow-y: auto;
-    padding: 8px 12px 10px;
+    padding: 8px 16px 10px;
   }
 
   .rail-track {
-    min-height: 64px;
     padding-top: 6px;
   }
 
   .bead {
-    min-width: 46px;
-    max-width: 96px;
+    width: 64px;
   }
 
   .bead em {
