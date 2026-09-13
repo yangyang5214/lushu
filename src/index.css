@@ -533,6 +533,30 @@ mark {
   box-shadow: 0 0 0 3px rgba(61, 126, 255, 0.2);
 }
 
+.arrow-wrap {
+  background: none !important;
+  border: none !important;
+}
+
+/* 路线上的方向标识：纯白双尖角（《 形）；只有 8px，整体压在线内 */
+.route-arrow {
+  width: 8px;
+  height: 8px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.route-arrow svg {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .rail {
   padding: 8px 16px 12px;
   border-top: 1px solid #eef0f3;

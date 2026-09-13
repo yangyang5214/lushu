@@ -3,7 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { dayInk, toGcj } from '../lib/geo'
 import { useI18n, getLang } from '../lib/i18n'
-import { markerHtml, TILE_SUBDOMAINS, tileUrl } from '../lib/map'
+import { createArrowLayer, markerHtml, TILE_SUBDOMAINS, tileUrl, type RouteArrowLayer } from '../lib/map'
 import { registerMapFit } from '../lib/map-view'
 import { fetchRoadLine } from '../lib/route'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
@@ -19,6 +19,7 @@ export function MapCanvas() {
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
   const roadsRef = useRef<L.LayerGroup | null>(null)
+  const arrowsRef = useRef<RouteArrowLayer | null>(null)
   const tileRef = useRef<L.TileLayer | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const journeyRef = useRef(journey)
@@ -44,6 +45,7 @@ export function MapCanvas() {
     L.control.zoom({ position: 'topright' }).addTo(map)
     layerRef.current = L.layerGroup().addTo(map)
     roadsRef.current = L.layerGroup().addTo(map)
+    arrowsRef.current = createArrowLayer(map)
     mapRef.current = map
     setMapReady(true)
 
@@ -54,6 +56,8 @@ export function MapCanvas() {
 
     return () => {
       ro.disconnect()
+      arrowsRef.current?.remove()
+      arrowsRef.current = null
       map.remove()
       mapRef.current = null
       layerRef.current = null
@@ -174,6 +178,8 @@ export function MapCanvas() {
     const { days } = current
     let cancelled = false
     const drawn: Array<L.Polyline | null> = days.map(() => null)
+    // 方向标识跟线路分开存：缩放后要按新的像素比例重算。
+    const lines: Array<[number, number][]> = days.map(() => [])
 
     // 路网回来再画；多天会合成一次批量请求。
     const draw = (i: number, latlngs: [number, number][]) => {
@@ -186,6 +192,8 @@ export function MapCanvas() {
         opacity: 1,
         lineJoin: 'round',
       }).addTo(host)
+      lines[i] = latlngs
+      arrowsRef.current?.set(lines)
     }
 
     days.forEach((day, i) => {
@@ -200,6 +208,7 @@ export function MapCanvas() {
 
     return () => {
       cancelled = true
+      arrowsRef.current?.set([])
     }
   }, [routeKey, mapReady])
 

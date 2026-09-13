@@ -3,7 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { dayInk, toGcj } from '../lib/geo'
 import { getLang, useI18n } from '../lib/i18n'
-import { markerHtml, TILE_SUBDOMAINS, tileUrl } from '../lib/map'
+import { createArrowLayer, markerHtml, TILE_SUBDOMAINS, tileUrl, type RouteArrowLayer } from '../lib/map'
 import { fetchRoadLine } from '../lib/route'
 import type { Journey } from '../types'
 
@@ -17,6 +17,7 @@ export function RouteMap({ journey }: { journey: Journey }) {
   const mapRef = useRef<L.Map | null>(null)
   const pinsRef = useRef<L.LayerGroup | null>(null)
   const roadsRef = useRef<L.LayerGroup | null>(null)
+  const arrowsRef = useRef<RouteArrowLayer | null>(null)
   const tileRef = useRef<L.TileLayer | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const journeyRef = useRef(journey)
@@ -41,6 +42,7 @@ export function RouteMap({ journey }: { journey: Journey }) {
     L.control.zoom({ position: 'topright' }).addTo(map)
     pinsRef.current = L.layerGroup().addTo(map)
     roadsRef.current = L.layerGroup().addTo(map)
+    arrowsRef.current = createArrowLayer(map)
     mapRef.current = map
     setMapReady(true)
 
@@ -51,6 +53,8 @@ export function RouteMap({ journey }: { journey: Journey }) {
 
     return () => {
       ro.disconnect()
+      arrowsRef.current?.remove()
+      arrowsRef.current = null
       map.remove()
       mapRef.current = null
       pinsRef.current = null
@@ -118,6 +122,8 @@ export function RouteMap({ journey }: { journey: Journey }) {
     const { days } = current
     let cancelled = false
     const drawn: Array<L.Polyline | null> = days.map(() => null)
+    // 方向标识跟线路分开存：缩放后要按新的像素比例重算。
+    const lines: Array<[number, number][]> = days.map(() => [])
 
     // 与编辑页一致：路网回来再画。
     const draw = (i: number, latlngs: [number, number][]) => {
@@ -130,6 +136,8 @@ export function RouteMap({ journey }: { journey: Journey }) {
         opacity: 1,
         lineJoin: 'round',
       }).addTo(host)
+      lines[i] = latlngs
+      arrowsRef.current?.set(lines)
     }
 
     days.forEach((day, i) => {
@@ -144,6 +152,7 @@ export function RouteMap({ journey }: { journey: Journey }) {
 
     return () => {
       cancelled = true
+      arrowsRef.current?.set([])
     }
   }, [routeKey, mapReady])
 
