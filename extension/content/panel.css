@@ -58,6 +58,10 @@
   overflow: hidden;
 }
 
+#lushu-xhs-assistant .lx-panel[hidden] {
+  display: none !important;
+}
+
 #lushu-xhs-assistant .lx-head {
   display: flex;
   align-items: center;
@@ -78,16 +82,19 @@
 }
 
 #lushu-xhs-assistant .lx-icon {
+  flex: none;
   margin-left: auto;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 8px;
   background: transparent;
   color: var(--lx-muted);
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
 #lushu-xhs-assistant .lx-icon:hover {

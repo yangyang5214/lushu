@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "lushu 助手 · 小红书问点点",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "在路书页面输入主题，自动调用小红书问点点/搜索抓取攻略，用 DeepSeek 提取地点并写入路书。",
   "icons": {
     "16": "icons/icon16.png",

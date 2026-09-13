@@ -494,7 +494,9 @@
       if (!els.keyword.value) els.keyword.focus()
     }
   })
-  els.close.addEventListener('click', () => {
+  els.close.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
     els.panel.hidden = true
   })
   els.modeXhs.addEventListener('click', () => setSourceMode('xhs'))
