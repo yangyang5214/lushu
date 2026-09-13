@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { requireLogin, useAuth } from '../lib/auth'
 import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
 import { t, useI18n } from '../lib/i18n'
-import { navigateBook, navigateBookOrigin } from '../lib/router'
-import { copyPublicBook } from '../lib/sync'
+import { navigateBookOrigin } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 
@@ -43,7 +41,6 @@ export function Sidebar() {
   const { t } = useI18n()
   const journey = useJourney()
   const readonly = useReadonly()
-  const activeId = useLushu((s) => s.activeId)
   const selectedId = useSelectedId()
   const startId = useLushu((s) => s.startId)
   const endId = useLushu((s) => s.endId)
@@ -61,22 +58,6 @@ export function Sidebar() {
     navigateBookOrigin()
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
-  const [copying, setCopying] = useState(false)
-  const [copyFailed, setCopyFailed] = useState(false)
-
-  // 别人的路书：复制一份到自己名下再改（复制要登录）。
-  const copyToMine = () =>
-    requireLogin(() => {
-      if (!activeId) return
-      setCopying(true)
-      setCopyFailed(false)
-      void copyPublicBook(activeId)
-        .then((newId) => {
-          if (newId) navigateBook(newId, useAuth.getState().user?.hashId)
-          else setCopyFailed(true)
-        })
-        .finally(() => setCopying(false))
-    })
 
   const valid = new Set(validSplitIndexes(journey.ordered, journey.isLoop).map((i) => journey.ordered[i]?.id))
   const splitSet = new Set(journey.splitIds)
@@ -110,16 +91,6 @@ export function Sidebar() {
           disabled={readonly}
         />
       </div>
-
-      {readonly ? (
-        <div className="readonly-note">
-          <strong>{t('readonly.title')}</strong>
-          <p>{copyFailed ? t('readonly.failed') : t('readonly.hint')}</p>
-          <button type="button" className="btn-primary btn-sm" disabled={copying} onClick={copyToMine}>
-            {copying ? t('readonly.copying') : t('readonly.copy')}
-          </button>
-        </div>
-      ) : null}
 
       <div className="place-scroll">
         {journey.ready

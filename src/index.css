@@ -383,29 +383,6 @@ mark.night {
   border-top: 1px solid #eef0f3;
 }
 
-/* 别人的路书：编辑器顶部的只读提示 + 复制入口。 */
-.readonly-note {
-  flex: none;
-  margin: 10px 14px 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(194, 59, 34, 0.25);
-  border-radius: 3px;
-  background: rgba(194, 59, 34, 0.06);
-}
-
-.readonly-note strong {
-  display: block;
-  font-size: 13px;
-  color: var(--seal);
-}
-
-.readonly-note p {
-  margin: 4px 0 8px;
-  color: #8a6a62;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
 .title-input:disabled {
   color: var(--ink);
   opacity: 1;
