@@ -10,6 +10,8 @@
 // 这里只负责账号态；路书同步仍由 sync.ts 负责。
 
 import { create } from 'zustand'
+import { MAX_DISPLAY_NAME } from '../../shared/display-name'
+import { MAX_PASSWORD, MIN_PASSWORD } from '../../shared/password'
 import { t, type MsgKey } from './i18n'
 import { ownerKey } from './keys'
 import { markBookOrigin, navigateAccount } from './router'
@@ -79,6 +81,9 @@ export type AuthError =
   | 'turnstile_required'
   | 'turnstile_failed'
   | 'rate_limited'
+  | 'empty_display_name'
+  | 'display_name_too_long'
+  | 'unauthorized'
   | 'network'
   | 'backend_unavailable'
 
@@ -95,14 +100,18 @@ const ERROR_KEY: Record<AuthError, MsgKey> = {
   turnstile_required: 'err.turnstile_required',
   turnstile_failed: 'err.turnstile_failed',
   rate_limited: 'err.rate_limited',
+  empty_display_name: 'err.empty_display_name',
+  display_name_too_long: 'err.display_name_too_long',
+  unauthorized: 'err.unauthorized',
   network: 'err.network',
   backend_unavailable: 'common.backendUnavailable',
 }
 
-import { MAX_PASSWORD, MIN_PASSWORD } from '../../shared/password'
-
 export function authErrorText(error: AuthError): string {
-  return t(ERROR_KEY[error] ?? 'err.generic', { min: MIN_PASSWORD, max: MAX_PASSWORD })
+  return t(ERROR_KEY[error] ?? 'err.generic', {
+    min: MIN_PASSWORD,
+    max: error === 'display_name_too_long' ? MAX_DISPLAY_NAME : MAX_PASSWORD,
+  })
 }
 
 const TIMEOUT_MS = 12_000
@@ -134,6 +143,9 @@ const KNOWN_ERRORS: AuthError[] = [
   'turnstile_required',
   'turnstile_failed',
   'rate_limited',
+  'empty_display_name',
+  'display_name_too_long',
+  'unauthorized',
 ]
 
 function asError(code: unknown): AuthError {
@@ -222,6 +234,27 @@ export async function login(email: string, password: string): Promise<AuthResult
   const res = await post('/api/auth/login', { email, password, ownerKey: ownerKey() })
   if (res.ok) useAuth.setState({ status: 'ready', user: res.user })
   return res
+}
+
+/** 改昵称；服务端再验一次长度，允许和其他人重复。 */
+export async function updateDisplayName(displayName: string): Promise<AuthResult> {
+  let res: Response
+  try {
+    res = await request('/api/auth/me', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ displayName }),
+    })
+  } catch {
+    return { ok: false, error: 'network' }
+  }
+  if (!isJson(res)) return { ok: false, error: 'network' }
+  const data = (await res.json()) as { user?: AuthUser; error?: unknown }
+  if (res.ok && data.user) {
+    useAuth.setState({ status: 'ready', user: data.user, error: null })
+    return { ok: true, user: data.user }
+  }
+  return { ok: false, error: asError(data.error) }
 }
 
 /** 注册；成功后发送激活邮件，须点击链接后才能登录。 */

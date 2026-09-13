@@ -3,6 +3,8 @@ import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
 import { t, useI18n } from '../lib/i18n'
 import { navigateBookOrigin } from '../lib/router'
 import type { Place } from '../types'
+import { useAuth } from '../lib/auth'
+import { bookAuthorName } from '../lib/keys'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 
 function cityOf(place: Place | undefined): string {
@@ -42,6 +44,9 @@ export function Sidebar() {
   const journey = useJourney()
   const readonly = useReadonly()
   const selectedId = useSelectedId()
+  const activeId = useLushu((s) => s.activeId)
+  const me = useAuth((s) => s.user)
+  const author = activeId ? bookAuthorName(activeId, me) : ''
   const startId = useLushu((s) => s.startId)
   const endId = useLushu((s) => s.endId)
   const setStart = useLushu((s) => s.setStart)
@@ -81,15 +86,18 @@ export function Sidebar() {
             <path d="M11.5 18.5 5 12l6.5-6.5" />
           </svg>
         </button>
-        <input
-          className="title-input"
-          value={journey.title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t('sidebar.titlePlaceholder')}
-          aria-label={t('sidebar.routeName')}
-          readOnly={readonly}
-          disabled={readonly}
-        />
+        <div className="sheet-title-text">
+          <input
+            className="title-input"
+            value={journey.title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t('sidebar.titlePlaceholder')}
+            aria-label={t('sidebar.routeName')}
+            readOnly={readonly}
+            disabled={readonly}
+          />
+          <p className="sheet-author">{author || t('common.anonymous')}</p>
+        </div>
       </div>
 
       <div className="place-scroll">

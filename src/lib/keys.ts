@@ -26,6 +26,8 @@ export type BookMeta = {
    * `/{userId}/{bookId}`。本机自己创建的书没有这一项，回退到当前登录用户的 hashId。
    */
   owner?: string
+  /** 书主昵称（从服务端取回这本时记下），详情页展示用。 */
+  author?: string
 }
 
 function randomHex(bytes: number): string {
@@ -57,6 +59,17 @@ function writeMeta(all: Record<string, BookMeta>): void {
 
 export function getMeta(id: string): BookMeta {
   return readMeta()[id] ?? {}
+}
+
+/** 详情页展示用的书主昵称：自己的书跟当前账号，别人的书用拉回来记下的。 */
+export function bookAuthorName(
+  id: string,
+  me: { displayName: string; hashId: string } | null,
+): string {
+  const meta = getMeta(id)
+  const mine = Boolean((meta.token && !meta.remote) || (me && meta.owner && meta.owner === me.hashId))
+  if (mine && me?.displayName) return me.displayName.trim()
+  return (meta.author ?? '').trim()
 }
 
 export function setMeta(id: string, patch: Partial<BookMeta>): void {

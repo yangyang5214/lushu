@@ -217,10 +217,15 @@ export async function pullBook(id: string, opts?: { own?: boolean }): Promise<bo
     useStore.getState().upsertRemoteBook({ ...remote.doc, updatedAt }, { own: mine })
     if (mine) {
       if (opts?.own) ensureToken(id)
-      setMeta(id, { base: remote.updatedAt, pushed: updatedAt, owner: remote.owner })
+      setMeta(id, {
+        base: remote.updatedAt,
+        pushed: updatedAt,
+        owner: remote.owner,
+        author: remote.author,
+      })
     } else {
       // 别人的路书：只记书主与只读，不参与推送。
-      setMeta(id, { owner: remote.owner, remote: true })
+      setMeta(id, { owner: remote.owner, author: remote.author, remote: true })
     }
     return true
   } catch {

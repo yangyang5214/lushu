@@ -174,6 +174,7 @@ const zh = {
   'account.joined': '注册时间',
   'account.signOut': '退出登录',
   'account.checking': '正在确认登录状态…',
+  'account.editNickname': '修改昵称',
 
   'err.invalid_credentials': '邮箱或密码不对',
   'err.invalid_email': '请输入有效的邮箱地址',
@@ -187,6 +188,9 @@ const zh = {
   'err.turnstile_required': '请先完成人机验证',
   'err.turnstile_failed': '人机验证失败，请重试',
   'err.rate_limited': '操作太频繁，请稍后再试',
+  'err.empty_display_name': '请填写昵称',
+  'err.display_name_too_long': '昵称最多 {max} 个字',
+  'err.unauthorized': '登录已失效，请重新登录',
   'err.network': '网络不可用，账号暂时用不了',
   'err.generic': '出了点问题，请重试',
 
@@ -442,6 +446,7 @@ const en: Record<MsgKey, string> = {
   'account.joined': 'Joined',
   'account.signOut': 'Sign out',
   'account.checking': 'Checking your session…',
+  'account.editNickname': 'Edit nickname',
 
   'err.invalid_credentials': 'Wrong email or password',
   'err.invalid_email': 'Enter a valid email address',
@@ -458,6 +463,9 @@ const en: Record<MsgKey, string> = {
   'err.turnstile_required': 'Please complete the human verification first',
   'err.turnstile_failed': 'Human verification failed — please try again',
   'err.rate_limited': 'Too many attempts — please try again later',
+  'err.empty_display_name': 'Please enter a nickname',
+  'err.display_name_too_long': 'Nickname can be at most {max} characters',
+  'err.unauthorized': 'Your session has expired. Please sign in again.',
   'err.network': 'Network unavailable — the account is temporarily unusable',
   'err.generic': 'Something went wrong. Please try again.',
 

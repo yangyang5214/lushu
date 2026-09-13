@@ -1053,6 +1053,15 @@
   text-overflow: ellipsis;
 }
 
+.card-author {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .card-route {
   margin: 0;
   color: var(--muted);
@@ -1487,6 +1496,15 @@
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.auth-input.invalid {
+  border-color: var(--bad);
+}
+
+.auth-input.invalid:focus-within {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 18%, transparent);
+}
+
 .auth-input svg {
   width: 16px;
   height: 16px;
@@ -1708,17 +1726,52 @@
   min-width: 0;
 }
 
-.account-head h1 {
+.account-nick-btn {
+  display: block;
+  max-width: 100%;
+  min-height: 32px;
   margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
   font-size: 19px;
   font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
 }
 
-.account-mail {
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  word-break: break-all;
+.account-nick-btn:hover {
+  color: var(--accent-hi);
+}
+
+.account-nick-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 2px;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  outline: none;
+}
+
+.account-nick-input.invalid {
+  border-bottom-color: var(--bad);
+}
+
+.account-head-text .auth-error {
+  margin-top: 6px;
 }
 
 .account-rows {

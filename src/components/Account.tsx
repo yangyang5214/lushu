@@ -8,9 +8,15 @@ import {
   retryAuth,
   signOut,
   takePending,
+  updateDisplayName,
   useAuth,
   type AuthError,
 } from '../lib/auth'
+import {
+  limitDisplayNameInput,
+  normalizeChosenDisplayName,
+  validateDisplayName,
+} from '../../shared/display-name'
 import { navigateList, readRoute } from '../lib/router'
 import { getLang, useI18n } from '../lib/i18n'
 import { MAX_PASSWORD, MIN_PASSWORD, hasInvalidPasswordChars, passwordStrength } from '../../shared/password'
@@ -432,15 +438,123 @@ function AuthPanel() {
 function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
   const { t } = useI18n()
   const user = useAuth((s) => s.user)
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(user?.displayName ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<AuthError | null>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const ignoreBlur = useRef(false)
+
+  useEffect(() => {
+    if (user && !editing) setName(user.displayName)
+  }, [user?.displayName, editing])
+
+  useEffect(() => {
+    if (!editing) return
+    const el = nameRef.current
+    if (!el) return
+    el.focus()
+    el.select()
+  }, [editing])
+
   if (!user) return null
+
+  const shown = editing ? normalizeChosenDisplayName(name) || user.displayName : user.displayName
+  const initial = [...shown][0]?.toUpperCase() ?? '?'
+
+  const startEdit = () => {
+    if (busy) return
+    ignoreBlur.current = false
+    setName(user.displayName)
+    setError(null)
+    setEditing(true)
+  }
+
+  const cancel = () => {
+    ignoreBlur.current = true
+    setName(user.displayName)
+    setError(null)
+    setEditing(false)
+  }
+
+  const commit = async () => {
+    if (busy) return
+    const trimmed = normalizeChosenDisplayName(name)
+    if (trimmed === user.displayName) {
+      setError(null)
+      setEditing(false)
+      return
+    }
+    const localError = validateDisplayName(trimmed)
+    if (localError) {
+      setError(localError)
+      nameRef.current?.focus()
+      return
+    }
+    setBusy(true)
+    setError(null)
+    const res = await updateDisplayName(trimmed)
+    setBusy(false)
+    if (!res.ok) {
+      setError(res.error)
+      nameRef.current?.focus()
+      return
+    }
+    setName(res.user.displayName)
+    setEditing(false)
+  }
 
   return (
     <div className="auth-panel">
       <header className="account-head">
-        <span className="account-avatar-lg">{user.displayName.slice(0, 1).toUpperCase()}</span>
+        <span className="account-avatar-lg">{initial}</span>
         <div className="account-head-text">
-          <h1>{user.displayName}</h1>
-          <p className="account-mail">{user.email}</p>
+          {editing ? (
+            <input
+              ref={nameRef}
+              className={error ? 'account-nick-input invalid' : 'account-nick-input'}
+              type="text"
+              name="nickname"
+              autoComplete="nickname"
+              enterKeyHint="done"
+              value={name}
+              disabled={busy}
+              aria-label={t('account.editNickname')}
+              aria-invalid={Boolean(error)}
+              onChange={(e) => {
+                setName(limitDisplayNameInput(name, e.target.value))
+                setError(null)
+              }}
+              onBlur={() => {
+                if (ignoreBlur.current) {
+                  ignoreBlur.current = false
+                  return
+                }
+                void commit()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void commit()
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  cancel()
+                }
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              className="account-nick-btn"
+              onClick={startEdit}
+              title={t('account.editNickname')}
+              aria-label={t('account.editNickname')}
+            >
+              {user.displayName}
+            </button>
+          )}
+          {editing && error ? <p className="auth-error">{authErrorText(error)}</p> : null}
         </div>
       </header>
 

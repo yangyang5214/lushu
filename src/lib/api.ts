@@ -1,7 +1,14 @@
 import type { Book, Visibility } from '../types'
 import { getMeta, ownerKey } from './keys'
 
-export type RemoteBook = { id: string; doc: Book; updatedAt: number; owner: string }
+export type RemoteBook = {
+  id: string
+  doc: Book
+  updatedAt: number
+  owner: string
+  /** 书主昵称；匿名书架为空串。 */
+  author: string
+}
 export type BookSummary = {
   id: string
   title: string
@@ -26,6 +33,8 @@ export type PublicBook = {
   isLoop: boolean
   /** 书主的公开短 ID（= 账号页的「用户 ID」），路书详情链接里的 userId。 */
   owner: string
+  /** 书主昵称；匿名书架为空串。 */
+  author: string
   points: [number, number][]
   /** `points` 里每天起点的下标；与「我的路书」同一套切天规则，用于按天着色。 */
   dayBreaks: number[]
@@ -78,10 +87,16 @@ export async function fetchBook(id: string): Promise<RemoteBook | null> {
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`fetch book ${res.status}`)
   if (!isJson(res)) throw new Error('api unavailable')
-  const data = (await res.json()) as { doc: Book; updatedAt: number; owner?: string }
+  const data = (await res.json()) as {
+    doc: Book
+    updatedAt: number
+    owner?: string
+    author?: string
+  }
   return {
     id,
     owner: data.owner ?? '',
+    author: (data.author ?? '').trim(),
     doc: normalizeVisibility({ ...data.doc, id }),
     updatedAt: data.updatedAt,
   }
@@ -130,6 +145,7 @@ export async function saveBook(
         ? {
             id: book.id,
             owner: '',
+            author: '',
             doc: normalizeVisibility({ ...data.doc, id: book.id }),
             updatedAt: data.updatedAt ?? 0,
           }
@@ -184,5 +200,9 @@ export async function listPublicBooks(): Promise<PublicBook[]> {
   const res = await request('/api/books')
   if (!res.ok || !isJson(res)) throw new Error(`public books ${res.status}`)
   const data = (await res.json()) as { books?: PublicBook[] }
-  return (data.books ?? []).map((b) => ({ ...b, owner: b.owner ?? '' }))
+  return (data.books ?? []).map((b) => ({
+    ...b,
+    owner: b.owner ?? '',
+    author: (b.author ?? '').trim(),
+  }))
 }

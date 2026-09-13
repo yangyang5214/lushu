@@ -14,6 +14,7 @@
 //
 // 免费档开销：读一次会话 = 1 行读（带主键索引）；登录/注册 = 1 行写。
 
+import { MAX_DISPLAY_NAME } from '../../shared/display-name'
 import { MAX_PASSWORD, MIN_PASSWORD, hasInvalidPasswordChars } from '../../shared/password'
 
 export type AuthUser = {
@@ -46,7 +47,6 @@ export const ID_RE = /^[0-9a-f]{32}$/
 /** 登录名只支持邮箱。形态校验从宽（真正的可达性靠发信验证，这里不做）。 */
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 export const MAX_EMAIL = 254
-export const MAX_DISPLAY_NAME = 32
 
 export { MAX_PASSWORD, MIN_PASSWORD }
 export const SESSION_COOKIE = 'lushu_session'
@@ -166,7 +166,7 @@ export function validateEmail(email: string): string | null {
 export function normalizeDisplayName(raw: unknown, email: string): string {
   const name = String(raw ?? '').trim()
   const fallback = email.split('@')[0] || email
-  return (name || fallback).slice(0, MAX_DISPLAY_NAME)
+  return [...(name || fallback)].slice(0, MAX_DISPLAY_NAME).join('')
 }
 
 /** 注册口令：长度 8–128 位，且只用字母 / 数字 / 特殊字符（不允许中文、空格）。 */
@@ -249,6 +249,17 @@ export async function createUser(
     .bind(id, input.email, input.displayName, passHash, hashId, now, activatedAt)
     .run()
   return { id, hashId, email: input.email, displayName: input.displayName, createdAt: now }
+}
+
+/** 改昵称：不做唯一约束，允许重复。 */
+export async function updateDisplayName(
+  env: AuthEnv,
+  userId: string,
+  displayName: string,
+): Promise<void> {
+  await env.DB.prepare('UPDATE users SET display_name = ? WHERE id = ?')
+    .bind(displayName, userId)
+    .run()
 }
 
 /** 激活账号并返回最新用户行。 */

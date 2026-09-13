@@ -30,6 +30,7 @@ function PublicCard({ book }: { book: PublicBook }) {
         </div>
         <div className="card-body">
           <h3>{book.title || t('common.untitled')}</h3>
+          <p className="card-author">{book.author || t('common.anonymous')}</p>
           <p className="card-route">{label}</p>
           <div className="card-meta">
             <span>

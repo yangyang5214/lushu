@@ -11,6 +11,7 @@
 //   DELETE /api/books/:id   → 删一本（同上）
 //   GET    /api/library     → 我的书架（会话优先，没会话回退 X-Owner-Key）
 //   GET    /api/auth/me       → 当前登录用户
+//   PUT    /api/auth/me       → 改昵称（需登录；最多 5 字，允许重复）
 //   POST   /api/auth/login    → 登录（邮箱 + 口令）
 //   POST   /api/auth/register → 注册（邮箱 + 口令），发激活邮件；无论邮箱是否已注册
 //                                都回 200 友好的 pending（不泄露邮箱是否已存在）
@@ -67,11 +68,16 @@ import {
   safeEqual,
   sessionCookie,
   toUser,
+  updateDisplayName,
   validateEmail,
   validateLoginPassword,
   validatePassword,
   verifyPassword,
 } from '../lib/auth'
+import {
+  normalizeChosenDisplayName,
+  validateDisplayName,
+} from '../../shared/display-name'
 import {
   canSendActivation,
   generateActivationToken,
@@ -333,6 +339,25 @@ async function adoptIfAnonymous(env: Env, raw: unknown, to: string): Promise<num
 async function authMe(ctx: Ctx): Promise<Response> {
   const user = await readUser(ctx.request, ctx.env)
   return json({ user })
+}
+
+/** 改昵称：必须登录；1–5 个字，允许和其他人重复。 */
+async function authUpdateMe(ctx: Ctx): Promise<Response> {
+  const { request, env } = ctx
+  const user = await readUser(request, env)
+  if (!user) return json({ error: 'unauthorized' }, 401)
+
+  if (await rateLimited(env, `profile:user:${user.id}`, 30, 600_000)) {
+    return json({ error: 'rate_limited' }, 429)
+  }
+
+  const body = await readBody<{ displayName?: unknown }>(request)
+  const displayName = normalizeChosenDisplayName(body?.displayName)
+  const nameError = validateDisplayName(displayName)
+  if (nameError) return json({ error: nameError }, 400)
+
+  await updateDisplayName(env, user.id, displayName)
+  return json({ user: { ...user, displayName } })
 }
 
 /** 登录：邮箱必须已经注册过；不存在或口令不对都返回 invalid_credentials（不泄露账号是否存在）。 */
@@ -617,7 +642,8 @@ async function adminUserDelete(ctx: Ctx, userId: string): Promise<Response> {
 async function getBook(ctx: Ctx, id: string): Promise<Response> {
   const row = await ctx.env.DB.prepare(
     `SELECT b.doc AS doc, b.owner_key AS owner_key, b.updated_at AS updated_at,
-            u.username AS owner_email, u.hash_id AS owner_hash_id
+            u.username AS owner_email, u.hash_id AS owner_hash_id,
+            u.display_name AS owner_name
        FROM books b LEFT JOIN users u ON u.id = b.owner_key
       WHERE b.id = ?`,
   )
@@ -628,6 +654,7 @@ async function getBook(ctx: Ctx, id: string): Promise<Response> {
       updated_at: number
       owner_email: string | null
       owner_hash_id: string | null
+      owner_name: string | null
     }>()
   if (!row) return json({ error: 'not_found' }, 404)
 
@@ -644,6 +671,7 @@ async function getBook(ctx: Ctx, id: string): Promise<Response> {
   return json({
     id,
     owner,
+    author: (row.owner_name ?? '').trim(),
     doc: { ...(parseDoc(row.doc) ?? {}), visibility },
     updatedAt: row.updated_at,
   })
@@ -868,6 +896,8 @@ type PublicBook = {
   isLoop: boolean
   /** 书主的公开短 ID（= 账号页的「用户 ID」），拼路书详情链接用。 */
   owner: string
+  /** 书主昵称；匿名书架为空串。 */
+  author: string
   /** 有序坐标 [lng, lat]（环线已把起点补回终点），抽样到 ≤ 60 个点，供卡片画缩略线路。 */
   points: [number, number][]
   /** points 里每天起点的下标；与「我的路书」用同一套切天规则，卡片据此按天着色。 */
@@ -913,6 +943,7 @@ function toPublicBook(
   docText: string,
   updatedAt: number,
   owner: string,
+  author: string,
 ): PublicBook | null {
   const doc = parseDoc(docText)
   if (!doc) return null
@@ -974,6 +1005,7 @@ function toPublicBook(
     to: end?.name ?? '',
     isLoop,
     owner,
+    author,
     points,
     dayBreaks,
     updatedAt,
@@ -988,7 +1020,8 @@ async function listPublic(env: Env, request: Request): Promise<Response> {
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.floor(raw), 1), 100) : 60
   const res = await env.DB.prepare(
     `SELECT b.id AS id, b.doc AS doc, b.updated_at AS updated_at,
-            u.username AS owner_email, u.hash_id AS owner_hash_id
+            u.username AS owner_email, u.hash_id AS owner_hash_id,
+            u.display_name AS owner_name
        FROM books b LEFT JOIN users u ON u.id = b.owner_key
       WHERE COALESCE(json_extract(b.doc, '$.visibility'), 'public') = 'public'
       ORDER BY b.updated_at DESC LIMIT ?`,
@@ -1000,12 +1033,14 @@ async function listPublic(env: Env, request: Request): Promise<Response> {
       updated_at: number
       owner_email: string | null
       owner_hash_id: string | null
+      owner_name: string | null
     }>()
 
   const books: PublicBook[] = []
   for (const row of res.results ?? []) {
     const owner = await ownerHashId(row.owner_email, row.owner_hash_id)
-    const book = toPublicBook(row.id, row.doc, row.updated_at, owner)
+    const author = (row.owner_name ?? '').trim()
+    const book = toPublicBook(row.id, row.doc, row.updated_at, owner, author)
     if (book) books.push(book)
   }
   return json({ books })
@@ -1644,6 +1679,7 @@ async function handle(ctx: Ctx): Promise<Response> {
 
   if (seg[0] === 'auth') {
     if (seg[1] === 'me' && seg.length === 2 && method === 'GET') return authMe(ctx)
+    if (seg[1] === 'me' && seg.length === 2 && method === 'PUT') return authUpdateMe(ctx)
     if (seg[1] === 'login' && seg.length === 2 && method === 'POST') return authLogin(ctx)
     if (seg[1] === 'register' && seg.length === 2 && method === 'POST') return authRegister(ctx)
     if (seg[1] === 'activate' && seg.length === 2 && method === 'GET') return authActivate(ctx)
