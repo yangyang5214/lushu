@@ -87,6 +87,79 @@ button {
   background: rgba(194, 59, 34, 0.08);
 }
 
+.sheet-export {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  transition: color 0.15s, background 0.15s;
+}
+
+.sheet-export svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sheet-export:hover:not(:disabled) {
+  color: var(--seal);
+  background: rgba(194, 59, 34, 0.08);
+}
+
+.sheet-export:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.sheet-export-spin {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #e5e8ee;
+  border-top-color: var(--seal);
+  border-radius: 50%;
+  animation: spin-center 0.7s linear infinite;
+}
+
+@keyframes spin-center {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.export-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  background: rgba(27, 23, 18, 0.4);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.export-loading i {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin-center 0.7s linear infinite;
+}
+
 .title-input {
   flex: 1;
   min-width: 0;

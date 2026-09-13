@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import { dayInk, toGcj } from '../lib/geo'
 import { useI18n, getLang } from '../lib/i18n'
 import { markerHtml, TILE_SUBDOMAINS, tileUrl } from '../lib/map'
+import { registerMapFit } from '../lib/map-view'
 import { fetchRoadLine } from '../lib/route'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { SearchBox } from './SearchBox'
@@ -117,6 +118,52 @@ export function MapCanvas() {
     )
     map.fitBounds(b.pad(0.18), { animate: true, maxZoom: 10 })
   }, [routeKey, mapReady])
+
+  useEffect(() => {
+    registerMapFit(async () => {
+      const map = mapRef.current
+      const current = journeyRef.current
+      const shown = current.ready ? current.ordered : current.places
+      if (!map || shown.length === 0) return
+      map.invalidateSize()
+      const b = L.latLngBounds(
+        shown.map((p) => {
+          const [lng, lat] = toGcj(p)
+          return [lat, lng] as [number, number]
+        }),
+      )
+      await new Promise<void>((resolve) => {
+        let settled = false
+        const done = () => {
+          if (settled) return
+          settled = true
+          map.off('moveend', done)
+          resolve()
+        }
+        map.once('moveend', done)
+        map.fitBounds(b.pad(0.18), { animate: true, maxZoom: 10 })
+        window.setTimeout(done, 900)
+      })
+      const tiles = tileRef.current
+      if (tiles) {
+        await new Promise<void>((resolve) => {
+          let settled = false
+          const done = () => {
+            if (settled) return
+            settled = true
+            tiles.off('load', done)
+            resolve()
+          }
+          tiles.once('load', done)
+          window.setTimeout(done, 700)
+        })
+      }
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 200)
+      })
+    })
+    return () => registerMapFit(null)
+  }, [])
 
   useEffect(() => {
     const roads = roadsRef.current
