@@ -23,9 +23,9 @@ const zh = {
   'common.none': '—',
 
   // ── 语言切换 ─────────────────────────────────────────────────────────────
-  'lang.label': '语言',
-  'lang.zh': '中文',
-  'lang.en': 'EN',
+  'lang.label': '切换语言',
+  'lang.zh': '简体中文',
+  'lang.en': 'English',
 
   // ── 页头 / 导航 ───────────────────────────────────────────────────────────
   'nav.mine': '我的路书',
@@ -300,9 +300,9 @@ const en: Record<MsgKey, string> = {
   'common.anonymous': 'Anonymous',
   'common.none': '—',
 
-  'lang.label': 'Language',
-  'lang.zh': '中文',
-  'lang.en': 'EN',
+  'lang.label': 'Change language',
+  'lang.zh': '简体中文',
+  'lang.en': 'English',
 
   'nav.mine': 'My Roadbooks',
   'nav.public': 'Public Roadbooks',

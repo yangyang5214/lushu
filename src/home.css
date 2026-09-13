@@ -2282,45 +2282,104 @@
 }
 
 /* ============================================================
-   语言切换：中文 / EN 两段式
+   语言切换：地球图标 + 下拉（对齐 Obsidian 官网）
    ============================================================ */
 .lang-switch {
+  position: relative;
+  flex: none;
+}
+
+.lang-switch-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border, #d8cbb3);
-  border-radius: var(--r-sm, 6px);
-  background: var(--surface-2, rgba(251, 246, 236, 0.72));
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.lang-switch button {
-  border: none;
-  background: transparent;
-  color: var(--muted, #7a6f62);
-  font-family: inherit;
+.lang-switch-toggle:hover,
+.lang-switch-toggle[aria-expanded='true'] {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.lang-switch-code {
+  display: none;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  padding: 6px 10px;
-  border-radius: 4px;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  font-variant: all-small-caps;
+}
+
+.lang-switch-chevron {
+  flex: none;
+  opacity: 0.72;
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 8rem;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.lang-option {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: start;
+  white-space: nowrap;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
 }
 
-.lang-switch button:hover {
-  color: var(--text, #1b1712);
+.lang-option:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
-.lang-switch button.on {
-  background: var(--text, #1b1712);
-  color: #ffffff;
+.lang-option[aria-current] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
 }
 
-@media (max-width: 560px) {
-  .lang-switch button {
-    padding: 6px 7px;
-    font-size: 11px;
+@media (max-width: 820px) {
+  .lang-switch-code {
+    display: inline;
+  }
+
+  .lang-switch-chevron {
+    display: none;
+  }
+
+  .lang-switch-toggle {
+    border-color: transparent;
+    padding: 6px 4px;
   }
 }
