@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { driveMinutes, haversineKm, validSplitIndexes } from '../lib/geo'
+import { driveMinutes, haversineKm } from '../lib/geo'
 import { t, useI18n } from '../lib/i18n'
 import { navigateBookOrigin } from '../lib/router'
 import type { Place } from '../types'
-import { useAuth } from '../lib/auth'
-import { bookAuthorName } from '../lib/keys'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 
 function cityOf(place: Place | undefined): string {
@@ -44,17 +42,12 @@ export function Sidebar() {
   const journey = useJourney()
   const readonly = useReadonly()
   const selectedId = useSelectedId()
-  const activeId = useLushu((s) => s.activeId)
-  const me = useAuth((s) => s.user)
-  const author = activeId ? bookAuthorName(activeId, me) : ''
   const startId = useLushu((s) => s.startId)
   const endId = useLushu((s) => s.endId)
   const setStart = useLushu((s) => s.setStart)
   const setEnd = useLushu((s) => s.setEnd)
   const setTitle = useLushu((s) => s.setTitle)
   const removePlace = useLushu((s) => s.removePlace)
-  const addSplit = useLushu((s) => s.addSplit)
-  const removeSplit = useLushu((s) => s.removeSplit)
   const selectPlace = useLushu((s) => s.selectPlace)
   const closeBook = useLushu((s) => s.closeBook)
   const back = () => {
@@ -63,9 +56,6 @@ export function Sidebar() {
     navigateBookOrigin()
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
-
-  const valid = new Set(validSplitIndexes(journey.ordered, journey.isLoop).map((i) => journey.ordered[i]?.id))
-  const splitSet = new Set(journey.splitIds)
 
   const toggleFold = (index: number) => {
     setFolded((prev) => ({ ...prev, [index]: !prev[index] }))
@@ -86,18 +76,15 @@ export function Sidebar() {
             <path d="M11.5 18.5 5 12l6.5-6.5" />
           </svg>
         </button>
-        <div className="sheet-title-text">
-          <input
-            className="title-input"
-            value={journey.title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={t('sidebar.titlePlaceholder')}
-            aria-label={t('sidebar.routeName')}
-            readOnly={readonly}
-            disabled={readonly}
-          />
-          <p className="sheet-author">{author || t('common.anonymous')}</p>
-        </div>
+        <input
+          className="title-input"
+          value={journey.title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={t('sidebar.titlePlaceholder')}
+          aria-label={t('sidebar.routeName')}
+          readOnly={readonly}
+          disabled={readonly}
+        />
       </div>
 
       <div className="place-scroll">
@@ -131,8 +118,6 @@ export function Sidebar() {
                         const no = isReturn
                           ? journey.ordered.length + 1
                           : journey.ordered.findIndex((p) => p.id === place.id) + 1
-                        const overnight = splitSet.has(place.id) && !isReturn
-                        const canSplit = valid.has(place.id) && !isReturn
                         return (
                           <li key={`${day.index}-${place.id}-${i}`}>
                             <div className={selectedId === place.id ? 'stop on' : 'stop'}>
@@ -150,23 +135,9 @@ export function Sidebar() {
                                   {place.id === endId && !journey.isLoop ? (
                                     <mark>{t('sidebar.endBadge')}</mark>
                                   ) : null}
-                                  {overnight ? (
-                                    <mark className="night">{t('sidebar.nightBadge')}</mark>
-                                  ) : null}
                                 </strong>
                               </button>
                               <div className="stop-ops">
-                                {readonly ? null : canSplit ? (
-                                  overnight ? (
-                                    <button type="button" onClick={() => removeSplit(place.id)}>
-                                      {t('sidebar.cancelOvernight')}
-                                    </button>
-                                  ) : (
-                                    <button type="button" onClick={() => addSplit(place.id)}>
-                                      {t('sidebar.overnight')}
-                                    </button>
-                                  )
-                                ) : null}
                                 {readonly ? null : (
                                   <button type="button" onClick={() => removePlace(place.id)}>
                                     {t('common.delete')}

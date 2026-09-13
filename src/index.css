@@ -52,32 +52,10 @@ button {
 .sheet-title {
   flex: none;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   padding: 12px 14px 8px;
   border-bottom: 1px solid #eef0f3;
-}
-
-.sheet-title .sheet-back {
-  margin-top: 4px;
-}
-
-.sheet-title-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sheet-author {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .sheet-back {
@@ -394,10 +372,6 @@ mark {
   font-weight: 500;
   padding: 0 4px;
   border-radius: 2px;
-}
-
-mark.night {
-  background: #ef4444;
 }
 
 .sheet-foot {
