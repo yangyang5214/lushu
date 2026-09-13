@@ -119,7 +119,7 @@ export function RouteMap({ journey }: { journey: Journey }) {
     let cancelled = false
     const drawn: Array<L.Polyline | null> = days.map(() => null)
 
-    // 与编辑页一致：多天路线串行取路网线，先回来的先上屏。
+    // 与编辑页一致：路网回来再画。
     const draw = (i: number, latlngs: [number, number][]) => {
       const host = roadsRef.current
       if (cancelled || !host || latlngs.length < 2) return
@@ -134,14 +134,10 @@ export function RouteMap({ journey }: { journey: Journey }) {
 
     days.forEach((day, i) => {
       void fetchRoadLine(day.places).then((line) => {
-        if (cancelled) return
+        if (cancelled || !line) return
         draw(
           i,
-          line ??
-            day.places.map((p) => {
-              const [lng, lat] = toGcj(p)
-              return [lat, lng] as [number, number]
-            }),
+          line.map(([lng, lat]) => [lat, lng] as [number, number]),
         )
       })
     })

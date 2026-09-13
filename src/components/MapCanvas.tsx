@@ -128,7 +128,7 @@ export function MapCanvas() {
     let cancelled = false
     const drawn: Array<L.Polyline | null> = days.map(() => null)
 
-    // 一天返回一天就画一天：多天路线是串行取的，先到的先上屏，不用等所有天都回来。
+    // 路网回来再画；多天会合成一次批量请求。
     const draw = (i: number, latlngs: [number, number][]) => {
       const host = roadsRef.current
       if (cancelled || !host || latlngs.length < 2) return
@@ -143,14 +143,10 @@ export function MapCanvas() {
 
     days.forEach((day, i) => {
       void fetchRoadLine(day.places).then((line) => {
-        if (cancelled) return
+        if (cancelled || !line) return
         draw(
           i,
-          line?.map(([lng, lat]) => [lat, lng] as [number, number]) ??
-            day.places.map((p) => {
-              const [lng, lat] = toGcj(p)
-              return [lat, lng] as [number, number]
-            }),
+          line.map(([lng, lat]) => [lat, lng] as [number, number]),
         )
       })
     })

@@ -29,7 +29,8 @@
 //   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
 //   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存（高德不可用时的兜底）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地首选）+ Cache API 缓存
-//   GET    /api/route?coords= → 驾车路线：优先高德，失败回落 OSRM，Cache API 缓存
+//   GET    /api/route?coords= → 单段驾车路线：优先高德，失败回落 OSRM，Cache API 缓存
+//   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源限并发
 //
 // 暴露面控制（公开仓库 = 端点形状全部公开，所以防线必须在服务端）：
 //   1. 不下发 CORS 头：只服务同源 SPA，第三方站点无法用访客浏览器打这个 API。
@@ -181,7 +182,7 @@ async function hasDuplicateTitle(
 }
 
 const GEO_TTL = 60 * 60 * 24 * 7 // 地理编码缓存 7 天
-const ROUTE_TTL = 60 * 60 * 6 // 路线几何缓存 6 小时
+const ROUTE_TTL = 60 * 60 * 24 * 7 // 路线几何缓存 7 天（路网不常变，拉长命中）
 const DEFAULT_MAX_DOC_BYTES = 262_144 // 256 KB（300 个地点约 33 KB）
 const DEFAULT_MAX_BOOKS = 20_000
 const BOOK_ID_RE = /^[0-9a-f]{24}$/
@@ -1229,7 +1230,10 @@ type RouteLine = {
 
 /** 高德驾车 v3 的 waypoints 上限 16 个，加上起终点每段最多 18 个点。 */
 const AMAP_MAX_POINTS = 18
+const AMAP_CONCURRENCY = 3
+const MAX_ROUTE_SEGMENTS = 24
 const ROUTE_UA = 'LushuRoutePlanner/1.0 (+https://github.com/yangyang5214/lushu)'
+const COORDS_RE = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?)*$/
 
 function parseCoords(coords: string): RoutePoint[] | null {
   const points: RoutePoint[] = []
@@ -1239,6 +1243,95 @@ function parseCoords(coords: string): RoutePoint[] | null {
     points.push({ lng, lat })
   }
   return points.length >= 2 ? points : null
+}
+
+function parseRouteCoords(coords: string): RoutePoint[] | null {
+  const trimmed = coords.trim()
+  if (!COORDS_RE.test(trimmed)) return null
+  return parseCoords(trimmed)
+}
+
+/** 缓存键用 5 位小数（约 1 m），避免浮点写法差异打不中。 */
+function normalizeCoords(points: RoutePoint[]): string {
+  return points.map((p) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';')
+}
+
+function routeCacheKey(normCoords: string): Request {
+  return new Request(`https://lushu.internal/api/route/v2?coords=${encodeURIComponent(normCoords)}`, {
+    method: 'GET',
+  })
+}
+
+function round5(n: number): number {
+  return Math.round(n * 1e5) / 1e5
+}
+
+function perpDist(p: [number, number], a: [number, number], b: [number, number]): number {
+  const dx = b[0] - a[0]
+  const dy = b[1] - a[1]
+  const len2 = dx * dx + dy * dy
+  if (len2 === 0) return Math.hypot(p[0] - a[0], p[1] - a[1])
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2))
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
+}
+
+/** Douglas-Peucker，epsilon 约 0.00025°（赤道 ~28 m），地图缩放级下看不出差别。 */
+function simplifyLine(points: [number, number][], eps: number): [number, number][] {
+  if (points.length <= 2) return points
+  const keep = new Uint8Array(points.length)
+  keep[0] = 1
+  keep[points.length - 1] = 1
+  const stack: Array<[number, number]> = [[0, points.length - 1]]
+  while (stack.length) {
+    const [start, end] = stack.pop()!
+    let maxD = 0
+    let maxI = start
+    const a = points[start]
+    const b = points[end]
+    for (let i = start + 1; i < end; i += 1) {
+      const d = perpDist(points[i], a, b)
+      if (d > maxD) {
+        maxD = d
+        maxI = i
+      }
+    }
+    if (maxD > eps) {
+      keep[maxI] = 1
+      stack.push([start, maxI], [maxI, end])
+    }
+  }
+  return points.filter((_, i) => keep[i])
+}
+
+function compactLine(line: [number, number][]): [number, number][] {
+  if (line.length < 2) return line
+  const rounded: [number, number][] = []
+  for (const [lng, lat] of line) {
+    const pt: [number, number] = [round5(lng), round5(lat)]
+    const last = rounded[rounded.length - 1]
+    if (last && last[0] === pt[0] && last[1] === pt[1]) continue
+    rounded.push(pt)
+  }
+  return simplifyLine(rounded, 0.00025)
+}
+
+function finalizeRoute(route: RouteLine): RouteLine {
+  return { ...route, line: compactLine(route.line) }
+}
+
+function pool(limit: number): <T>(fn: () => Promise<T>) => Promise<T> {
+  let active = 0
+  const wait: Array<() => void> = []
+  return async function run<T>(fn: () => Promise<T>): Promise<T> {
+    if (active >= limit) await new Promise<void>((ok) => wait.push(ok))
+    active += 1
+    try {
+      return await fn()
+    } finally {
+      active -= 1
+      wait.shift()?.()
+    }
+  }
 }
 
 /** OSRM 原始响应 → 统一线路（WGS84 转成 GCJ02）。 */
@@ -1257,12 +1350,12 @@ function parseOsrm(data: unknown): RouteLine | null {
   if (!coords.every(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))) return null
   const distance = first?.distance
   const duration = first?.duration
-  return {
+  return finalizeRoute({
     source: 'osrm',
     line: coords.map(([lng, lat]) => wgs84ToGcj02(lng, lat)),
     distanceKm: typeof distance === 'number' && Number.isFinite(distance) ? distance / 1000 : 0,
     durationMin: typeof duration === 'number' && Number.isFinite(duration) ? Math.round(duration / 60) : 0,
-  }
+  })
 }
 
 /** 高德驾车响应 → 统一线路（polyline 本来就是 GCJ02，原样返回）。 */
@@ -1295,12 +1388,12 @@ function parseAmap(data: unknown): RouteLine | null {
   if (line.length < 2) return null
   const distanceKm = Number(path.distance) / 1000
   const durationMin = Math.round(Number(path.duration) / 60)
-  return {
+  return finalizeRoute({
     source: 'amap',
     line,
     distanceKm: Number.isFinite(distanceKm) ? distanceKm : 0,
     durationMin: Number.isFinite(durationMin) ? durationMin : 0,
-  }
+  })
 }
 
 function amapDriveUrl(key: string, points: RoutePoint[]): string {
@@ -1363,43 +1456,50 @@ async function amapRoute(key: string, points: RoutePoint[]): Promise<RouteLine |
     distanceKm += part.distanceKm
     durationMin += part.durationMin
   }
-  return line.length >= 2 ? { source: 'amap', line, distanceKm, durationMin } : null
+  return line.length >= 2 ? finalizeRoute({ source: 'amap', line, distanceKm, durationMin }) : null
 }
 
-async function routeProxy(ctx: Ctx): Promise<Response> {
-  const coords = (new URL(ctx.request.url).searchParams.get('coords') ?? '').trim()
-  if (!/^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?)*$/.test(coords)) {
-    return json({ error: 'bad_coords' }, 400)
+async function matchRouteCache(cache: Cache | undefined, key: Request): Promise<RouteLine | null> {
+  if (!cache) return null
+  try {
+    const hit = await cache.match(key)
+    if (!hit) return null
+    const data = (await hit.json()) as RouteLine
+    return Array.isArray(data?.line) && data.line.length >= 2 ? data : null
+  } catch {
+    return null
   }
-  const points = parseCoords(coords)
-  if (!points) return json({ error: 'bad_coords' }, 400)
-  if (points.length > 100) return json({ error: 'too_many_points' }, 400)
+}
 
-  // 缓存键与上游 provider、坐标系统解耦：换源或升级返回结构都能直接失效。
-  const cache = typeof caches !== 'undefined' ? caches.default : undefined
-  const cacheKey = new Request(
-    `https://lushu.internal/api/route/v2?coords=${encodeURIComponent(coords)}`,
-    { method: 'GET' },
-  )
-  if (cache) {
-    try {
-      const hit = await cache.match(cacheKey)
-      if (hit) {
-        return new Response(hit.body, {
-          status: 200,
-          headers: {
-            ...JSON_HEADERS,
-            'x-lushu-cache': 'hit',
-            'cache-control': `public, max-age=${ROUTE_TTL}`,
-          },
-        })
-      }
-    } catch {
-      /* 缓存不可用就直接算 */
-    }
+function putRouteCache(ctx: Ctx, cache: Cache | undefined, key: Request, route: RouteLine): void {
+  if (!cache) return
+  try {
+    ctx.waitUntil(
+      cache.put(
+        key,
+        new Response(JSON.stringify(route), {
+          headers: { ...JSON_HEADERS, 'cache-control': `public, max-age=${ROUTE_TTL}` },
+        }),
+      ),
+    )
+  } catch {
+    /* 写缓存失败不影响响应 */
   }
+}
 
-  // 高德要 GCJ02，而地点本身是 WGS84：先转再发。
+function routeJson(route: RouteLine, cacheStatus: 'hit' | 'miss'): Response {
+  return new Response(JSON.stringify(route), {
+    status: 200,
+    headers: {
+      ...JSON_HEADERS,
+      'x-lushu-cache': cacheStatus,
+      'cache-control': `public, max-age=${ROUTE_TTL}`,
+    },
+  })
+}
+
+/** 高德要 GCJ02，地点本身是 WGS84：先转再发；失败回落 OSRM。 */
+async function computeRoute(ctx: Ctx, points: RoutePoint[]): Promise<RouteLine | null> {
   const amapKey = ctx.env.AMAP_KEY?.trim()
   let route = amapKey
     ? await amapRoute(
@@ -1412,6 +1512,7 @@ async function routeProxy(ctx: Ctx): Promise<Response> {
     : null
 
   if (!route) {
+    const coords = points.map((p) => `${p.lng},${p.lat}`).join(';')
     const target =
       `https://router.project-osrm.org/route/v1/driving/${coords}` +
       '?overview=full&geometries=geojson&continue_straight=false'
@@ -1421,31 +1522,73 @@ async function routeProxy(ctx: Ctx): Promise<Response> {
     })
     if (upstream.ok) route = parseOsrm(await upstream.json())
   }
+  return route
+}
 
+async function resolveRoute(
+  ctx: Ctx,
+  points: RoutePoint[],
+  compute: (pts: RoutePoint[]) => Promise<RouteLine | null>,
+): Promise<{ route: RouteLine | null; cacheStatus: 'hit' | 'miss' }> {
+  const cache = typeof caches !== 'undefined' ? caches.default : undefined
+  const key = routeCacheKey(normalizeCoords(points))
+  const hit = await matchRouteCache(cache, key)
+  if (hit) return { route: hit, cacheStatus: 'hit' }
+  const route = await compute(points)
+  if (route) putRouteCache(ctx, cache, key, route)
+  return { route, cacheStatus: 'miss' }
+}
+
+async function routeProxy(ctx: Ctx): Promise<Response> {
+  const coords = (new URL(ctx.request.url).searchParams.get('coords') ?? '').trim()
+  const points = parseRouteCoords(coords)
+  if (!points) return json({ error: 'bad_coords' }, 400)
+  if (points.length > 100) return json({ error: 'too_many_points' }, 400)
+
+  const { route, cacheStatus } = await resolveRoute(ctx, points, (pts) => computeRoute(ctx, pts))
   if (!route) return json({ error: 'upstream' }, 502)
+  return routeJson(route, cacheStatus)
+}
 
-  const body = JSON.stringify(route)
-  if (cache) {
-    try {
-      ctx.waitUntil(
-        cache.put(
-          cacheKey,
-          new Response(body, {
-            headers: { ...JSON_HEADERS, 'cache-control': `public, max-age=${ROUTE_TTL}` },
-          }),
-        ),
-      )
-    } catch {
-      /* 写缓存失败不影响响应 */
-    }
+/**
+ * 多天路线一次提交：缓存命中的段立刻返回，未命中的段在 Worker 里限并发回源，
+ * 浏览器只付一次往返，不再按天串行 + 间隔。
+ */
+async function routeBatch(ctx: Ctx): Promise<Response> {
+  const body = await readBody<{ segments?: unknown }>(ctx.request)
+  const raw = body?.segments
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_ROUTE_SEGMENTS) {
+    return json({ error: 'bad_segments' }, 400)
   }
-  return new Response(body, {
+
+  const parsed: RoutePoint[][] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') return json({ error: 'bad_segments' }, 400)
+    const points = parseRouteCoords(item)
+    if (!points) return json({ error: 'bad_coords' }, 400)
+    if (points.length > 100) return json({ error: 'too_many_points' }, 400)
+    parsed.push(points)
+  }
+
+  const gate = pool(AMAP_CONCURRENCY)
+  const memo = new Map<string, Promise<RouteLine | null>>()
+  const compute = (pts: RoutePoint[]) => gate(() => computeRoute(ctx, pts))
+
+  const routes = await Promise.all(
+    parsed.map((points) => {
+      const norm = normalizeCoords(points)
+      let pending = memo.get(norm)
+      if (!pending) {
+        pending = resolveRoute(ctx, points, compute).then((r) => r.route)
+        memo.set(norm, pending)
+      }
+      return pending
+    }),
+  )
+
+  return new Response(JSON.stringify({ routes }), {
     status: 200,
-    headers: {
-      ...JSON_HEADERS,
-      'x-lushu-cache': 'miss',
-      'cache-control': `public, max-age=${ROUTE_TTL}`,
-    },
+    headers: { ...JSON_HEADERS, 'cache-control': 'no-store' },
   })
 }
 
@@ -1514,6 +1657,7 @@ async function handle(ctx: Ctx): Promise<Response> {
   if (seg[0] === 'geocode' && method === 'GET') return geocode(ctx)
   if (seg[0] === 'places' && method === 'GET') return places(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)
+  if (seg[0] === 'route' && method === 'POST') return routeBatch(ctx)
 
   return json({ error: 'not_found' }, 404)
 }

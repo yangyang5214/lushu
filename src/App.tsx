@@ -11,6 +11,7 @@ import { initAuth, useAuth } from './lib/auth'
 import { adminT, t, useI18n } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { bookPath, readRoute, ROOT_PATH } from './lib/router'
+import { prefetchBookRoads } from './lib/route'
 import { pullBook, startSync } from './lib/sync'
 import { useLushu, useStore } from './store'
 
@@ -45,12 +46,17 @@ function usePathRoute() {
       }
 
       const bookId = route.bookId
+      // 路网预热可以和拉云端并行：本机有副本就先按它取（坐标没变会命中缓存）。
+      const local = store.books[bookId]
+      if (local) prefetchBookRoads(local)
       // 每次打开都拉云端，不用本机缓存当展示源；离线才退回本地副本。
       const found = await pullBook(bookId)
       if (cancelled) return
       if (found || store.books[bookId]) {
         store.openBook(bookId)
         canonicalizeBookUrl(bookId)
+        const book = store.books[bookId]
+        if (book && book !== local) prefetchBookRoads(book)
         return
       }
       store.closeBook()
