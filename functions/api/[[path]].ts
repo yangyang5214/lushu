@@ -103,6 +103,7 @@ import {
   adminStats,
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
+import { isSamePlace, orderRoute, pathDistanceKm } from '../../shared/geo'
 import { clientIp, rateLimited } from '../lib/rate-limit'
 
 type Env = {
@@ -921,23 +922,6 @@ function asPlace(raw: unknown): PublicPlace | null {
   return { id: p.id, name: typeof p.name === 'string' ? p.name : '', lng: p.lng, lat: p.lat }
 }
 
-function haversineKm(a: PublicPlace, b: PublicPlace): number {
-  const R = 6371
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180
-  const la1 = (a.lat * Math.PI) / 180
-  const la2 = (b.lat * Math.PI) / 180
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
-}
-
-/** 环线判定阈值（米）：与前端 geo.isSamePlace 完全一致，否则环线会一边算一边不算。 */
-const LOOP_METERS = 280
-
-function samePlace(a: PublicPlace, b: PublicPlace): boolean {
-  return a.id === b.id || haversineKm(a, b) * 1000 <= LOOP_METERS
-}
-
 function toPublicBook(
   id: string,
   docText: string,
@@ -955,14 +939,10 @@ function toPublicBook(
   const start = typeof doc.startId === 'string' ? byId.get(doc.startId) : undefined
   const end = typeof doc.endId === 'string' ? byId.get(doc.endId) : undefined
   const ready = Boolean(start && end)
-  const isLoop = Boolean(start && end && samePlace(start, end))
-  const orderedIds = (Array.isArray(doc.orderedIds) ? doc.orderedIds : []).filter(
-    (x): x is string => typeof x === 'string',
-  )
-  // 未定起点终点时展示录入顺序（与前端 buildJourney 一致），定了才按最优顺序。
-  const ordered = (ready ? orderedIds : places.map((p) => p.id))
-    .map((pid) => byId.get(pid))
-    .filter((p): p is PublicPlace => Boolean(p))
+  const isLoop = Boolean(start && end && isSamePlace(start, end))
+  // 库里的 orderedIds 可能来自扩展导入（AI 给的地点没有顺序）或旧版本，
+  // 所以定好起终点后一律按起点/终点重推，不信任存量值；未定起终点时按录入顺序展示。
+  const ordered = start && end ? orderRoute(places, start.id, end.id) : places
   const splitIds = new Set(
     (Array.isArray(doc.splitIds) ? doc.splitIds : []).filter(
       (x): x is string => typeof x === 'string',
@@ -979,8 +959,7 @@ function toPublicBook(
   cuts.sort((a, b) => a - b)
   const days = ready ? cuts.length + 1 : 0
 
-  let km = 0
-  for (let i = 1; i < route.length; i += 1) km += haversineKm(route[i - 1], route[i])
+  const km = pathDistanceKm(route)
 
   // 抽样到 ≤ MAX_PREVIEW_POINTS，但每天的起点 / 终点必须保留，缩略图才和编辑页同形。
   const keep = new Set<number>()

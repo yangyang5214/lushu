@@ -78,8 +78,6 @@ type Actions = {
   setEnd: (id: string) => void
   closeLoop: () => void
   clearEnds: () => void
-  movePlace: (id: string, dir: -1 | 1) => void
-  resort: () => void
   addSplit: (id: string) => void
   removeSplit: (id: string) => void
   moveSplit: (fromId: string, toId: string) => void
@@ -142,6 +140,27 @@ function pruneSplits(orderedIds: string[], splitIds: string[], loop: boolean): s
     if (!loop && id === last) return false
     return true
   })
+}
+
+/**
+ * 顺序只有一套代码（geo.orderRoute）产。扩展导入带的是 AI 给地点的先后（没有
+ * 意义）、旧数据或别的设备也可能留下过期的 orderedIds，落进本机时都归一到同一个
+ * 结果。自己的书不一致就连 updatedAt 一起更新（同步层据此推回服务端），
+ * 别人的分享只在本机内存里归位，不写不推。
+ */
+function sortedOrder(book: Book, bump: boolean): Book {
+  if (!book.startId || !book.endId) return book
+  const orderedIds = reorderAll(book)
+  const same =
+    orderedIds.length === book.orderedIds.length &&
+    orderedIds.every((id, i) => id === book.orderedIds[i])
+  if (same) return book
+  return {
+    ...book,
+    orderedIds,
+    splitIds: pruneSplits(orderedIds, book.splitIds, loopOf(book)),
+    ...(bump ? { updatedAt: Date.now() } : {}),
+  }
 }
 
 /** Apply a patch to the currently open book and bump its updatedAt. */
@@ -261,9 +280,18 @@ export const useStore = create<Store>()(
       },
 
       openBook: (id) =>
-        set((s) =>
-          s.books[id] ? { activeId: id, view: 'edit', selectedId: null } : {},
-        ),
+        set((s) => {
+          const b = s.books[id]
+          if (!b) return {}
+          // 打开一本本机已有的书，先把顺序归一（扩展导入 / 旧数据大多是这种情况）。
+          const sorted = sortedOrder(b, !s.readonlyIds[id])
+          return {
+            ...(sorted !== b ? { books: { ...s.books, [id]: sorted } } : {}),
+            activeId: id,
+            view: 'edit',
+            selectedId: null,
+          }
+        }),
 
       closeBook: () => set({ view: 'list', selectedId: null }),
 
@@ -272,16 +300,17 @@ export const useStore = create<Store>()(
       upsertRemoteBook: (book, opts) =>
         set((s) => {
           const own = opts?.own === true
+          const next = sortedOrder(book, own)
           const readonlyIds = { ...s.readonlyIds }
-          if (own) delete readonlyIds[book.id]
-          else readonlyIds[book.id] = true
+          if (own) delete readonlyIds[next.id]
+          else readonlyIds[next.id] = true
           return {
-            books: { ...s.books, [book.id]: book },
+            books: { ...s.books, [next.id]: next },
             order: own
-              ? s.order.includes(book.id)
+              ? s.order.includes(next.id)
                 ? s.order
-                : [book.id, ...s.order]
-              : s.order.filter((id) => id !== book.id),
+                : [next.id, ...s.order]
+              : s.order.filter((id) => id !== next.id),
             readonlyIds,
           }
         }),
@@ -441,29 +470,6 @@ export const useStore = create<Store>()(
             orderedIds: b.places.map((p) => p.id),
             splitIds: [],
           })),
-        ),
-
-      movePlace: (id, dir) =>
-        set((s) =>
-          activePatch(s, (b) => {
-            const ids = b.orderedIds.slice()
-            const i = ids.indexOf(id)
-            const j = i + dir
-            if (i < 0 || j < 0 || j >= ids.length) return {}
-            if (id === b.startId || id === b.endId) return {}
-            if (ids[j] === b.startId || (ids[j] === b.endId && !loopOf(b))) return {}
-            ;[ids[i], ids[j]] = [ids[j], ids[i]]
-            return { orderedIds: ids }
-          }),
-        ),
-
-      resort: () =>
-        set((s) =>
-          activePatch(s, (b) => {
-            if (!bothEnds(b)) return {}
-            const orderedIds = reorderAll(b)
-            return { orderedIds, splitIds: pruneSplits(orderedIds, b.splitIds, loopOf(b)) }
-          }),
         ),
 
       addSplit: (id) =>

@@ -397,6 +397,8 @@
       places,
       startId,
       endId,
+      // AI 给的地点只有先后（没有顺序含义），这里写下的 orderedIds 只是缓存：
+      // 真正的顺序由 shared/geo.ts 的 orderRoute 现算，打开路书时会归一到同一结果。
       orderedIds: places.map((p) => p.id),
       splitIds,
       createdAt: now,
