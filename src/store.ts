@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { buildJourney } from './lib/journey'
 import { isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
+import type { LoopDir } from './lib/geo'
 import { isUntitledTitle, t } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
@@ -22,6 +23,7 @@ type NewBook = Partial<
     | 'endId'
     | 'orderedIds'
     | 'splitIds'
+    | 'loopDir'
   >
 >
 
@@ -76,6 +78,8 @@ type Actions = {
   removePlace: (id: string) => void
   setStart: (id: string) => void
   setEnd: (id: string) => void
+  /** 环线绕行方向（顺 / 逆）；只有起终点重合时可用。 */
+  setLoopDir: (dir: LoopDir) => void
   closeLoop: () => void
   clearEnds: () => void
   addSplit: (id: string) => void
@@ -129,7 +133,7 @@ function loopOf(b: Book): boolean {
 
 function reorderAll(b: Book): string[] {
   if (!b.startId || !b.endId) return b.places.map((p) => p.id)
-  return orderRoute(b.places, b.startId, b.endId).map((p) => p.id)
+  return orderRoute(b.places, b.startId, b.endId, { loopDir: b.loopDir }).map((p) => p.id)
 }
 
 function pruneSplits(orderedIds: string[], splitIds: string[], loop: boolean): string[] {
@@ -266,6 +270,7 @@ export const useStore = create<Store>()(
           endId: seed?.endId ?? null,
           orderedIds: seed?.orderedIds ?? [],
           splitIds: seed?.splitIds ?? [],
+          loopDir: seed?.loopDir,
           createdAt: now,
           updatedAt: now,
         }
@@ -448,6 +453,20 @@ export const useStore = create<Store>()(
           }),
         ),
 
+      setLoopDir: (loopDir) =>
+        set((s) =>
+          activePatch(s, (b) => {
+            if (!loopOf(b)) return {}
+            const nb = { ...b, loopDir }
+            const orderedIds = reorderAll(nb)
+            return {
+              loopDir,
+              orderedIds,
+              splitIds: pruneSplits(orderedIds, b.splitIds, true),
+            }
+          }),
+        ),
+
       closeLoop: () =>
         set((s) =>
           activePatch(s, (b) => {
@@ -467,6 +486,7 @@ export const useStore = create<Store>()(
           activePatch(s, (b) => ({
             startId: null,
             endId: null,
+            loopDir: undefined,
             orderedIds: b.places.map((p) => p.id),
             splitIds: [],
           })),

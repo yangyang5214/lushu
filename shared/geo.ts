@@ -10,6 +10,9 @@ export type LngLat = { lng: number; lat: number }
 /** 排序只用到 id + 坐标，前端 Place 与线上 PublicPlace 都能直接传进来。 */
 export type Routable = LngLat & { id: string }
 
+/** 环线的绕行方向：cw 顺时针 / ccw 逆时针（起终点相同才有意义）。 */
+export type LoopDir = 'cw' | 'ccw'
+
 const EARTH_KM = 6371
 
 /** 环线判定阈值（米）：起终点差这么近就当重合。前后端必须一致，否则环线会一边算一边不算。 */
@@ -160,10 +163,39 @@ function improve<T extends Routable>(path: T[], loop: boolean): T[] {
 }
 
 /**
+ * 环线朝向：鞋带公式算有向面积。'cw' 顺时针 / 'ccw' 逆时针；点太少或几乎共线
+ * （面积≈0）时返回 null——此时方向本身没有意义。用 lng 当 x、lat 当 y（等距圆柱
+ * 投影保向），只判断符号，局部范围的环线足够准。
+ */
+export function loopOrientation(path: LngLat[]): LoopDir | null {
+  if (path.length < 3) return null
+  let sum = 0
+  for (let i = 0; i < path.length; i += 1) {
+    const a = path[i]
+    const b = path[(i + 1) % path.length]
+    sum += (b.lng - a.lng) * (b.lat + a.lat)
+  }
+  if (Math.abs(sum) < 1e-12) return null
+  // Σ(x_{i+1}-x_i)(y_{i+1}+y_i) = -2A：为正即顺时针。
+  return sum > 0 ? 'cw' : 'ccw'
+}
+
+/** 环线反向：起点钉在第一位，其余倒序（往返成本对称，倒过来仍是最优路径）。 */
+export function reverseLoop<T extends Routable>(path: T[]): T[] {
+  return path.length > 1 ? [path[0], ...path.slice(1).reverse()] : path
+}
+
+/**
  * 唯一的一条顺序来源：从起点贪心铺一条线，再用 2-opt + or-opt 收紧；
  * 起点终点是同一个点（或几乎重合）时按环线算。缺起点或终点就原样返回。
+ * 环线可传 loopDir 指定顺 / 逆朝向（用户的选择优先于优化器的任意解）。
  */
-export function orderRoute<T extends Routable>(places: T[], startId: string, endId: string): T[] {
+export function orderRoute<T extends Routable>(
+  places: T[],
+  startId: string,
+  endId: string,
+  opts: { loopDir?: LoopDir } = {},
+): T[] {
   const start = places.find((p) => p.id === startId)
   const end = places.find((p) => p.id === endId)
   if (!start || !end) return places
@@ -173,7 +205,15 @@ export function orderRoute<T extends Routable>(places: T[], startId: string, end
     if (!loop && p.id === end.id) return false
     return true
   })
-  if (loop) return improve(nearestNeighbor(start, rest), true)
+  if (loop) {
+    const path = improve(nearestNeighbor(start, rest), true)
+    // 优化器给的是任一条等价的环线；用户选了方向就按它绕，换点/加点时也保持。
+    if (opts.loopDir) {
+      const current = loopOrientation(path)
+      if (current && current !== opts.loopDir) return reverseLoop(path)
+    }
+    return path
+  }
   const middle = nearestNeighbor(start, rest).slice(1)
   return improve([start, ...middle, end], false)
 }

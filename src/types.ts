@@ -1,3 +1,5 @@
+import type { LoopDir } from '../shared/geo'
+
 export type Place = {
   id: string
   name: string
@@ -19,6 +21,8 @@ export type Book = {
   endId: string | null
   orderedIds: string[]
   splitIds: string[]
+  /** 环线绕行方向；未设置时用优化器默认解。非环线忽略。 */
+  loopDir?: LoopDir
   createdAt: number
   updatedAt: number
 }

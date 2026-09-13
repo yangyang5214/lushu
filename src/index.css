@@ -557,6 +557,43 @@ mark {
   font-weight: 600;
 }
 
+.rail-meta .dir-switch {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: #f1f4f8;
+}
+
+.dir-switch button {
+  border: none;
+  background: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.dir-switch button.on {
+  background: #fff;
+  color: #1b1712;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.dir-switch button:disabled {
+  cursor: default;
+  color: #b6bcc6;
+}
+
+.dir-switch button.on:disabled {
+  color: #1b1712;
+}
+
 .rail-track {
   display: flex;
   align-items: center;

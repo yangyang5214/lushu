@@ -103,7 +103,7 @@ import {
   adminStats,
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
-import { isSamePlace, orderRoute, pathDistanceKm } from '../../shared/geo'
+import { isSamePlace, orderRoute, pathDistanceKm, type LoopDir } from '../../shared/geo'
 import { clientIp, rateLimited } from '../lib/rate-limit'
 
 type Env = {
@@ -942,7 +942,10 @@ function toPublicBook(
   const isLoop = Boolean(start && end && isSamePlace(start, end))
   // 库里的 orderedIds 可能来自扩展导入（AI 给的地点没有顺序）或旧版本，
   // 所以定好起终点后一律按起点/终点重推，不信任存量值；未定起终点时按录入顺序展示。
-  const ordered = start && end ? orderRoute(places, start.id, end.id) : places
+  // 环线还要带上用户选的绕行方向，缩略图 / 天数才和编辑页一致。
+  const loopDir: LoopDir | undefined =
+    doc.loopDir === 'cw' || doc.loopDir === 'ccw' ? doc.loopDir : undefined
+  const ordered = start && end ? orderRoute(places, start.id, end.id, { loopDir }) : places
   const splitIds = new Set(
     (Array.isArray(doc.splitIds) ? doc.splitIds : []).filter(
       (x): x is string => typeof x === 'string',

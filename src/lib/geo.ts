@@ -6,8 +6,15 @@ import { t } from './i18n'
 export { gcj02ToWgs84, wgs84ToGcj02 }
 // 距离与路线顺序都在 shared/geo.ts：Pages Function 算公开列表预览用的是同一份，
 // 地点从哪来（手输 / 扩展导入 / AI 生成）都归到同一个结果。
-export { haversineKm, isSamePlace, pathDistanceKm, orderRoute, LOOP_METERS } from '../../shared/geo'
-export type { LngLat } from '../../shared/geo'
+export {
+  haversineKm,
+  isSamePlace,
+  loopOrientation,
+  pathDistanceKm,
+  orderRoute,
+  LOOP_METERS,
+} from '../../shared/geo'
+export type { LngLat, LoopDir } from '../../shared/geo'
 
 const AVG_KMH = 68
 

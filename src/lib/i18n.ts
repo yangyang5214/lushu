@@ -71,6 +71,11 @@ const zh = {
   'rail.endBadge': '终',
   'rail.nightBadge': '夜',
   'rail.day': '第{n}天 · {km}',
+  'rail.dir': '环线方向',
+  'rail.dirCw': '顺',
+  'rail.dirCwTitle': '顺时针',
+  'rail.dirCcw': '逆',
+  'rail.dirCcwTitle': '逆时针',
 
   // ── 首页 ─────────────────────────────────────────────────────────────────
   'home.heroTitle1': '想去的都加进来，',
@@ -348,6 +353,11 @@ const en: Record<MsgKey, string> = {
   'rail.endBadge': 'E',
   'rail.nightBadge': 'N',
   'rail.day': 'Day {n} · {km}',
+  'rail.dir': 'Loop direction',
+  'rail.dirCw': 'CW',
+  'rail.dirCwTitle': 'Clockwise',
+  'rail.dirCcw': 'CCW',
+  'rail.dirCcwTitle': 'Counter-clockwise',
 
   'home.heroTitle1': 'Add every place you want to go,',
   'home.heroTitle2': 'order sorts itself — day-by-day planning is easy',

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { dayInk, formatKm, haversineKm, validSplitIndexes } from '../lib/geo'
+import { dayInk, formatKm, haversineKm, loopOrientation, validSplitIndexes } from '../lib/geo'
 import { useI18n } from '../lib/i18n'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 
@@ -11,6 +11,7 @@ export function SplitRail() {
   const addSplit = useLushu((s) => s.addSplit)
   const removeSplit = useLushu((s) => s.removeSplit)
   const moveSplit = useLushu((s) => s.moveSplit)
+  const setLoopDir = useLushu((s) => s.setLoopDir)
   const selectPlace = useLushu((s) => s.selectPlace)
   const railRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<string | null>(null)
@@ -19,6 +20,8 @@ export function SplitRail() {
   const [hoverId, setHoverId] = useState<string | null>(null)
 
   const { ordered, isLoop, ready, days } = journey
+  // 起终点重合时才有「顺 / 逆」：按当前实际绕行朝向点亮对应那颗按钮。
+  const orientation = isLoop ? loopOrientation(ordered) : null
   const validIds = new Set(validSplitIndexes(ordered, isLoop).map((i) => ordered[i]?.id))
   const splitSet = new Set(journey.splitIds)
   const beads = isLoop && ordered.length > 1 ? [...ordered, ordered[0]] : ordered
@@ -86,6 +89,28 @@ export function SplitRail() {
     <footer className="rail">
       <div className="rail-meta">
         <strong>{t('rail.title')}</strong>
+        {isLoop ? (
+          <div className="dir-switch" role="group" aria-label={t('rail.dir')}>
+            <button
+              type="button"
+              className={orientation === 'cw' ? 'on' : ''}
+              title={t('rail.dirCwTitle')}
+              disabled={readonly}
+              onClick={() => setLoopDir('cw')}
+            >
+              {t('rail.dirCw')}
+            </button>
+            <button
+              type="button"
+              className={orientation === 'ccw' ? 'on' : ''}
+              title={t('rail.dirCcwTitle')}
+              disabled={readonly}
+              onClick={() => setLoopDir('ccw')}
+            >
+              {t('rail.dirCcw')}
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="rail-track" ref={railRef}>
         {beads.map((place, i) => {
