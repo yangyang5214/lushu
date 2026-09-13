@@ -65,6 +65,7 @@ const zh = {
     '定好起点和终点后，整条路会铺在这根尺上。分割针钉在过夜的点上，可左右拖动改天数。',
   'rail.returnBadge': '回',
   'rail.startBadge': '起',
+  'rail.endBadge': '终',
   'rail.nightBadge': '夜',
   'rail.day': '第{n}天 · {km}',
 
@@ -335,6 +336,7 @@ const en: Record<MsgKey, string> = {
     'Once a start and an end are set, the whole route is laid out on this ruler. Overnight pins split it into days — drag them to change the day count.',
   'rail.returnBadge': 'R',
   'rail.startBadge': 'S',
+  'rail.endBadge': 'E',
   'rail.nightBadge': 'N',
   'rail.day': 'Day {n} · {km}',
 

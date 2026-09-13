@@ -132,7 +132,7 @@ export function Sidebar() {
                                   {place.id === startId && !isReturn ? (
                                     <mark>{t('sidebar.startBadge')}</mark>
                                   ) : null}
-                                  {place.id === endId && !journey.isLoop ? (
+                                  {isReturn || (place.id === endId && !journey.isLoop) ? (
                                     <mark>{t('sidebar.endBadge')}</mark>
                                   ) : null}
                                 </strong>

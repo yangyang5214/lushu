@@ -125,9 +125,11 @@ export function SplitRail() {
                     ? t('rail.returnBadge')
                     : i === 0
                       ? t('rail.startBadge')
-                      : isSplit || preview
-                        ? t('rail.nightBadge')
-                        : i + 1}
+                      : i === beads.length - 1
+                        ? t('rail.endBadge')
+                        : isSplit || preview
+                          ? t('rail.nightBadge')
+                          : i + 1}
                 </b>
                 <em>{place.name}</em>
               </button>
