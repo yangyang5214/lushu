@@ -13,7 +13,7 @@ import { getMeta } from './lib/keys'
 import { bookPath, readRoute, ROOT_PATH } from './lib/router'
 import { prefetchBookRoads } from './lib/route'
 import { pullBook, startSync } from './lib/sync'
-import { useLushu, useStore } from './store'
+import { useLushu, useReadonly, useStore } from './store'
 
 /**
  * 把地址栏规范成 `/d/{userId}/{bookId}`：书主公开 ID 优先用本机记下的（从服务端
@@ -110,6 +110,8 @@ export default function App() {
 
   const activeId = useLushu((s) => s.activeId)
   const hasBook = useLushu((s) => (s.activeId ? Boolean(s.books[s.activeId]) : false))
+  // 别人的分享：只读。手机端据此收起行程尺、把总统计挪到行程清单顶部。
+  const readonly = useReadonly()
   // 账号是异步探测的：探测完成前 user 还是 null，先按未登录处理，免得闪出书架。
   const user = useAuth((s) => s.user)
 
@@ -122,7 +124,7 @@ export default function App() {
   if (view !== 'edit' || !activeId || !hasBook) return <RouteList />
 
   return (
-    <div className="app">
+    <div className={readonly ? 'app readonly' : 'app'}>
       <div className="workspace">
         <Sidebar />
         <MapCanvas />

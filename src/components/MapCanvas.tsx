@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { dayInk, toGcj } from '../lib/geo'
@@ -8,6 +8,16 @@ import { registerMapFit } from '../lib/map-view'
 import { fetchRoadLine } from '../lib/route'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { SearchBox } from './SearchBox'
+
+/** 路线完整视野：编辑态用串联后的点，草稿用全部点。 */
+function fitPoints(shown: Array<{ lng: number; lat: number }>): L.LatLngBounds {
+  return L.latLngBounds(
+    shown.map((p) => {
+      const [lng, lat] = toGcj(p)
+      return [lat, lng] as [number, number]
+    }),
+  )
+}
 
 export function MapCanvas() {
   const { lang, t } = useI18n()
@@ -25,6 +35,16 @@ export function MapCanvas() {
   const journeyRef = useRef(journey)
   journeyRef.current = journey
   const routeKey = `${journey.ordered.map((p) => p.id).join(',')}|${journey.isLoop}|${journey.splitIds.join(',')}`
+
+  // 把整条路线重新收进视野：手机上拖动地图后用来「回到全览」。
+  const fitRoute = useCallback((animate = true) => {
+    const map = mapRef.current
+    const current = journeyRef.current
+    const shown = current.ready ? current.ordered : current.places
+    if (!map || shown.length === 0) return
+    map.invalidateSize()
+    map.fitBounds(fitPoints(shown).pad(0.18), { animate, maxZoom: 10 })
+  }, [])
 
   useEffect(() => {
     const el = hostRef.current
@@ -109,19 +129,9 @@ export function MapCanvas() {
   }, [journey, selectedId, selectPlace, lang, t])
 
   useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    const current = journeyRef.current
-    const shown = current.ready ? current.ordered : current.places
-    if (shown.length === 0) return
-    const b = L.latLngBounds(
-      shown.map((p) => {
-        const [lng, lat] = toGcj(p)
-        return [lat, lng] as [number, number]
-      }),
-    )
-    map.fitBounds(b.pad(0.18), { animate: true, maxZoom: 10 })
-  }, [routeKey, mapReady])
+    if (!mapReady) return
+    fitRoute()
+  }, [routeKey, mapReady, fitRoute])
 
   useEffect(() => {
     registerMapFit(async () => {
@@ -130,12 +140,7 @@ export function MapCanvas() {
       const shown = current.ready ? current.ordered : current.places
       if (!map || shown.length === 0) return
       map.invalidateSize()
-      const b = L.latLngBounds(
-        shown.map((p) => {
-          const [lng, lat] = toGcj(p)
-          return [lat, lng] as [number, number]
-        }),
-      )
+      const b = fitPoints(shown)
       await new Promise<void>((resolve) => {
         let settled = false
         const done = () => {
@@ -215,6 +220,20 @@ export function MapCanvas() {
   return (
     <div className="map-stage">
       <div ref={hostRef} className="map" />
+      <button
+        type="button"
+        className="map-fit"
+        onClick={() => fitRoute()}
+        title={t('map.fit')}
+        aria-label={t('map.fit')}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden>
+          <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9" />
+          <path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9" />
+          <path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15" />
+          <path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />
+        </svg>
+      </button>
       {readonly ? null : (
         <div className="map-search">
           <SearchBox />

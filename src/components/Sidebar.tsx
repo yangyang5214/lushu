@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { downloadJourneyImage } from '../lib/export-image'
-import { driveMinutes, haversineKm } from '../lib/geo'
+import { driveMinutes, formatKm, haversineKm } from '../lib/geo'
 import { t, useI18n } from '../lib/i18n'
-import { navigateBookOrigin } from '../lib/router'
+import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
+import { JourneyStats } from './JourneyStats'
 
 function cityOf(place: Place | undefined): string {
   if (!place) return ''
@@ -54,7 +55,8 @@ export function Sidebar() {
   const back = () => {
     closeBook()
     // 从哪一页点进来的就回哪一页（首页 / 我的路书 / 公开路书）。
-    navigateBookOrigin()
+    // 别人分享的路书直接粘链接打开时没有来源页，退回「公开路书」而不是要登录的「我的路书」。
+    navigateBookOrigin(readonly ? PUBLIC_PATH : undefined)
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
   const [exporting, setExporting] = useState(false)
@@ -137,6 +139,11 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* 手机浏览（只读）时行程尺收起，总统计挪到行程清单顶部 */}
+      <div className="sheet-stats">
+        <JourneyStats />
+      </div>
+
       <div className="place-scroll">
         {journey.ready
           ? journey.days.map((day) => {
@@ -148,6 +155,7 @@ export function Sidebar() {
                   <button type="button" className="day-head" onClick={() => toggleFold(day.index)}>
                     <strong>{t('sidebar.day', { n: day.index + 1 })}</strong>
                     <span>{cityOf(cityPlace)}</span>
+                    <em className="day-km">{formatKm(day.distanceKm)}</em>
                     <i className={folded[day.index] ? 'chev folded' : 'chev'} />
                   </button>
                   {folded[day.index] ? null : (

@@ -286,11 +286,26 @@ button {
   flex: 1;
 }
 
+/* 手机只读浏览时行程尺收起，总统计挪到这里（桌面默认不显示，由行程尺展示） */
+.sheet-stats {
+  display: none;
+  flex: none;
+  padding: 10px 14px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.sheet-stats .rail-stats {
+  margin-bottom: 0;
+}
+
 .day-block + .day-block {
   border-top: 1px solid #eef0f3;
 }
 
 .day-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -307,12 +322,24 @@ button {
 }
 
 .day-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: #8a93a0;
   font-size: 13px;
 }
 
-.day-head .chev {
+.day-km {
   margin-left: auto;
+  font-style: normal;
+  font-size: 12px;
+  color: #8a93a0;
+  white-space: nowrap;
+}
+
+.day-head .chev {
+  margin-left: 0;
   width: 8px;
   height: 8px;
   border-right: 1.5px solid #bbb;
@@ -507,6 +534,38 @@ mark {
   padding: 11px 32px 11px 36px;
 }
 
+/* 地图右下角的「回到全览」：手机拖动地图后一键收回整条路线 */
+.map-fit {
+  position: absolute;
+  z-index: 800;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: #fff;
+  color: #4b5563;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
+}
+
+.map-fit svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.map-fit:hover {
+  color: var(--seal);
+}
+
 .leaflet-container {
   font-family: var(--sans);
   background: #d7d2c6;
@@ -618,6 +677,48 @@ mark {
   color: #1b1712;
 }
 
+/* 总统计：天数 / 地点 / 总里程 / 驾驶时长，一眼看完整条行程 */
+.rail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-bottom: 4px;
+}
+
+.rail-stats-label {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid #dfe5ee;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.rail-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.rail-stat em {
+  font-style: normal;
+  font-size: 11px;
+  color: #8a93a0;
+  white-space: nowrap;
+}
+
+.rail-stat b {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #1b1712;
+  white-space: nowrap;
+}
+
 .rail-track {
   display: flex;
   align-items: center;
@@ -719,9 +820,105 @@ mark {
   }
 }
 
+/* 手机上：地图在上、行程清单在下，行程尺贴在底部；搜索框浮在地图上方。 */
 @media (max-width: 760px) {
+  .app {
+    /* 跟随动态视口，避免移动端工具栏把底部的行程尺顶出屏幕 */
+    height: 100dvh;
+  }
+
+  .workspace {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .map-stage {
+    order: 1;
+    flex: 46 1 0;
+    height: auto;
+    min-height: 0;
+    /* 搜索联想列表要能盖到下方清单上，不能被舞台裁掉 */
+    overflow: visible;
+  }
+
+  .sheet {
+    order: 2;
+    position: static;
+    flex: 54 1 0;
+    width: 100%;
+    min-height: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border-top: 1px solid #eef0f3;
+  }
+
+  .sheet-title {
+    padding: 10px 12px 8px;
+  }
+
   .map-search {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    width: auto;
+  }
+
+  /* 手机上用双指缩放，收起 Leaflet 的按钮，免得和搜索框打架。 */
+  .leaflet-control-zoom {
     display: none;
+  }
+
+  .rail {
+    max-height: 42vh;
+    overflow-y: auto;
+    padding: 8px 12px 10px;
+  }
+
+  .rail-track {
+    min-height: 64px;
+    padding-top: 6px;
+  }
+
+  .bead {
+    min-width: 46px;
+    max-width: 96px;
+  }
+
+  .bead em {
+    font-size: 11px;
+  }
+
+  .rail-days {
+    gap: 10px;
+  }
+
+  /* 只看别人的分享（只读）：不编辑就用不到行程尺，收起它把高度让给地图和清单 */
+  .app.readonly .rail {
+    display: none;
+  }
+
+  .app.readonly .sheet-stats {
+    display: block;
+  }
+
+  /* 草稿（还没起终点）没有统计，别留一条空带 */
+  .app.readonly .sheet-stats:empty {
+    display: none;
+  }
+
+  .app.readonly .map-stage {
+    flex: 48 1 0;
+  }
+
+  .app.readonly .sheet {
+    flex: 52 1 0;
+  }
+}
+
+/* 触摸设备没有 hover：点中某个停留点后再露出删除等操作。 */
+@media (hover: none) {
+  .stop.on .stop-ops {
+    display: flex;
   }
 }
 

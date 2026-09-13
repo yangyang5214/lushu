@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { dayInk, formatKm, haversineKm, loopOrientation, validSplitIndexes } from '../lib/geo'
 import { useI18n } from '../lib/i18n'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
+import { JourneyStats } from './JourneyStats'
 
 export function SplitRail() {
   const { t } = useI18n()
@@ -112,6 +113,8 @@ export function SplitRail() {
           </div>
         ) : null}
       </div>
+      {/* 总统计：天数 / 地点 / 总里程 / 驾驶时长 */}
+      <JourneyStats />
       <div className="rail-track" ref={railRef}>
         {beads.map((place, i) => {
           const isGhostReturn = isLoop && i === beads.length - 1

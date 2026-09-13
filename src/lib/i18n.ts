@@ -39,6 +39,7 @@ const zh = {
   'search.unknownPlace': '未命名地点',
   'search.noResults': '没有找到，试试更具体的地名',
   'search.offline': '在线搜索暂时不可用，请稍后再试',
+  'map.fit': '回到全览',
 
   // ── 编辑页侧栏 ───────────────────────────────────────────────────────────
   'sidebar.back': '返回上一页',
@@ -76,6 +77,11 @@ const zh = {
   'rail.dirCwTitle': '顺时针',
   'rail.dirCcw': '逆',
   'rail.dirCcwTitle': '逆时针',
+  'rail.statsLabel': '总统计',
+  'rail.statDays': '天数',
+  'rail.statPlaces': '地点',
+  'rail.statKm': '总里程',
+  'rail.statTime': '驾驶时长',
 
   // ── 首页 ─────────────────────────────────────────────────────────────────
   'home.heroTitle1': '想去的都加进来，',
@@ -322,6 +328,7 @@ const en: Record<MsgKey, string> = {
   'search.unknownPlace': 'Unnamed place',
   'search.noResults': 'Nothing found — try a more specific place',
   'search.offline': 'Search is temporarily unavailable, please try again later',
+  'map.fit': 'Fit route',
 
   'sidebar.back': 'Go back',
   'sidebar.titlePlaceholder': 'Untitled Roadbook',
@@ -358,6 +365,11 @@ const en: Record<MsgKey, string> = {
   'rail.dirCwTitle': 'Clockwise',
   'rail.dirCcw': 'CCW',
   'rail.dirCcwTitle': 'Counter-clockwise',
+  'rail.statsLabel': 'Trip totals',
+  'rail.statDays': 'Days',
+  'rail.statPlaces': 'Stops',
+  'rail.statKm': 'Distance',
+  'rail.statTime': 'Drive time',
 
   'home.heroTitle1': 'Add every place you want to go,',
   'home.heroTitle2': 'order sorts itself — day-by-day planning is easy',
