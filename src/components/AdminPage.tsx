@@ -19,12 +19,12 @@ import {
 import { useMemo } from 'react'
 import { buildJourney } from '../lib/journey'
 import { adminT, type AdminMsgKey } from '../lib/i18n'
-import { bookPath, navigateList } from '../lib/router'
+import { adminPath, bookPath, navigateList, readAdminRoute, type AdminRoute, type AdminTab } from '../lib/router'
 import type { Journey, Place } from '../types'
 import { BrandMark } from './BrandMark'
 import { RouteMap } from './RouteMap'
 
-type Tab = 'overview' | 'users' | 'books'
+type Tab = AdminTab
 
 const PAGE_SIZE = 30
 
@@ -88,6 +88,55 @@ function journeyFromDoc(doc: Record<string, unknown>): Journey {
     orderedIds: asIds(doc.orderedIds),
     splitIds: asIds(doc.splitIds),
   })
+}
+
+/** 复制文本；非安全上下文（http）下 navigator.clipboard 不可用，退回 textarea。 */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    /* 继续走兜底方案 */
+  }
+  try {
+    const area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    document.body.appendChild(area)
+    area.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(area)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+/** 复制按钮：成功 / 失败在按钮上原地反馈，2 秒后复原。 */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const t = adminT
+  const [state, setState] = useState<'idle' | 'ok' | 'fail'>('idle')
+
+  const copy = async () => {
+    const ok = await copyText(text)
+    setState(ok ? 'ok' : 'fail')
+    window.setTimeout(() => setState('idle'), 2000)
+  }
+
+  return (
+    <button
+      type="button"
+      className="btn-ghost admin-copy"
+      disabled={!text}
+      onClick={() => void copy()}
+    >
+      {state === 'ok' ? t('admin.copied') : state === 'fail' ? t('admin.copyFailed') : label}
+    </button>
+  )
 }
 
 function AdminScreen({ children }: { children: ReactNode }) {
@@ -280,7 +329,7 @@ function UsersPanel({
   onSelect,
   onChanged,
 }: {
-  onSelect: (user: AdminUser) => void
+  onSelect: (id: string) => void
   onChanged: () => void
 }) {
   const t = adminT
@@ -360,7 +409,7 @@ function UsersPanel({
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="admin-row-click" onClick={() => onSelect(u)}>
+              <tr key={u.id} className="admin-row-click" onClick={() => onSelect(u.id)}>
                 <td className="mono">{u.id}</td>
                 <td>{u.email}</td>
                 <td>{u.displayName}</td>
@@ -389,7 +438,7 @@ function BooksPanel({
   onSelect,
   onChanged,
 }: {
-  onSelect: (book: AdminBookSummary) => void
+  onSelect: (id: string) => void
   onChanged: () => void
 }) {
   const t = adminT
@@ -474,7 +523,7 @@ function BooksPanel({
           </thead>
           <tbody>
             {books.map((b) => (
-              <tr key={b.id} className="admin-row-click" onClick={() => onSelect(b)}>
+              <tr key={b.id} className="admin-row-click" onClick={() => onSelect(b.id)}>
                 <td className="mono">{b.id}</td>
                 <td>{b.title || t('admin.untitled')}</td>
                 <td>{visLabel(b.visibility)}</td>
@@ -495,15 +544,16 @@ function BooksPanel({
 }
 
 function UserDetail({
-  user,
+  userId,
   onBack,
   onDeleted,
 }: {
-  user: AdminUser
+  userId: string
   onBack: () => void
   onDeleted: () => void
 }) {
   const t = adminT
+  const [user, setUser] = useState<AdminUser | null>(null)
   const [books, setBooks] = useState<
     Array<{
       id: string
@@ -518,16 +568,22 @@ function UserDetail({
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    void fetchAdminUser(user.id)
-      .then((data) => setBooks(data.books))
+    setUser(null)
+    setBooks([])
+    setError('')
+    void fetchAdminUser(userId)
+      .then((data) => {
+        setUser(data.user)
+        setBooks(data.books)
+      })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-  }, [user.id])
+  }, [userId])
 
   const remove = async () => {
     setError('')
     setBusy(true)
     try {
-      await deleteAdminUser(user.id)
+      await deleteAdminUser(userId)
       onDeleted()
     } catch (err) {
       setBusy(false)
@@ -547,61 +603,70 @@ function UserDetail({
           onConfirm={() => void remove()}
         />
       </div>
-      <h2>{user.displayName}</h2>
-      <dl className="admin-kv">
-        <div>
-          <dt>{t('admin.colEmail')}</dt>
-          <dd>{user.email}</dd>
-        </div>
-        <div>
-          <dt>{t('admin.publicId')}</dt>
-          <dd className="mono">{user.hashId || '—'}</dd>
-        </div>
-        <div>
-          <dt>{t('admin.internalOwner')}</dt>
-          <dd className="mono">{user.id}</dd>
-        </div>
-        <div>
-          <dt>{t('admin.status')}</dt>
-          <dd>{user.activated ? t('admin.activated') : t('admin.pending')}</dd>
-        </div>
-        <div>
-          <dt>{t('admin.colCreated')}</dt>
-          <dd>{fmtTime(user.createdAt)}</dd>
-        </div>
-      </dl>
       {error ? <p className="admin-error">{error}</p> : null}
-      <h3>{t('admin.booksCount', { n: books.length })}</h3>
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>{t('admin.colId')}</th>
-              <th>{t('admin.colTitle')}</th>
-              <th>{t('admin.colVisibility')}</th>
-              <th>{t('admin.colPlaces')}</th>
-              <th>{t('admin.colUpdated')}</th>
-              <th>{t('admin.colLink')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {books.map((b) => (
-              <tr key={b.id}>
-                <td className="mono">{b.id}</td>
-                <td>{b.title || t('admin.untitled')}</td>
-                <td>{visLabel(b.visibility)}</td>
-                <td>{b.places}</td>
-                <td>{fmtTime(b.updatedAt)}</td>
-                <td>
-                  <a href={bookPath(b.id, user.hashId || undefined)} target="_blank" rel="noreferrer">
-                    {t('admin.open')}
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {!user && !error ? <p className="admin-muted">{t('common.loading')}</p> : null}
+      {user ? (
+        <>
+          <h2>{user.displayName}</h2>
+          <dl className="admin-kv">
+            <div>
+              <dt>{t('admin.colEmail')}</dt>
+              <dd>{user.email}</dd>
+            </div>
+            <div>
+              <dt>{t('admin.publicId')}</dt>
+              <dd className="mono">{user.hashId || '—'}</dd>
+            </div>
+            <div>
+              <dt>{t('admin.internalOwner')}</dt>
+              <dd className="mono">{user.id}</dd>
+            </div>
+            <div>
+              <dt>{t('admin.status')}</dt>
+              <dd>{user.activated ? t('admin.activated') : t('admin.pending')}</dd>
+            </div>
+            <div>
+              <dt>{t('admin.colCreated')}</dt>
+              <dd>{fmtTime(user.createdAt)}</dd>
+            </div>
+          </dl>
+          <h3>{t('admin.booksCount', { n: books.length })}</h3>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>{t('admin.colId')}</th>
+                  <th>{t('admin.colTitle')}</th>
+                  <th>{t('admin.colVisibility')}</th>
+                  <th>{t('admin.colPlaces')}</th>
+                  <th>{t('admin.colUpdated')}</th>
+                  <th>{t('admin.colLink')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {books.map((b) => (
+                  <tr key={b.id}>
+                    <td className="mono">{b.id}</td>
+                    <td>{b.title || t('admin.untitled')}</td>
+                    <td>{visLabel(b.visibility)}</td>
+                    <td>{b.places}</td>
+                    <td>{fmtTime(b.updatedAt)}</td>
+                    <td>
+                      <a
+                        href={bookPath(b.id, user.hashId || undefined)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t('admin.open')}
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
     </div>
   )
 }
@@ -630,6 +695,7 @@ function BookDetail({
   const places = Array.isArray(book?.doc.places) ? book.doc.places.length : 0
   const visibility = book?.doc.visibility === 'private' ? 'private' : 'public'
   const journey = useMemo(() => (book ? journeyFromDoc(book.doc) : null), [book])
+  const json = useMemo(() => (book ? JSON.stringify(book.doc, null, 2) : ''), [book])
 
   const remove = async () => {
     setError('')
@@ -688,8 +754,11 @@ function BookDetail({
               </div>
             </>
           ) : null}
-          <h3>{t('admin.rawData')}</h3>
-          <pre className="admin-json">{JSON.stringify(book.doc, null, 2)}</pre>
+          <div className="admin-section-head">
+            <h3>{t('admin.rawData')}</h3>
+            <CopyButton text={json} label={t('admin.copyJson')} />
+          </div>
+          <pre className="admin-json">{json}</pre>
         </>
       ) : null}
     </div>
@@ -742,11 +811,12 @@ function AdminSidebar({
 
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const t = adminT
-  const [tab, setTab] = useState<Tab>('overview')
+  // 当前页完全由地址栏决定：tab + 可选详情 ID，刷新 / 分享 / 前进后退都能复现。
+  const [route, setRoute] = useState<AdminRoute>(() => readAdminRoute())
+  const tab = route.tab
+  const detailId = route.id
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [error, setError] = useState('')
-  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
-  const [selectedBook, setSelectedBook] = useState<AdminBookSummary | null>(null)
 
   const refreshStats = useCallback(() => {
     setError('')
@@ -759,39 +829,51 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     void refreshStats()
   }, [refreshStats])
 
+  // 前进 / 后退（含直接改地址栏）时，当前页跟着地址走。
+  useEffect(() => {
+    const onPop = () => setRoute(readAdminRoute())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   const signOut = () => {
     void adminLogout().finally(onLogout)
   }
 
+  /** 切到下一个管理页（tab 或详情），并把地址栏同步成可分享的路径。 */
+  const go = (next: AdminRoute) => {
+    setRoute(next)
+    const path = adminPath(next.tab, next.id)
+    if (window.location.pathname !== path) window.history.pushState(null, '', path)
+  }
+
   const goTab = (next: Tab) => {
-    setTab(next)
-    setSelectedUser(null)
-    setSelectedBook(null)
+    go({ tab: next, id: null })
   }
 
   let title = t(TAB_KEY[tab])
-  if (selectedUser) title = t('admin.userDetail')
-  if (selectedBook) title = t('admin.bookDetail')
+  if (tab === 'users' && detailId) title = t('admin.userDetail')
+  if (tab === 'books' && detailId) title = t('admin.bookDetail')
 
   let body: ReactNode = null
-  if (selectedUser) {
+  if (tab === 'users' && detailId) {
     body = (
       <UserDetail
-        user={selectedUser}
-        onBack={() => setSelectedUser(null)}
+        userId={detailId}
+        onBack={() => go({ tab: 'users', id: null })}
         onDeleted={() => {
-          setSelectedUser(null)
+          go({ tab: 'users', id: null })
           void refreshStats()
         }}
       />
     )
-  } else if (selectedBook) {
+  } else if (tab === 'books' && detailId) {
     body = (
       <BookDetail
-        bookId={selectedBook.id}
-        onBack={() => setSelectedBook(null)}
+        bookId={detailId}
+        onBack={() => go({ tab: 'books', id: null })}
         onDeleted={() => {
-          setSelectedBook(null)
+          go({ tab: 'books', id: null })
           void refreshStats()
         }}
       />
@@ -799,9 +881,19 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   } else if (tab === 'overview') {
     body = stats ? <StatCards stats={stats} /> : <p className="admin-muted">{t('common.loading')}</p>
   } else if (tab === 'users') {
-    body = <UsersPanel onSelect={setSelectedUser} onChanged={() => void refreshStats()} />
+    body = (
+      <UsersPanel
+        onSelect={(id) => go({ tab: 'users', id })}
+        onChanged={() => void refreshStats()}
+      />
+    )
   } else {
-    body = <BooksPanel onSelect={setSelectedBook} onChanged={() => void refreshStats()} />
+    body = (
+      <BooksPanel
+        onSelect={(id) => go({ tab: 'books', id })}
+        onChanged={() => void refreshStats()}
+      />
+    )
   }
 
   return (
@@ -813,7 +905,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             <h1>{title}</h1>
           </header>
           <div className="admin-main-body">
-            {error && tab === 'overview' && !selectedUser && !selectedBook ? (
+            {error && tab === 'overview' && !detailId ? (
               <p className="admin-error">{error}</p>
             ) : null}
             {body}

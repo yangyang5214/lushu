@@ -84,33 +84,90 @@ function reverseSlice(path: Place[], from: number, to: number): Place[] {
   return next
 }
 
-function tourKm(path: Place[], loop: boolean): number {
-  const closed = loop && path.length > 1 ? [...path, path[0]] : path
-  return pathDistanceKm(closed)
+/** 环线在末尾补一条回到起点的边；非环线的首尾都钉死。 */
+function edgeKm(path: Place[], loop: boolean, i: number): number {
+  const j = i + 1
+  if (j < path.length) return haversineKm(path[i], path[j])
+  return loop ? haversineKm(path[i], path[0]) : 0
 }
 
-function twoOpt(path: Place[], loop: boolean): Place[] {
-  if (path.length < 4) return path
-  let best = path.slice()
-  let improved = true
-  const last = path.length - 1
-  while (improved) {
-    improved = false
-    const iMin = 0
-    const iMax = loop ? last - 1 : last - 2
-    for (let i = iMin; i <= iMax; i += 1) {
-      const kMax = loop ? last : last - 1
-      for (let k = i + 2; k <= kMax; k += 1) {
-        if (!loop && k === last) continue
-        const cand = reverseSlice(best, i + 1, k)
-        if (tourKm(cand, loop) + 1e-6 < tourKm(best, loop)) {
-          best = cand
-          improved = true
-        }
+/**
+ * 2-opt：反转一段。只比较被换掉的两条边和补上的两条边，单步 O(1)、
+ * 整趟 O(n²)。旧写法每试一个候选都重算整条路，是 O(n³)。
+ */
+function twoOptPass(path: Place[], loop: boolean): { path: Place[]; improved: boolean } {
+  const n = path.length
+  if (n < 4) return { path, improved: false }
+  const iMax = loop ? n - 2 : n - 3
+  const kMax = loop ? n - 1 : n - 2
+  let next = path
+  let improved = false
+  for (let i = 0; i <= iMax; i += 1) {
+    for (let k = i + 2; k <= kMax; k += 1) {
+      const a = next[i]
+      const b = next[i + 1]
+      const c = next[k]
+      const d = next[(k + 1) % n]
+      const delta =
+        haversineKm(a, c) + haversineKm(b, d) - edgeKm(next, loop, i) - edgeKm(next, loop, k)
+      if (delta < -1e-6) {
+        next = reverseSlice(next, i + 1, k)
+        improved = true
       }
     }
   }
-  return best
+  return { path: next, improved }
+}
+
+/**
+ * or-opt：把连续 1~3 个点整段搬到另一条边上。2-opt 只会反转，解不开
+ * 「一整段该往前挪」这种弯（比如福州该夹在雁荡山与平潭岛之间）。
+ */
+function orOptPass(path: Place[], loop: boolean): { path: Place[]; improved: boolean } {
+  const n = path.length
+  if (n < 4) return { path, improved: false }
+  const lastStart = loop ? n - 1 : n - 2 // 非环线时最后一个点钉死，不能搬
+  const cMax = loop ? n - 1 : n - 2
+  let next = path
+  let improved = false
+  for (let len = 1; len <= 3; len += 1) {
+    for (let a = 1; a + len - 1 <= lastStart; a += 1) {
+      const b = a + len - 1
+      const prev = a - 1
+      const after = (b + 1) % n
+      for (let c = 0; c <= cMax; c += 1) {
+        if (c === prev || (c >= a && c <= b)) continue
+        const nc = (c + 1) % n
+        const delta =
+          haversineKm(next[prev], next[after]) +
+          haversineKm(next[c], next[a]) +
+          haversineKm(next[b], next[nc]) -
+          edgeKm(next, loop, prev) -
+          edgeKm(next, loop, b) -
+          edgeKm(next, loop, c)
+        if (delta >= -1e-6) continue
+        const seg = next.slice(a, b + 1)
+        const rest = [...next.slice(0, a), ...next.slice(b + 1)]
+        const at = c < a ? c + 1 : c + 1 - len
+        next = [...rest.slice(0, at), ...seg, ...rest.slice(at)]
+        improved = true
+        break // 这一段已经搬走，本轮 a 指向的内容变了，换下一组
+      }
+    }
+  }
+  return { path: next, improved }
+}
+
+/** 2-opt 与 or-opt 交替跑到两者都不再改善。 */
+function improve(path: Place[], loop: boolean): Place[] {
+  let next = path
+  for (let round = 0; round < 50; round += 1) {
+    const two = twoOptPass(next, loop)
+    const or = orOptPass(two.path, loop)
+    next = or.path
+    if (!two.improved && !or.improved) break
+  }
+  return next
 }
 
 export function orderRoute(places: Place[], startId: string, endId: string): Place[] {
@@ -123,30 +180,9 @@ export function orderRoute(places: Place[], startId: string, endId: string): Pla
     if (!loop && p.id === end.id) return false
     return true
   })
-  if (loop) return twoOpt(nearestNeighbor(start, rest), true)
+  if (loop) return improve(nearestNeighbor(start, rest), true)
   const middle = nearestNeighbor(start, rest).slice(1)
-  return twoOpt([start, ...middle, end], false)
-}
-
-export function insertNearest(path: Place[], place: Place, loop: boolean): Place[] {
-  if (path.length === 0) return [place]
-  if (path.length === 1) return loop ? [path[0], place] : [path[0], place]
-  let bestI = 1
-  let bestCost = Infinity
-  const n = path.length
-  const last = loop ? n : n - 1
-  for (let i = 0; i < last; i += 1) {
-    const a = path[i]
-    const b = path[(i + 1) % n]
-    const cost = haversineKm(a, place) + haversineKm(place, b) - haversineKm(a, b)
-    if (cost < bestCost) {
-      bestCost = cost
-      bestI = i + 1
-    }
-  }
-  const next = path.slice()
-  next.splice(bestI, 0, place)
-  return next
+  return improve([start, ...middle, end], false)
 }
 
 export function validSplitIndexes(ordered: Place[], loop: boolean): number[] {

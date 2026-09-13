@@ -16,6 +16,10 @@ export const MINE_PATH = '/list'
 export const PUBLIC_PATH = '/public'
 export const ACCOUNT_PATH = '/account'
 export const ADMIN_PATH = '/admin'
+/** 管理后台左侧 tab；概览是默认页。 */
+export type AdminTab = 'overview' | 'users' | 'books'
+/** 管理后台当前页：tab + 可选的详情 ID。 */
+export type AdminRoute = { tab: AdminTab; id: string | null }
 /** 路书详情的前缀：`/d/{userId}/{bookId}`，一眼能看出是路书而不是别的页面。 */
 export const BOOK_PATH_PREFIX = '/d'
 
@@ -140,4 +144,22 @@ export function navigatePublic(): void {
 
 export function navigateAccount(): void {
   go(ACCOUNT_PATH)
+}
+
+/**
+ * 管理后台路径：`/admin`、`/admin/users`、`/admin/users/{id}`、
+ * `/admin/books`、`/admin/books/{id}`。
+ */
+export function adminPath(tab: AdminTab, id?: string | null): string {
+  if (tab === 'overview') return ADMIN_PATH
+  return id ? `${ADMIN_PATH}/${tab}/${encodeURIComponent(id)}` : `${ADMIN_PATH}/${tab}`
+}
+
+/** 从当前地址解析管理后台 tab 与详情 ID；认不出的段一律回概览。 */
+export function readAdminRoute(): AdminRoute {
+  if (typeof window === 'undefined') return { tab: 'overview', id: null }
+  const segments = window.location.pathname.replace(/^\/+/, '').replace(/\/+$/, '').split('/')
+  const sub = segments[0] === 'admin' ? segments[1] : ''
+  if (sub !== 'users' && sub !== 'books') return { tab: 'overview', id: null }
+  return { tab: sub, id: segments[2] ? safeDecode(segments[2]) : null }
 }

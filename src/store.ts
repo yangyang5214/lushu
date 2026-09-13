@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { buildJourney } from './lib/journey'
-import { insertNearest, isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
+import { isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
 import { isUntitledTitle, t } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
@@ -350,14 +350,17 @@ export const useStore = create<Store>()(
         set((s) =>
           activePatch(s, (b) => {
             const places = [...b.places, place]
-            if (bothEnds(b) && b.orderedIds.length > 0) {
-              const path = b.orderedIds
-                .map((pid) => places.find((p) => p.id === pid))
-                .filter((p): p is Place => Boolean(p))
-              const next = insertNearest(path, place, loopOf({ ...b, places }))
-              return { places, orderedIds: next.map((p) => p.id) }
+            // 起终点齐全时整条重排（与删点、改起终点同一套）：新点插在哪最优、
+            // 要不要顺手把已有的段挪一插，都由 orderRoute 一起决定。
+            // 还没定起终点时没有「路线」可言，先按录入顺序排。
+            if (!bothEnds(b)) return { places, orderedIds: [...b.orderedIds, id] }
+            const next = { ...b, places }
+            const orderedIds = reorderAll(next)
+            return {
+              places,
+              orderedIds,
+              splitIds: pruneSplits(orderedIds, b.splitIds, loopOf(next)),
             }
-            return { places, orderedIds: [...b.orderedIds, id] }
           }),
         )
         return id
