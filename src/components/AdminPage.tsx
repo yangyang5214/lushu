@@ -410,14 +410,20 @@ function UsersPanel({
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="admin-row-click" onClick={() => onSelect(u.id)}>
-                <td className="mono">{u.id}</td>
-                <td>{u.email}</td>
-                <td>{u.displayName}</td>
-                <td className="mono">{u.hashId || '—'}</td>
-                <td>{u.bookCount}</td>
-                <td>{u.activated ? t('admin.activated') : t('admin.pending')}</td>
-                <td>{fmtTime(u.createdAt)}</td>
-                <td>
+                <td className="mono" data-label={t('admin.colId')}>
+                  {u.id}
+                </td>
+                <td data-label={t('admin.colEmail')}>{u.email}</td>
+                <td data-label={t('admin.colName')}>{u.displayName}</td>
+                <td className="mono" data-label={t('admin.colHashId')}>
+                  {u.hashId || '—'}
+                </td>
+                <td data-label={t('admin.colBooks')}>{u.bookCount}</td>
+                <td data-label={t('admin.colStatus')}>
+                  {u.activated ? t('admin.activated') : t('admin.pending')}
+                </td>
+                <td data-label={t('admin.colCreated')}>{fmtTime(u.createdAt)}</td>
+                <td data-label={t('admin.colActions')}>
                   <DangerConfirm
                     busy={busyId === u.id}
                     hint={u.bookCount > 0 ? t('admin.withBooks', { n: u.bookCount }) : undefined}
@@ -524,13 +530,17 @@ function BooksPanel({
           <tbody>
             {books.map((b) => (
               <tr key={b.id} className="admin-row-click" onClick={() => onSelect(b.id)}>
-                <td className="mono">{b.id}</td>
-                <td>{b.title || t('admin.untitled')}</td>
-                <td>{visLabel(b.visibility)}</td>
-                <td>{b.places}</td>
-                <td>{b.ownerEmail ?? b.ownerHashId ?? t('common.anonymous')}</td>
-                <td>{fmtTime(b.updatedAt)}</td>
-                <td>
+                <td className="mono" data-label={t('admin.colId')}>
+                  {b.id}
+                </td>
+                <td data-label={t('admin.colTitle')}>{b.title || t('admin.untitled')}</td>
+                <td data-label={t('admin.colVisibility')}>{visLabel(b.visibility)}</td>
+                <td data-label={t('admin.colPlaces')}>{b.places}</td>
+                <td data-label={t('admin.colOwner')}>
+                  {b.ownerEmail ?? b.ownerHashId ?? t('common.anonymous')}
+                </td>
+                <td data-label={t('admin.colUpdated')}>{fmtTime(b.updatedAt)}</td>
+                <td data-label={t('admin.colActions')}>
                   <DangerConfirm busy={busyId === b.id} onConfirm={() => void remove(b.id)} />
                 </td>
               </tr>
@@ -646,12 +656,14 @@ function UserDetail({
               <tbody>
                 {books.map((b) => (
                   <tr key={b.id}>
-                    <td className="mono">{b.id}</td>
-                    <td>{b.title || t('admin.untitled')}</td>
-                    <td>{visLabel(b.visibility)}</td>
-                    <td>{b.places}</td>
-                    <td>{fmtTime(b.updatedAt)}</td>
-                    <td>
+                    <td className="mono" data-label={t('admin.colId')}>
+                      {b.id}
+                    </td>
+                    <td data-label={t('admin.colTitle')}>{b.title || t('admin.untitled')}</td>
+                    <td data-label={t('admin.colVisibility')}>{visLabel(b.visibility)}</td>
+                    <td data-label={t('admin.colPlaces')}>{b.places}</td>
+                    <td data-label={t('admin.colUpdated')}>{fmtTime(b.updatedAt)}</td>
+                    <td data-label={t('admin.colLink')}>
                       <a
                         href={bookPath(b.id, user.hashId || undefined)}
                         target="_blank"

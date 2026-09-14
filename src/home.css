@@ -2350,6 +2350,188 @@
 }
 
 /* ---------- 响应式 ---------- */
+/* 手机上后台导航不收起：品牌 + 操作一行，导航项独占一行（与首页导航一致）。 */
+@media (max-width: 820px) {
+  /* 跟随动态视口，避免移动端工具栏把内容顶出屏幕。 */
+  .admin-home {
+    height: 100dvh;
+  }
+
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 10px 14px 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .admin-sidebar-brand {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .admin-sidebar-brand .brand-mark {
+    width: 24px;
+    height: 24px;
+  }
+
+  .admin-sidebar-brand b {
+    font-size: 14px;
+  }
+
+  .admin-sidebar-nav {
+    order: 3;
+    flex: 1 1 100%;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .admin-sidebar-nav button {
+    flex: 1;
+    width: auto;
+    padding: 8px 10px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .admin-sidebar-foot {
+    flex-direction: row;
+    gap: 2px;
+    padding: 0;
+    border-top: none;
+  }
+
+  .admin-sidebar-link {
+    width: auto;
+    padding: 6px 8px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .admin-main-head {
+    padding: 14px 16px 10px;
+  }
+
+  .admin-main-head h1 {
+    font-size: 18px;
+  }
+
+  .admin-main-body {
+    padding: 14px 16px 24px;
+  }
+
+  /* 触屏上输入框保持 16px，避免 iOS 聚焦时把整页放大。 */
+  .admin-form input,
+  .admin-toolbar input,
+  .admin-toolbar select {
+    font-size: 16px;
+  }
+}
+
+/* 窄屏：表格改卡片（字段名靠左、值靠右），工具条堆叠，免去横向拖动。 */
+@media (max-width: 640px) {
+  .admin-table-wrap {
+    overflow: visible;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table tr {
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .admin-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .admin-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border-soft);
+    white-space: normal;
+    text-align: right;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* 卡片模式下行与行相互独立，最后一张卡也要保留内部字段分隔线。 */
+  .admin-table tr:last-child td {
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .admin-table tr:last-child td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-toolbar input,
+  .admin-toolbar select {
+    min-width: 0;
+  }
+
+  .admin-toolbar .btn-ghost {
+    padding: 10px 12px;
+  }
+
+  .admin-detail-head {
+    flex-wrap: wrap;
+  }
+
+  .admin-danger-group {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .admin-map {
+    height: min(52vh, 380px);
+  }
+}
+
 @media (max-width: 560px) {
   .account-main {
     padding-top: 36px;
@@ -2363,34 +2545,16 @@
     padding: 24px 20px;
   }
 
-  .admin-sidebar {
-    width: 72px;
-    padding: 14px 8px;
+  .admin-stats {
+    gap: 10px;
   }
 
-  .admin-sidebar-brand div,
-  .admin-sidebar-brand span,
-  .admin-sidebar-link {
-    display: none;
+  .admin-stat {
+    padding: 14px 12px;
   }
 
-  .admin-sidebar-brand {
-    justify-content: center;
-    padding-bottom: 12px;
-  }
-
-  .admin-sidebar-nav button {
-    font-size: 12px;
-    padding: 10px 6px;
-    text-align: center;
-  }
-
-  .admin-main-head {
-    padding: 16px 16px 12px;
-  }
-
-  .admin-main-body {
-    padding: 16px;
+  .admin-stat b {
+    font-size: 24px;
   }
 
   .admin-kv > div {
