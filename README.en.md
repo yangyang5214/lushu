@@ -35,7 +35,7 @@ just run `db:init` again on an existing database.
 pnpm dev          # http://localhost:5173
 ```
 
-Search works (`/api/geocode` is proxied to Nominatim by Vite); driving routes go through the local Worker (`/api/route`, i.e. `pnpm pages:dev` below) and fall back to a direct OSRM call in the browser when the Worker is not running. Accounts, cloud library and public books also need the Worker below.
+Search and driving routes both use Amap only, so they need the local Worker (`pnpm pages:dev` below) with `AMAP_KEY` configured; running Vite alone gives local-gazetteer search only and no route lines. Accounts, cloud library and public books also need the Worker below.
 
 **Full stack (real Worker + local D1):**
 

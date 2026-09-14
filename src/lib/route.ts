@@ -1,13 +1,9 @@
-import { wgs84ToGcj02, type LngLat } from './geo'
+import type { LngLat } from './geo'
 import { buildJourney } from './journey'
 import type { Book } from '../types'
 
 /** Worker `/api/route` 的统一返回：坐标已经是 GCJ02，直接贴合高德底图。 */
 type NormalizedRoute = { source?: string; line?: [number, number][] }
-
-type OsrmResponse = {
-  routes?: Array<{ geometry?: { coordinates?: [number, number][] } }>
-}
 
 type AmapResponse = {
   route?: { paths?: Array<{ steps?: Array<{ polyline?: string }> }> }
@@ -21,14 +17,7 @@ function fromNormalized(data: NormalizedRoute): [number, number][] | null {
   return clean.length >= 2 ? clean : null
 }
 
-/** OSRM 原始响应：WGS84 转 GCJ02。 */
-function fromOsrm(data: OsrmResponse): [number, number][] | null {
-  const line = data.routes?.[0]?.geometry?.coordinates
-  if (!line?.length) return null
-  return line.map(([lng, lat]) => wgs84ToGcj02(lng, lat))
-}
-
-/** 高德原始响应（本地 Vite 代理直连时会出现）：polyline 本来就是 GCJ02。 */
+/** 高德原始响应（理论上不会出现，Worker 已归一化；保留兼容旧响应）：polyline 本来就是 GCJ02。 */
 function fromAmap(data: AmapResponse): [number, number][] | null {
   const steps = data.route?.paths?.[0]?.steps ?? []
   const line: [number, number][] = []
@@ -48,9 +37,8 @@ function fromAmap(data: AmapResponse): [number, number][] | null {
 
 function pickLine(data: unknown): [number, number][] | null {
   if (!data || typeof data !== 'object') return null
-  const payload = data as NormalizedRoute & OsrmResponse & AmapResponse
+  const payload = data as NormalizedRoute & AmapResponse
   if (Array.isArray(payload.line)) return fromNormalized(payload)
-  if (payload.routes) return fromOsrm(payload)
   if (payload.route) return fromAmap(payload)
   return null
 }
@@ -126,30 +114,14 @@ function scheduleFlush(): void {
   })
 }
 
-async function fetchOsrm(coords: string): Promise<[number, number][] | null> {
-  const url =
-    `https://router.project-osrm.org/route/v1/driving/${coords}` +
-    '?overview=full&geometries=geojson&continue_straight=false'
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    return fromOsrm((await res.json()) as OsrmResponse)
-  } catch {
-    return null
-  }
-}
-
 async function fetchOneGet(coords: string): Promise<[number, number][] | null> {
   try {
     const res = await fetch(`/api/route?coords=${encodeURIComponent(coords)}`)
-    if (res.ok) {
-      const line = pickLine(await res.json())
-      if (line) return line
-    }
+    if (res.ok) return pickLine(await res.json())
   } catch {
-    /* 落到 OSRM */
+    /* Worker 未起：这一段落空，地图上不画这条线 */
   }
-  return fetchOsrm(coords)
+  return null
 }
 
 async function fetchSegments(keys: string[]): Promise<Array<[number, number][] | null>> {
@@ -162,11 +134,11 @@ async function fetchSegments(keys: string[]): Promise<Array<[number, number][] |
     if (res.ok) {
       const data = (await res.json()) as { routes?: unknown[] }
       if (Array.isArray(data.routes) && data.routes.length === keys.length) {
-        return Promise.all(data.routes.map((item, i) => pickLine(item) ?? fetchOsrm(keys[i])))
+        return data.routes.map((item) => pickLine(item))
       }
     }
   } catch {
-    /* Worker 未起 / 旧部署没有 POST：逐段 GET，再直连 OSRM */
+    /* Worker 未起 / 旧部署没有 POST：逐段 GET */
   }
   return Promise.all(keys.map((key) => fetchOneGet(key)))
 }
@@ -196,7 +168,7 @@ async function flushJobs(): Promise<void> {
 /**
  * 路线几何。同一坐标内存去重；A→B 与 B→A 共用一份（反向请求把线倒过来）；
  * 同一事件循环里的多天请求会合成一次 POST。
- * 优先 Worker（高德，失败回落 OSRM），再退浏览器直连 OSRM。
+ * 驾车导航只走高德：一律请求 Worker `/api/route`，失败就没有线，不再回落其他地图服务。
  */
 export function fetchRoadLine(points: LngLat[]): Promise<[number, number][] | null> {
   if (points.length < 2) return Promise.resolve(null)

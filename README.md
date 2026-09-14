@@ -34,7 +34,7 @@ pnpm db:init:local                      # 建本地 D1 表
 pnpm dev          # http://localhost:5173
 ```
 
-搜索可用（`/api/geocode` 由 Vite 代理直连 Nominatim）；驾车路线走本地 Worker（`/api/route`，即下面的 `pnpm pages:dev`），Worker 没起时浏览器直连 OSRM 兜底；账号、我的路书、公开路书也需要下面的 Worker。
+搜索和驾车路线都只用高德，需要下面的 Worker（`pnpm pages:dev`）并在其中配好 `AMAP_KEY`；只跑 Vite 时搜索只剩本地地名库、路线不绘制。账号、我的路书、公开路书也需要下面的 Worker。
 
 **完整前后端（真实 Worker + 本地 D1）：**
 

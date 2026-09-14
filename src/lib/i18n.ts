@@ -37,7 +37,6 @@ const zh = {
 
   // ── 搜索 ─────────────────────────────────────────────────────────────────
   'search.placeholder': '搜索添加新目的地',
-  'search.unknownPlace': '未命名地点',
   'search.noResults': '没有找到，试试更具体的地名',
   'search.offline': '在线搜索暂时不可用，请稍后再试',
   'map.fit': '回到全览',
@@ -329,7 +328,6 @@ const en: Record<MsgKey, string> = {
   'nav.github': 'View the source on GitHub',
 
   'search.placeholder': 'Search and add a destination',
-  'search.unknownPlace': 'Unnamed place',
   'search.noResults': 'Nothing found — try a more specific place',
   'search.offline': 'Search is temporarily unavailable, please try again later',
   'map.fit': 'Fit route',

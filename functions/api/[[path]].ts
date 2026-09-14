@@ -28,9 +28,8 @@
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
 //   DELETE /api/admin/books/:id → 删除路书
 //   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
-//   GET    /api/geocode?q=  → Nominatim 代理 + Cache API 缓存（高德不可用时的兜底）
-//   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地首选）+ Cache API 缓存
-//   GET    /api/route?coords= → 单段驾车路线：优先高德，失败回落 OSRM，Cache API 缓存
+//   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
+//   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
 //   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源限并发
 //
 // 暴露面控制（公开仓库 = 端点形状全部公开，所以防线必须在服务端）：
@@ -116,7 +115,7 @@ type Env = {
   RESEND_API_KEY?: string
   /** 发件人，例如 "路书 <noreply@yourdomain.com>" */
   EMAIL_FROM?: string
-  /** 可选。高德 Web 服务 key；配了就走高德驾车规划，没配或失败回落 OSRM。 */
+  /** 高德 Web 服务 key。`/api/places`、`/api/route` 都依赖它，未配置时返回 5xx。 */
   AMAP_KEY?: string
   /** 可选，默认 20000。0 表示不限。 */
   MAX_BOOKS?: string
@@ -1028,81 +1027,6 @@ async function listPublic(env: Env, request: Request): Promise<Response> {
   return json({ books })
 }
 
-// ── upstream proxies（带 Cache API，不占 KV 额度）─────────────────────────────
-
-async function cachedProxy(
-  ctx: Ctx,
-  target: string,
-  ttl: number,
-  upstreamHeaders: Record<string, string>,
-): Promise<Response> {
-  const cache = typeof caches !== 'undefined' ? caches.default : undefined
-  const cacheKey = new Request(target, { method: 'GET' })
-
-  if (cache) {
-    try {
-      const hit = await cache.match(cacheKey)
-      if (hit) {
-        return new Response(hit.body, {
-          status: 200,
-          headers: {
-            ...JSON_HEADERS,
-            'x-lushu-cache': 'hit',
-            'cache-control': `public, max-age=${ttl}`,
-          },
-        })
-      }
-    } catch {
-      /* 缓存不可用就直接回源 */
-    }
-  }
-
-  let upstream: Response
-  try {
-    upstream = await fetch(target, {
-      headers: upstreamHeaders,
-      signal: AbortSignal.timeout(9000),
-    })
-  } catch (err) {
-    return json(
-      { error: 'upstream_unreachable', message: err instanceof Error ? err.message : String(err) },
-      504,
-    )
-  }
-  if (!upstream.ok) return json({ error: 'upstream', status: upstream.status }, 502)
-
-  const text = await upstream.text()
-  const payload = new Response(text, {
-    status: 200,
-    headers: { ...JSON_HEADERS, 'cache-control': `public, max-age=${ttl}` },
-  })
-  if (cache) {
-    try {
-      ctx.waitUntil(cache.put(new Request(target, { method: 'GET' }), payload.clone()))
-    } catch {
-      /* 写缓存失败不影响响应 */
-    }
-  }
-  return new Response(payload.body, {
-    status: 200,
-    headers: { ...JSON_HEADERS, 'x-lushu-cache': 'miss', 'cache-control': `public, max-age=${ttl}` },
-  })
-}
-
-function geocode(ctx: Ctx): Promise<Response> {
-  const q = (new URL(ctx.request.url).searchParams.get('q') ?? '').trim()
-  if (!q) return Promise.resolve(json({ error: 'missing_q' }, 400))
-  if (q.length > 200) return Promise.resolve(json({ error: 'q_too_long' }, 400))
-  const target =
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}` +
-    '&format=json&addressdetails=1&limit=6'
-  return cachedProxy(ctx, target, GEO_TTL, {
-    'User-Agent': 'LushuRoutePlanner/1.0 (+https://github.com/yangyang5214/lushu)',
-    'Accept-Language': 'zh',
-    Accept: 'application/json',
-  })
-}
-
 type RoutePoint = { lng: number; lat: number }
 
 /** /api/places 的统一形状，坐标一律 WGS84（和地点、线路的存储约定一致）。 */
@@ -1176,8 +1100,8 @@ async function amapPlaces(key: string, q: string): Promise<PlaceHit[] | null> {
 }
 
 /**
- * /api/places?q= → 搜索添加目的地的首选上游。
- * 没配 AMAP_KEY 或高德失败时回 5xx，前端自动回落到 /api/geocode + Photon。
+ * /api/places?q= → 搜索添加目的地的上游。
+ * 没配 AMAP_KEY 或高德失败时回 5xx，前端只用本地地名库兜底（不再回落到其他地图服务）。
  */
 async function places(ctx: Ctx): Promise<Response> {
   const q = (new URL(ctx.request.url).searchParams.get('q') ?? '').trim()
@@ -1239,7 +1163,7 @@ async function places(ctx: Ctx): Promise<Response> {
 
 /** /api/route 的统一返回：线路坐标一律 GCJ02，直接贴合高德底图。 */
 type RouteLine = {
-  source: 'amap' | 'osrm'
+  source: 'amap'
   line: [number, number][]
   distanceKm: number
   durationMin: number
@@ -1249,7 +1173,6 @@ type RouteLine = {
 const AMAP_MAX_POINTS = 18
 const AMAP_CONCURRENCY = 3
 const MAX_ROUTE_SEGMENTS = 24
-const ROUTE_UA = 'LushuRoutePlanner/1.0 (+https://github.com/yangyang5214/lushu)'
 const COORDS_RE = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?)*$/
 
 function parseCoords(coords: string): RoutePoint[] | null {
@@ -1351,30 +1274,6 @@ function pool(limit: number): <T>(fn: () => Promise<T>) => Promise<T> {
   }
 }
 
-/** OSRM 原始响应 → 统一线路（WGS84 转成 GCJ02）。 */
-function parseOsrm(data: unknown): RouteLine | null {
-  const first = (
-    data as {
-      routes?: Array<{
-        geometry?: { coordinates?: [number, number][] }
-        distance?: number
-        duration?: number
-      }>
-    }
-  ).routes?.[0]
-  const coords = first?.geometry?.coordinates
-  if (!coords?.length) return null
-  if (!coords.every(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))) return null
-  const distance = first?.distance
-  const duration = first?.duration
-  return finalizeRoute({
-    source: 'osrm',
-    line: coords.map(([lng, lat]) => wgs84ToGcj02(lng, lat)),
-    distanceKm: typeof distance === 'number' && Number.isFinite(distance) ? distance / 1000 : 0,
-    durationMin: typeof duration === 'number' && Number.isFinite(duration) ? Math.round(duration / 60) : 0,
-  })
-}
-
 /** 高德驾车响应 → 统一线路（polyline 本来就是 GCJ02，原样返回）。 */
 function parseAmap(data: unknown): RouteLine | null {
   const payload = data as {
@@ -1426,7 +1325,7 @@ function amapDriveUrl(key: string, points: RoutePoint[]): string {
   return `https://restapi.amap.com/v3/direction/driving?${params.toString()}`
 }
 
-/** 高德限流/频繁类错误：换一息重试一次，别直接交给 OSRM。 */
+/** 高德限流/频繁类错误：换一息重试一次，别直接放弃。 */
 const AMAP_RETRYABLE = new Set(['10004', '10020', '10021'])
 const AMAP_RETRY_DELAYS = [400, 900]
 
@@ -1458,7 +1357,7 @@ async function amapChunk(key: string, points: RoutePoint[]): Promise<RouteLine |
 
 /**
  * 高德驾车规划。点太多就按 18 个一段切开再拼回一条线；
- * 任一段失败整体放弃，交给 OSRM 兜底，避免出现半截路线。
+ * 任一段失败就整体放弃，避免出现半截路线。
  */
 async function amapRoute(key: string, points: RoutePoint[]): Promise<RouteLine | null> {
   const line: [number, number][] = []
@@ -1515,31 +1414,17 @@ function routeJson(route: RouteLine, cacheStatus: 'hit' | 'miss'): Response {
   })
 }
 
-/** 高德要 GCJ02，地点本身是 WGS84：先转再发；失败回落 OSRM。 */
+/** 高德要 GCJ02，地点本身是 WGS84：先转再发。没配 key 或高德失败即整体失败。 */
 async function computeRoute(ctx: Ctx, points: RoutePoint[]): Promise<RouteLine | null> {
   const amapKey = ctx.env.AMAP_KEY?.trim()
-  let route = amapKey
-    ? await amapRoute(
-        amapKey,
-        points.map((p) => {
-          const [lng, lat] = wgs84ToGcj02(p.lng, p.lat)
-          return { lng, lat }
-        }),
-      )
-    : null
-
-  if (!route) {
-    const coords = points.map((p) => `${p.lng},${p.lat}`).join(';')
-    const target =
-      `https://router.project-osrm.org/route/v1/driving/${coords}` +
-      '?overview=full&geometries=geojson&continue_straight=false'
-    const upstream = await cachedProxy(ctx, target, ROUTE_TTL, {
-      Accept: 'application/json',
-      'User-Agent': ROUTE_UA,
-    })
-    if (upstream.ok) route = parseOsrm(await upstream.json())
-  }
-  return route
+  if (!amapKey) return null
+  return amapRoute(
+    amapKey,
+    points.map((p) => {
+      const [lng, lat] = wgs84ToGcj02(p.lng, p.lat)
+      return { lng, lat }
+    }),
+  )
 }
 
 async function resolveRoute(
@@ -1672,7 +1557,6 @@ async function handle(ctx: Ctx): Promise<Response> {
     return json({ error: 'not_found' }, 404)
   }
 
-  if (seg[0] === 'geocode' && method === 'GET') return geocode(ctx)
   if (seg[0] === 'places' && method === 'GET') return places(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)
   if (seg[0] === 'route' && method === 'POST') return routeBatch(ctx)

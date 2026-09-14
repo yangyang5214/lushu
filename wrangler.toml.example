@@ -23,5 +23,5 @@ MAX_DOC_BYTES = "262144"
 
 # Secrets (RESEND_API_KEY, TURNSTILE_SECRET, ADMIN_SECRET, AMAP_KEY): local → .dev.vars; deploy → wrangler pages secret put
 # ADMIN_SECRET：管理后台 /admin 口令，至少 6 字符；未设置或过短时 /api/admin/* 返回 404。
-# AMAP_KEY：高德「Web 服务」key（不是 JS API key）。配了 /api/route 就优先走高德驾车规划，
-#           没配或高德失败时自动回落 OSRM；本地 `pnpm dev` 也会读同一个值。
+# AMAP_KEY：高德「Web 服务」key（不是 JS API key）。/api/places（搜索）和 /api/route
+#           （驾车规划）都只用高德，必须配置；未配置时这两个接口返回 5xx。

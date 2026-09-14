@@ -100,29 +100,11 @@
   async function searchMap(query) {
     const q = String(query || '').trim()
     if (!q) return null
-    // 首选路书的高德 POI 检索（服务端已把坐标统一成 WGS84）。
+    // 只用高德 POI 检索（服务端已把坐标统一成 WGS84）；没配 key 就没有结果。
     const places = await getJson(`/api/places?q=${encodeURIComponent(q)}`)
     if (Array.isArray(places) && places.length) {
       const hit = places[0]
       if (Number.isFinite(hit.lng) && Number.isFinite(hit.lat)) return hit
-    }
-    // 没配高德 key 时回落到 /api/geocode（Nominatim）。
-    const geo = await getJson(`/api/geocode?q=${encodeURIComponent(q)}`)
-    if (Array.isArray(geo) && geo.length) {
-      const row = geo[0]
-      const parts = String(row.display_name || '')
-        .split(',')
-        .map((s) => s.trim())
-      const lng = Number(row.lon)
-      const lat = Number(row.lat)
-      if (Number.isFinite(lng) && Number.isFinite(lat)) {
-        return {
-          name: row.name || parts[0] || q,
-          address: parts.slice(1, 4).join(' · '),
-          lng,
-          lat,
-        }
-      }
     }
     return null
   }
