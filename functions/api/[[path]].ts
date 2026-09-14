@@ -187,8 +187,8 @@ async function hasDuplicateTitle(
   return Boolean(row)
 }
 
-const GEO_TTL = 60 * 60 * 24 * 7 // 地理编码缓存 7 天
-const ROUTE_TTL = 60 * 60 * 24 * 7 // 路线几何缓存 7 天（路网不常变，拉长命中）
+const GEO_TTL = 60 * 60 * 24 * 3 // 地理编码缓存 3 天
+const ROUTE_TTL = 60 * 60 * 24 * 3 // 路线几何缓存 3 天（路网不常变，拉长命中）
 const DEFAULT_MAX_DOC_BYTES = 262_144 // 256 KB（300 个地点约 33 KB）
 const DEFAULT_MAX_BOOKS = 20_000
 const BOOK_ID_RE = /^[0-9a-f]{24}$/

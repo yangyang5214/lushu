@@ -61,7 +61,7 @@ function canonicalKey(points: LngLat[]): { key: string; reversed: boolean } {
 
 const mem = new Map<string, Promise<[number, number][] | null>>()
 const BROWSER_CACHE = 'lushu-route-v1'
-const BROWSER_TTL_SEC = 60 * 60 * 24 * 7
+const BROWSER_TTL_SEC = 60 * 60 * 24 * 3
 
 function cacheUrl(key: string): string {
   return `https://lushu.internal/api/route/v2?coords=${encodeURIComponent(key)}`
