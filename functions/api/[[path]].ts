@@ -26,6 +26,7 @@
 //   GET    /api/admin/users/:id → 用户详情 + 路书
 //   GET    /api/admin/books     → 路书列表（分页 / 搜索 / 可见性筛选）
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
+//   GET    /api/config     → 公开前端配置（高德 JS API key / 安全密钥）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
 //   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源统一限 3 次/秒
@@ -99,6 +100,7 @@ import {
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
 import { isSamePlace, orderRoute, pathDistanceKm, type LoopDir } from '../../shared/geo'
+import type { PublicConfig } from '../../shared/public-config'
 import { clientIp, rateLimited } from '../lib/rate-limit'
 
 type Env = {
@@ -116,6 +118,10 @@ type Env = {
    * `/api/places`、`/api/route` 都依赖它，一个都没配时返回 5xx。
    */
   AMAP_KEY?: string
+  /** 高德「Web端(JS API)」key，经 GET /api/config 下发给前端画地图。 */
+  AMAP_JS_KEY?: string
+  /** 可选：JS API 2.0 安全密钥，与 AMAP_JS_KEY 一起下发。 */
+  AMAP_SECURITY_CODE?: string
   /** 可选，默认 20000。0 表示不限。 */
   MAX_BOOKS?: string
   /** 可选，默认 262144（256 KB）。 */
@@ -204,6 +210,15 @@ function json(data: unknown, status = 200, extra: Record<string, string> = {}): 
     status,
     headers: { ...JSON_HEADERS, ...extra },
   })
+}
+
+/** 下发前端画地图用的公开 key。Git 构建读不到 gitignore 的 wrangler.toml，靠这个补上。 */
+function publicConfig(env: Env): Response {
+  const body: PublicConfig = {
+    amapJsKey: env.AMAP_JS_KEY?.trim() ?? '',
+    amapSecurityCode: env.AMAP_SECURITY_CODE?.trim() ?? '',
+  }
+  return json(body, 200, { 'cache-control': 'no-store' })
 }
 
 async function readBody<T>(request: Request): Promise<T | null> {
@@ -1589,6 +1604,7 @@ async function handle(ctx: Ctx): Promise<Response> {
     return json({ error: 'not_found' }, 404)
   }
 
+  if (seg[0] === 'config' && seg.length === 1 && method === 'GET') return publicConfig(env)
   if (seg[0] === 'places' && method === 'GET') return places(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)
   if (seg[0] === 'route' && method === 'POST') return routeBatch(ctx)

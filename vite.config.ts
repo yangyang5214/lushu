@@ -42,6 +42,14 @@ function loadVars(): Record<string, string> {
 
 const vars = loadVars()
 
+// 本地 wrangler.toml 优先；没有再看构建环境变量（Pages 把变量标成「构建时可用」时能吃到）。
+// Git 构建常常两者都空：这时前端会在运行时向 GET /api/config 要 Pages 的 secret / [vars]。
+function publicVar(name: string): string {
+  const fromFile = String(vars[name] ?? '').trim()
+  if (fromFile) return fromFile
+  return String(process.env[name] ?? '').trim()
+}
+
 // 本地 `pnpm dev` 的代理：
 //   /api/*   → 转发到本地 Worker（`pnpm pages:dev`，默认 8788）。搜索、驾车路线都走高德，
 //              需要在 Worker 侧配好 AMAP_KEY；Worker 未起时路线不画、搜索只剩本地地名库。
@@ -52,9 +60,9 @@ const vars = loadVars()
 export default defineConfig({
   plugins: [react()],
   define: {
-    'import.meta.env.VITE_AMAP_JS_KEY': JSON.stringify(vars.AMAP_JS_KEY ?? ''),
-    'import.meta.env.VITE_AMAP_SECURITY_CODE': JSON.stringify(vars.AMAP_SECURITY_CODE ?? ''),
-    'import.meta.env.VITE_TURNSTILE_SITE_KEY': JSON.stringify(vars.TURNSTILE_SITE_KEY ?? ''),
+    'import.meta.env.VITE_AMAP_JS_KEY': JSON.stringify(publicVar('AMAP_JS_KEY')),
+    'import.meta.env.VITE_AMAP_SECURITY_CODE': JSON.stringify(publicVar('AMAP_SECURITY_CODE')),
+    'import.meta.env.VITE_TURNSTILE_SITE_KEY': JSON.stringify(publicVar('TURNSTILE_SITE_KEY')),
   },
   server: {
     proxy: {

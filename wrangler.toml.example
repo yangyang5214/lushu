@@ -21,9 +21,12 @@ MAX_BOOKS = "20000"
 # Max JSON size per book (bytes). ~33 KB for 300 places.
 MAX_DOC_BYTES = "262144"
 
-# 前端公开变量（构建时注入到 bundle，见 vite.config.ts）。
+# 前端公开变量。本地 `pnpm dev` / `pnpm build` 时 vite 从本文件注入（见 vite.config.ts）。
 # 高德「Web端(JS API)」key：地图底图 / 标记 / 路线图面都靠它渲染，必须配置。
 #   这是公开 key（会出现在前端），建议在高德控制台给它绑定站点域名白名单。
+#   Git 接入的 Pages 构建读不到 gitignore 的 wrangler.toml，请再用
+#   `wrangler pages secret put AMAP_JS_KEY`（可选再 put AMAP_SECURITY_CODE）；
+#   前端发现构建时没注入 key，会向 GET /api/config 取运行时变量。
 AMAP_JS_KEY = ""
 # 可选：JS API 2.0 安全密钥（控制台里的「安全密钥」），用到插件能力时才需要。
 AMAP_SECURITY_CODE = ""

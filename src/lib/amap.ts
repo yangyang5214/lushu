@@ -1,14 +1,17 @@
 import { useEffect, useState, type RefObject } from 'react'
+import type { PublicConfig } from '../../shared/public-config'
 import type { Lang } from './i18n'
 
 // 地图图面只走高德 JS API 2.0（不再用 Leaflet，也没有其它底图 / 回落）。
 //
-// key 是「Web端(JS API)」公开 key，放在 wrangler.toml 的 [vars].AMAP_JS_KEY，
-// 由 vite.config.ts 在构建时注入（没有 .env 之类的额外文件）。没配就没有地图。
+// key 是「Web端(JS API)」公开 key。本地 `pnpm dev` 时 vite 从 wrangler.toml
+// 的 [vars].AMAP_JS_KEY 注入；Git 部署读不到 gitignore 的 wrangler.toml，
+// 所以空 key 时再向 `/api/config` 要一份（Pages secret / [vars]）。
 
-const JS_KEY = String(import.meta.env.VITE_AMAP_JS_KEY ?? '').trim()
-const SECURITY_CODE = String(import.meta.env.VITE_AMAP_SECURITY_CODE ?? '').trim()
+const BAKED_JS_KEY = String(import.meta.env.VITE_AMAP_JS_KEY ?? '').trim()
+const BAKED_SECURITY_CODE = String(import.meta.env.VITE_AMAP_SECURITY_CODE ?? '').trim()
 const SCRIPT_URL = 'https://webapi.amap.com/maps'
+const EMPTY_CONFIG: PublicConfig = { amapJsKey: '', amapSecurityCode: '' }
 
 // ── SDK 类型（只声明用到的成员，避免引入整包类型） ──────────────────────────
 
@@ -51,9 +54,36 @@ declare global {
 
 // ── SDK 加载 ────────────────────────────────────────────────────────────────
 
-function amapConfigured(): boolean {
-  return JS_KEY !== ''
+type AmapCreds = { key: string; security: string }
+
+let runtimeConfig: Promise<PublicConfig> | null = null
+
+function fetchRuntimeConfig(): Promise<PublicConfig> {
+  if (runtimeConfig) return runtimeConfig
+  runtimeConfig = fetch('/api/config')
+    .then(async (res) => {
+      if (!res.ok) return EMPTY_CONFIG
+      const data = (await res.json()) as Partial<PublicConfig>
+      return {
+        amapJsKey: String(data.amapJsKey ?? '').trim(),
+        amapSecurityCode: String(data.amapSecurityCode ?? '').trim(),
+      }
+    })
+    .catch(() => EMPTY_CONFIG)
+  return runtimeConfig
 }
+
+function resolveCreds(): Promise<AmapCreds> {
+  if (BAKED_JS_KEY) {
+    return Promise.resolve({ key: BAKED_JS_KEY, security: BAKED_SECURITY_CODE })
+  }
+  return fetchRuntimeConfig().then((cfg) => ({
+    key: cfg.amapJsKey,
+    security: cfg.amapSecurityCode,
+  }))
+}
+
+if (!BAKED_JS_KEY) void fetchRuntimeConfig()
 
 type Loaded = { lang: Lang; promise: Promise<AmapApi> }
 let loaded: Loaded | null = null
@@ -63,26 +93,28 @@ let loaded: Loaded | null = null
  * 地图实例跟着重建（用 useAmapMap 不用自己管这件事）。
  */
 export function loadAmap(lang: Lang): Promise<AmapApi> {
-  if (!amapConfigured()) return Promise.reject(new Error('amap_unconfigured'))
-  if (loaded?.lang === lang) return loaded.promise
-  const promise = inject(lang)
-  loaded = { lang, promise }
-  void promise.catch(() => {
-    if (loaded?.promise === promise) loaded = null
+  return resolveCreds().then(({ key, security }) => {
+    if (!key) return Promise.reject(new Error('amap_unconfigured'))
+    if (loaded?.lang === lang) return loaded.promise
+    const promise = inject(lang, key, security)
+    loaded = { lang, promise }
+    void promise.catch(() => {
+      if (loaded?.promise === promise) loaded = null
+    })
+    return promise
   })
-  return promise
 }
 
-function inject(lang: Lang): Promise<AmapApi> {
+function inject(lang: Lang, key: string, security: string): Promise<AmapApi> {
   return new Promise<AmapApi>((resolve, reject) => {
     document.querySelectorAll('script[data-lushu-amap]').forEach((el) => el.remove())
     delete window.AMap
-    if (SECURITY_CODE) window._AMapSecurityConfig = { securityJsCode: SECURITY_CODE }
+    if (security) window._AMapSecurityConfig = { securityJsCode: security }
 
     const script = document.createElement('script')
     script.dataset.lushuAmap = '1'
     script.async = true
-    const params = new URLSearchParams({ v: '2.0', key: JS_KEY, lang: lang === 'en' ? 'en' : 'zh_cn' })
+    const params = new URLSearchParams({ v: '2.0', key, lang: lang === 'en' ? 'en' : 'zh_cn' })
     script.src = `${SCRIPT_URL}?${params.toString()}`
     script.onload = () => {
       if (window.AMap) resolve(window.AMap)
