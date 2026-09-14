@@ -740,11 +740,6 @@
   letter-spacing: -0.02em;
 }
 
-.mp-copy .lede {
-  margin: 16px 0 0;
-  max-width: none;
-}
-
 .mp-points {
   list-style: none;
   margin: 28px 0 0;
@@ -1558,11 +1553,6 @@
 
   .mp-copy {
     max-width: none;
-  }
-
-  .mp-copy .lede {
-    margin-left: auto;
-    margin-right: auto;
   }
 
   .mp-points {

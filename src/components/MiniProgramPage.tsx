@@ -59,7 +59,6 @@ export function MiniProgramPage() {
                 <br />
                 {t('mp.title2')}
               </h1>
-              <p className="lede">{t('mp.lede')}</p>
               <ul className="mp-points">
                 <li>
                   <span className="feature-icon">
