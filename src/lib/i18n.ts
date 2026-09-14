@@ -33,6 +33,7 @@ const zh = {
   'nav.account': '账户',
   'nav.serviceDown': '服务不可用',
   'nav.accountTitle': '账户 · {email}',
+  'nav.github': '在 GitHub 上看源码',
 
   // ── 搜索 ─────────────────────────────────────────────────────────────────
   'search.placeholder': '搜索添加新目的地',
@@ -325,6 +326,7 @@ const en: Record<MsgKey, string> = {
   'nav.account': 'Account',
   'nav.serviceDown': 'Service unavailable',
   'nav.accountTitle': 'Account · {email}',
+  'nav.github': 'View the source on GitHub',
 
   'search.placeholder': 'Search and add a destination',
   'search.unknownPlace': 'Unnamed place',

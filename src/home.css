@@ -1290,6 +1290,32 @@
   color: var(--accent-hi);
 }
 
+/* ---------- 页头右上角的 GitHub 图标 ---------- */
+.nav-github {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.nav-github svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.nav-github:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
 /* ---------- 响应式 ---------- */
 @media (hover: none) {
   .card-ops {
