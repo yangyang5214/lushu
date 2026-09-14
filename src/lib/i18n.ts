@@ -40,6 +40,7 @@ const zh = {
   'search.noResults': '没有找到，试试更具体的地名',
   'search.offline': '在线搜索暂时不可用，请稍后再试',
   'map.fit': '回到全览',
+  'map.unavailable': '高德地图加载失败：请在 wrangler.toml 的 [vars].AMAP_JS_KEY 里配置高德「Web端(JS API)」key。',
 
   // ── 编辑页侧栏 ───────────────────────────────────────────────────────────
   'sidebar.back': '返回上一页',
@@ -52,9 +53,6 @@ const zh = {
   'sidebar.setEnd': '终点',
   'sidebar.hintEmpty': '搜索添加地点，再设起点和终点。起终点相同即为环线。',
   'sidebar.hintReady': '设好起点和终点后，其余点会按路程串成一条线。',
-  'sidebar.export': '导出图片',
-  'sidebar.exporting': '导出中…',
-  'sidebar.exportFail': '导出失败，请重试',
 
   // ── 里程 / 时间 ──────────────────────────────────────────────────────────
   'unit.meters': '{n}米',
@@ -331,6 +329,8 @@ const en: Record<MsgKey, string> = {
   'search.noResults': 'Nothing found — try a more specific place',
   'search.offline': 'Search is temporarily unavailable, please try again later',
   'map.fit': 'Fit route',
+  'map.unavailable':
+    'AMap failed to load: set an AMap JS API key in [vars].AMAP_JS_KEY of wrangler.toml.',
 
   'sidebar.back': 'Go back',
   'sidebar.titlePlaceholder': 'Untitled Roadbook',
@@ -344,9 +344,6 @@ const en: Record<MsgKey, string> = {
     'Search to add places, then set a start and an end. The same start and end makes a loop.',
   'sidebar.hintReady':
     'Once a start and an end are set, the other stops are strung into a route by distance.',
-  'sidebar.export': 'Export image',
-  'sidebar.exporting': 'Exporting…',
-  'sidebar.exportFail': 'Could not export. Please try again.',
 
   'unit.meters': '{n} m',
   'unit.km': '{n} km',

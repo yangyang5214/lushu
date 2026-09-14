@@ -87,79 +87,6 @@ button {
   background: rgba(194, 59, 34, 0.08);
 }
 
-.sheet-export {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--muted);
-  transition: color 0.15s, background 0.15s;
-}
-
-.sheet-export svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sheet-export:hover:not(:disabled) {
-  color: var(--seal);
-  background: rgba(194, 59, 34, 0.08);
-}
-
-.sheet-export:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
-.sheet-export-spin {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #e5e8ee;
-  border-top-color: var(--seal);
-  border-radius: 50%;
-  animation: spin-center 0.7s linear infinite;
-}
-
-@keyframes spin-center {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.export-loading {
-  position: fixed;
-  inset: 0;
-  z-index: 4000;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 12px;
-  background: rgba(27, 23, 18, 0.4);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.export-loading i {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(255, 255, 255, 0.28);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin-center 0.7s linear infinite;
-}
-
 .title-input {
   flex: 1;
   min-width: 0;
@@ -506,6 +433,21 @@ mark {
   background: #d7d2c6;
 }
 
+/* 高德 JS API 没配 key / 脚本加载失败时的占位提示 */
+.map-hint {
+  position: absolute;
+  z-index: 790;
+  left: 50%;
+  top: 50%;
+  width: min(320px, 80%);
+  margin: 0;
+  transform: translate(-50%, -50%);
+  color: #6b6155;
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+
 .map-search {
   position: absolute;
   z-index: 800;
@@ -566,12 +508,14 @@ mark {
   color: var(--seal);
 }
 
-.leaflet-container {
+.amap-container {
   font-family: var(--sans);
   background: #d7d2c6;
 }
 
-.pin-wrap {
+/* 高德标记 / 方向标自带白底边框，去掉，只留自定义的圆点和尖角 */
+.amap-marker,
+.amap-marker-content {
   background: none !important;
   border: none !important;
 }
@@ -590,11 +534,6 @@ mark {
 
 .pin.on {
   box-shadow: 0 0 0 3px rgba(61, 126, 255, 0.2);
-}
-
-.arrow-wrap {
-  background: none !important;
-  border: none !important;
 }
 
 /* 路线上的方向标识：纯白双尖角（《 形）；只有 8px，整体压在线内 */
@@ -991,8 +930,9 @@ mark {
     width: auto;
   }
 
-  /* 手机上用双指缩放，收起 Leaflet 的按钮，免得和搜索框打架。 */
-  .leaflet-control-zoom {
+  /* 手机上用双指缩放，收起高德的缩放按钮，免得和搜索框打架。 */
+  .amap-toolbar,
+  .amap-zoomcontrol {
     display: none;
   }
 

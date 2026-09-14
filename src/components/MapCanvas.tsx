@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useCallback, useEffect, useRef } from 'react'
 import { dayInk, toGcj } from '../lib/geo'
-import { useI18n, getLang } from '../lib/i18n'
-import { createArrowLayer, markerHtml, TILE_SUBDOMAINS, tileUrl, type RouteArrowLayer } from '../lib/map'
-import { registerMapFit } from '../lib/map-view'
+import {
+  createArrowLayer,
+  dayPolyline,
+  fitPlaces,
+  markerHtml,
+  placeMarker,
+  removeOverlays,
+  useAmapMap,
+  type AmapOverlay,
+  type RouteArrowLayer,
+} from '../lib/amap'
+import { useI18n } from '../lib/i18n'
 import { fetchRoadLine } from '../lib/route'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { SearchBox } from './SearchBox'
 
-/** 路线完整视野：编辑态用串联后的点，草稿用全部点。 */
-function fitPoints(shown: Array<{ lng: number; lat: number }>): L.LatLngBounds {
-  return L.latLngBounds(
-    shown.map((p) => {
-      const [lng, lat] = toGcj(p)
-      return [lat, lng] as [number, number]
-    }),
-  )
-}
+/** 视野自适应：别放到最大级别，四周留白由 fitPlaces 统一给。 */
+const FIT_MAX_ZOOM = 10
 
 export function MapCanvas() {
   const { lang, t } = useI18n()
@@ -26,86 +26,30 @@ export function MapCanvas() {
   const selectedId = useSelectedId()
   const selectPlace = useLushu((s) => s.selectPlace)
   const hostRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<L.Map | null>(null)
-  const layerRef = useRef<L.LayerGroup | null>(null)
-  const roadsRef = useRef<L.LayerGroup | null>(null)
+  const { api, map, failed } = useAmapMap(hostRef, lang)
+  const markersRef = useRef<AmapOverlay[]>([])
   const arrowsRef = useRef<RouteArrowLayer | null>(null)
-  const tileRef = useRef<L.TileLayer | null>(null)
-  const [mapReady, setMapReady] = useState(false)
   const journeyRef = useRef(journey)
   journeyRef.current = journey
   const routeKey = `${journey.ordered.map((p) => p.id).join(',')}|${journey.isLoop}|${journey.splitIds.join(',')}`
 
   // 把整条路线重新收进视野：手机上拖动地图后用来「回到全览」。
-  const fitRoute = useCallback((animate = true) => {
-    const map = mapRef.current
-    const current = journeyRef.current
-    const shown = current.ready ? current.ordered : current.places
-    if (!map || shown.length === 0) return
-    map.invalidateSize()
-    map.fitBounds(fitPoints(shown).pad(0.18), { animate, maxZoom: 10 })
-  }, [])
+  const fitRoute = useCallback(() => {
+    if (!map) return
+    map.resize()
+    fitPlaces(map, markersRef.current, FIT_MAX_ZOOM)
+  }, [map])
 
   useEffect(() => {
-    const el = hostRef.current
-    if (!el || mapRef.current) return
-    const map = L.map(el, {
-      zoomControl: false,
-      attributionControl: false,
-      minZoom: 4,
-      maxZoom: 17,
-    }).setView([30.6, 119.3], 6)
-
-    const tiles = L.tileLayer(tileUrl(getLang()), {
-      subdomains: TILE_SUBDOMAINS,
-      maxZoom: 18,
-    }).addTo(map)
-    tileRef.current = tiles
-
-    L.control.zoom({ position: 'topright' }).addTo(map)
-    layerRef.current = L.layerGroup().addTo(map)
-    roadsRef.current = L.layerGroup().addTo(map)
-    arrowsRef.current = createArrowLayer(map)
-    mapRef.current = map
-    setMapReady(true)
-
-    const ro = new ResizeObserver(() => {
-      map.invalidateSize()
-    })
-    ro.observe(el)
-
-    return () => {
-      ro.disconnect()
-      arrowsRef.current?.remove()
-      arrowsRef.current = null
-      map.remove()
-      mapRef.current = null
-      layerRef.current = null
-      roadsRef.current = null
-      tileRef.current = null
-      setMapReady(false)
-    }
-  }, [selectPlace])
-
-  // 底图语言跟随界面语言（高德瓦片支持 lang=zh_cn / en）。
-  useEffect(() => {
-    tileRef.current?.setUrl(tileUrl(lang))
-  }, [lang])
-
-  useEffect(() => {
-    const map = mapRef.current
-    const group = layerRef.current
-    if (!map || !group) return
-    group.clearLayers()
-
+    if (!api || !map) return
     const { ordered, days, isLoop, ready, places } = journey
     const shown = ready ? ordered : places
 
-    shown.forEach((place, i) => {
+    // 标记点：起点 / 终点显示文字徽标，其余显示序号；点一下选中。
+    const markers = shown.map((place, i) => {
       const dayIndex = days.findIndex((d, di) =>
         d.places.some((p, pi) => p.id === place.id && !(di > 0 && pi === 0)),
       )
-      const color = dayIndex >= 0 ? dayInk(dayIndex) : '#1b1712'
       const [lng, lat] = toGcj(place)
       const label =
         place.id === journey.start?.id
@@ -113,113 +57,72 @@ export function MapCanvas() {
           : place.id === journey.end?.id && !isLoop
             ? t('sidebar.endBadge')
             : String(i + 1)
-      const icon = L.divIcon({
-        className: 'pin-wrap',
-        html: markerHtml(label, color, selectedId === place.id),
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      })
-      L.marker([lat, lng], { icon })
-        .on('click', (e) => {
-          L.DomEvent.stopPropagation(e)
-          selectPlace(place.id)
-        })
-        .addTo(group)
+      const html = markerHtml(label, dayIndex >= 0 ? dayInk(dayIndex) : '#1b1712', selectedId === place.id)
+      return placeMarker(api, lng, lat, html, () => selectPlace(place.id))
     })
-  }, [journey, selectedId, selectPlace, lang, t])
+    markersRef.current = markers
+    if (markers.length) map.add(markers)
+
+    return () => {
+      removeOverlays(map, markers)
+      markersRef.current = []
+    }
+  }, [api, map, journey, selectedId, selectPlace, t])
 
   useEffect(() => {
-    if (!mapReady) return
-    fitRoute()
-  }, [routeKey, mapReady, fitRoute])
+    if (!map) return
+    // 等一帧：底图刚建好时容器尺寸还在收敛，立刻 setFitView 会被忽略。
+    const frame = window.requestAnimationFrame(() => fitRoute())
+    return () => window.cancelAnimationFrame(frame)
+  }, [routeKey, map, fitRoute])
+
+  // 方向标识跟线路分开存：缩放后要按新的像素比例重算。
+  useEffect(() => {
+    if (!api || !map) return
+    const layer = createArrowLayer(map, api)
+    arrowsRef.current = layer
+    return () => {
+      layer.remove()
+      arrowsRef.current = null
+    }
+  }, [api, map])
 
   useEffect(() => {
-    registerMapFit(async () => {
-      const map = mapRef.current
-      const current = journeyRef.current
-      const shown = current.ready ? current.ordered : current.places
-      if (!map || shown.length === 0) return
-      map.invalidateSize()
-      const b = fitPoints(shown)
-      await new Promise<void>((resolve) => {
-        let settled = false
-        const done = () => {
-          if (settled) return
-          settled = true
-          map.off('moveend', done)
-          resolve()
-        }
-        map.once('moveend', done)
-        map.fitBounds(b.pad(0.18), { animate: true, maxZoom: 10 })
-        window.setTimeout(done, 900)
-      })
-      const tiles = tileRef.current
-      if (tiles) {
-        await new Promise<void>((resolve) => {
-          let settled = false
-          const done = () => {
-            if (settled) return
-            settled = true
-            tiles.off('load', done)
-            resolve()
-          }
-          tiles.once('load', done)
-          window.setTimeout(done, 700)
-        })
-      }
-      await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, 200)
-      })
-    })
-    return () => registerMapFit(null)
-  }, [])
-
-  useEffect(() => {
-    const roads = roadsRef.current
-    if (!roads) return
-    roads.clearLayers()
+    if (!api || !map) return
     const current = journeyRef.current
     if (!current.ready) return
-    const { days } = current
     let cancelled = false
-    const drawn: Array<L.Polyline | null> = days.map(() => null)
-    // 方向标识跟线路分开存：缩放后要按新的像素比例重算。
-    const lines: Array<[number, number][]> = days.map(() => [])
+    const drawn: AmapOverlay[] = []
+    const lines: Array<[number, number][]> = current.days.map(() => [])
 
     // 路网回来再画；多天会合成一次批量请求。
-    const draw = (i: number, latlngs: [number, number][]) => {
-      const host = roadsRef.current
-      if (cancelled || !host || latlngs.length < 2) return
-      drawn[i]?.remove()
-      drawn[i] = L.polyline(latlngs, {
-        color: dayInk(i),
-        weight: 5.5,
-        opacity: 1,
-        lineJoin: 'round',
-      }).addTo(host)
-      lines[i] = latlngs
+    const draw = (i: number, path: [number, number][]) => {
+      if (cancelled || path.length < 2) return
+      const road = dayPolyline(api, path, dayInk(i))
+      drawn.push(road)
+      map.add(road)
+      lines[i] = path
       arrowsRef.current?.set(lines)
     }
 
-    days.forEach((day, i) => {
+    current.days.forEach((day, i) => {
       void fetchRoadLine(day.places).then((line) => {
         if (cancelled || !line) return
-        draw(
-          i,
-          line.map(([lng, lat]) => [lat, lng] as [number, number]),
-        )
+        draw(i, line)
       })
     })
 
     return () => {
       cancelled = true
       arrowsRef.current?.set([])
+      removeOverlays(map, drawn)
     }
-  }, [routeKey, mapReady])
+  }, [api, map, routeKey])
 
   return (
     <div className="map-stage">
       <div ref={hostRef} className="map" />
+      {failed ? <p className="map-hint">{t('map.unavailable')}</p> : null}
       <button
         type="button"
         className="map-fit"

@@ -30,7 +30,7 @@
 //   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
-//   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源限并发
+//   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源统一限 3 次/秒
 //
 // 暴露面控制（公开仓库 = 端点形状全部公开，所以防线必须在服务端）：
 //   1. 不下发 CORS 头：只服务同源 SPA，第三方站点无法用访客浏览器打这个 API。
@@ -115,7 +115,10 @@ type Env = {
   RESEND_API_KEY?: string
   /** 发件人，例如 "路书 <noreply@yourdomain.com>" */
   EMAIL_FROM?: string
-  /** 高德 Web 服务 key。`/api/places`、`/api/route` 都依赖它，未配置时返回 5xx。 */
+  /**
+   * 高德 Web 服务 key。可配多个（用 `;` 分隔），会轮换分摊配额并互相兜底；
+   * `/api/places`、`/api/route` 都依赖它，一个都没配时返回 5xx。
+   */
   AMAP_KEY?: string
   /** 可选，默认 20000。0 表示不限。 */
   MAX_BOOKS?: string
@@ -1067,10 +1070,49 @@ function parseAmapPlaces(data: unknown): PlaceHit[] {
   return hits
 }
 
+/**
+ * AMAP_KEY 支持配多个 key，用 `;` 分隔（如 `key1;key2`）：
+ * 多个 key 之间轮换分摊配额，单个 key 失败时自动换下一个。
+ */
+function amapKeys(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(';')
+    .map((key) => key.trim())
+    .filter(Boolean)
+}
+
+/** 多 key 轮换游标，isolate 内共享。 */
+let amapKeyCursor = 0
+
+/** 从游标处错开起点，多个 key 之间大致均摊调用量。 */
+function amapKeyOrder(keys: string[]): string[] {
+  const start = amapKeyCursor % keys.length
+  amapKeyCursor = (amapKeyCursor + 1) % 1_000_003
+  return [...keys.slice(start), ...keys.slice(0, start)]
+}
+
+/** 高德 v3 响应解包：`status=1` 为成功，其余把 infocode 带回来决定重试/换 key。 */
+type AmapResult = { ok: true; value: unknown } | { ok: false; infocode: string }
+
+async function amapFetch(url: string): Promise<AmapResult> {
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(9000),
+    })
+    if (!res.ok) return { ok: false, infocode: `http_${res.status}` }
+    const data = (await res.json()) as { status?: string; infocode?: string }
+    if (data?.status === '1') return { ok: true, value: data }
+    return { ok: false, infocode: String(data?.infocode ?? 'unknown') }
+  } catch {
+    return { ok: false, infocode: 'network' }
+  }
+}
+
 const AMAP_PLACE_URL = 'https://restapi.amap.com/v3/place/text'
 
-/** 高德 POI 检索（v3 place/text），限流按退避重试；失败返回 null 交给前端兜底。 */
-async function amapPlaces(key: string, q: string): Promise<PlaceHit[] | null> {
+/** 单 key POI 检索：限流按退避重试；失败返回 null 让调用方换下一个 key。 */
+async function amapPlaceOnce(key: string, q: string): Promise<PlaceHit[] | null> {
   const params = new URLSearchParams({
     key,
     keywords: q,
@@ -1080,23 +1122,23 @@ async function amapPlaces(key: string, q: string): Promise<PlaceHit[] | null> {
   })
   const url = `${AMAP_PLACE_URL}?${params.toString()}`
   for (let attempt = 0; ; attempt += 1) {
-    try {
-      const res = await fetch(url, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(9000),
-      })
-      if (!res.ok) return null
-      const data = (await res.json()) as { status?: string; infocode?: string }
-      if (data?.status === '1') return parseAmapPlaces(data)
-      if (AMAP_RETRYABLE.has(String(data?.infocode)) && attempt < AMAP_RETRY_DELAYS.length) {
-        await sleep(AMAP_RETRY_DELAYS[attempt])
-        continue
-      }
-      return null
-    } catch {
-      return null
+    const result = await amapFetch(url)
+    if (result.ok) return parseAmapPlaces(result.value)
+    if (AMAP_RETRYABLE.has(result.infocode) && attempt < AMAP_RETRY_DELAYS.length) {
+      await sleep(AMAP_RETRY_DELAYS[attempt])
+      continue
     }
+    return null
   }
+}
+
+/** 高德 POI 检索（v3 place/text）：多个 key 依次尝试，全失败返回 null 交给前端兜底。 */
+async function amapPlaces(keys: string[], q: string): Promise<PlaceHit[] | null> {
+  for (const key of amapKeyOrder(keys)) {
+    const hits = await amapPlaceOnce(key, q)
+    if (hits) return hits
+  }
+  return null
 }
 
 /**
@@ -1107,8 +1149,8 @@ async function places(ctx: Ctx): Promise<Response> {
   const q = (new URL(ctx.request.url).searchParams.get('q') ?? '').trim()
   if (!q) return json({ error: 'missing_q' }, 400)
   if (q.length > 200) return json({ error: 'q_too_long' }, 400)
-  const key = ctx.env.AMAP_KEY?.trim()
-  if (!key) return json({ error: 'amap_unconfigured' }, 501)
+  const keys = amapKeys(ctx.env.AMAP_KEY)
+  if (!keys.length) return json({ error: 'amap_unconfigured' }, 501)
 
   // 缓存键不带 key，换 key 不用失效；缓存的是已经转好坐标的统一形状。
   const cache = typeof caches !== 'undefined' ? caches.default : undefined
@@ -1133,7 +1175,7 @@ async function places(ctx: Ctx): Promise<Response> {
     }
   }
 
-  const hits = await amapPlaces(key, q)
+  const hits = await amapPlaces(keys, q)
   if (!hits) return json({ error: 'upstream' }, 502)
 
   const body = JSON.stringify(hits)
@@ -1171,7 +1213,6 @@ type RouteLine = {
 
 /** 高德驾车 v3 的 waypoints 上限 16 个，加上起终点每段最多 18 个点。 */
 const AMAP_MAX_POINTS = 18
-const AMAP_CONCURRENCY = 3
 const MAX_ROUTE_SEGMENTS = 24
 const COORDS_RE = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?)*$/
 
@@ -1259,21 +1300,6 @@ function finalizeRoute(route: RouteLine): RouteLine {
   return { ...route, line: compactLine(route.line) }
 }
 
-function pool(limit: number): <T>(fn: () => Promise<T>) => Promise<T> {
-  let active = 0
-  const wait: Array<() => void> = []
-  return async function run<T>(fn: () => Promise<T>): Promise<T> {
-    if (active >= limit) await new Promise<void>((ok) => wait.push(ok))
-    active += 1
-    try {
-      return await fn()
-    } finally {
-      active -= 1
-      wait.shift()?.()
-    }
-  }
-}
-
 /** 高德驾车响应 → 统一线路（polyline 本来就是 GCJ02，原样返回）。 */
 function parseAmap(data: unknown): RouteLine | null {
   const payload = data as {
@@ -1333,40 +1359,72 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** 单段高德驾车请求，遇限流按退避重试。 */
-async function amapChunk(key: string, points: RoutePoint[]): Promise<RouteLine | null> {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      const res = await fetch(amapDriveUrl(key, points), {
-        signal: AbortSignal.timeout(9000),
-        headers: { Accept: 'application/json' },
-      })
-      if (!res.ok) return null
-      const data = (await res.json()) as { status?: string; infocode?: string }
-      if (data?.status === '1') return parseAmap(data)
-      if (AMAP_RETRYABLE.has(String(data?.infocode)) && attempt < AMAP_RETRY_DELAYS.length) {
-        await sleep(AMAP_RETRY_DELAYS[attempt])
-        continue
+/**
+ * 高德驾车接口唯一的一条限流：3 次/秒。所有驾车请求（含失败重试）先在这里排队，
+ * 1 秒滑动窗口内最多放行 3 次，避免自己打自己出 10004/10020。
+ * 计数在 isolate 内共享；多实例各自限流，不会互相感知。
+ */
+const AMAP_DRIVE_QPS = 3
+const AMAP_DRIVE_WINDOW_MS = 1000
+const driveWindow: number[] = []
+let driveGate: Promise<void> = Promise.resolve()
+
+/** 串行分配 3 次/秒额度：窗口满了就等最早的请求滑出窗口再放行。 */
+async function waitDriveRate(): Promise<void> {
+  const next = driveGate.then(async () => {
+    for (;;) {
+      const now = Date.now()
+      while (driveWindow.length && now - driveWindow[0] >= AMAP_DRIVE_WINDOW_MS) {
+        driveWindow.shift()
       }
-      return null
-    } catch {
-      return null
+      if (driveWindow.length < AMAP_DRIVE_QPS) {
+        driveWindow.push(now)
+        return
+      }
+      await sleep(AMAP_DRIVE_WINDOW_MS - (now - driveWindow[0]) + 5)
     }
+  })
+  // 链条不能因为某个请求出错而断掉
+  driveGate = next.catch(() => undefined)
+  await next
+}
+
+/** 单 key 单段驾车请求：先过 3 次/秒的闸口，遇限流按退避重试，失败交给下一个 key。 */
+async function amapChunkOnce(key: string, points: RoutePoint[]): Promise<RouteLine | null> {
+  const url = amapDriveUrl(key, points)
+  for (let attempt = 0; ; attempt += 1) {
+    await waitDriveRate()
+    const result = await amapFetch(url)
+    if (result.ok) return parseAmap(result.value)
+    if (AMAP_RETRYABLE.has(result.infocode) && attempt < AMAP_RETRY_DELAYS.length) {
+      await sleep(AMAP_RETRY_DELAYS[attempt])
+      continue
+    }
+    return null
   }
+}
+
+/** 单段驾车请求：多个 key 依次兜底，全失败才放弃。 */
+async function amapChunk(keys: string[], points: RoutePoint[]): Promise<RouteLine | null> {
+  for (const key of amapKeyOrder(keys)) {
+    const part = await amapChunkOnce(key, points)
+    if (part) return part
+  }
+  return null
 }
 
 /**
  * 高德驾车规划。点太多就按 18 个一段切开再拼回一条线；
- * 任一段失败就整体放弃，避免出现半截路线。
+ * 每段都在 key 之间轮换，任一段失败就整体放弃，避免出现半截路线。
  */
-async function amapRoute(key: string, points: RoutePoint[]): Promise<RouteLine | null> {
+async function amapRoute(keys: string[], points: RoutePoint[]): Promise<RouteLine | null> {
   const line: [number, number][] = []
   let distanceKm = 0
   let durationMin = 0
   for (let i = 0; i < points.length; i += AMAP_MAX_POINTS - 1) {
     const chunk = points.slice(i, i + AMAP_MAX_POINTS)
     if (chunk.length < 2) break
-    const part = await amapChunk(key, chunk)
+    const part = await amapChunk(keys, chunk)
     if (!part) return null
     line.push(...(line.length ? part.line.slice(1) : part.line))
     distanceKm += part.distanceKm
@@ -1416,10 +1474,10 @@ function routeJson(route: RouteLine, cacheStatus: 'hit' | 'miss'): Response {
 
 /** 高德要 GCJ02，地点本身是 WGS84：先转再发。没配 key 或高德失败即整体失败。 */
 async function computeRoute(ctx: Ctx, points: RoutePoint[]): Promise<RouteLine | null> {
-  const amapKey = ctx.env.AMAP_KEY?.trim()
-  if (!amapKey) return null
+  const keys = amapKeys(ctx.env.AMAP_KEY)
+  if (!keys.length) return null
   return amapRoute(
-    amapKey,
+    keys,
     points.map((p) => {
       const [lng, lat] = wgs84ToGcj02(p.lng, p.lat)
       return { lng, lat }
@@ -1453,8 +1511,8 @@ async function routeProxy(ctx: Ctx): Promise<Response> {
 }
 
 /**
- * 多天路线一次提交：缓存命中的段立刻返回，未命中的段在 Worker 里限并发回源，
- * 浏览器只付一次往返，不再按天串行 + 间隔。
+ * 多天路线一次提交：缓存命中的段立刻返回，未命中的段一起回源；
+ * 3 次/秒的节流在 waitDriveRate 里统一排队，浏览器只付一次往返。
  */
 async function routeBatch(ctx: Ctx): Promise<Response> {
   const body = await readBody<{ segments?: unknown }>(ctx.request)
@@ -1472,16 +1530,14 @@ async function routeBatch(ctx: Ctx): Promise<Response> {
     parsed.push(points)
   }
 
-  const gate = pool(AMAP_CONCURRENCY)
   const memo = new Map<string, Promise<RouteLine | null>>()
-  const compute = (pts: RoutePoint[]) => gate(() => computeRoute(ctx, pts))
 
   const routes = await Promise.all(
     parsed.map((points) => {
       const norm = normalizeCoords(points)
       let pending = memo.get(norm)
       if (!pending) {
-        pending = resolveRoute(ctx, points, compute).then((r) => r.route)
+        pending = resolveRoute(ctx, points, (pts) => computeRoute(ctx, pts)).then((r) => r.route)
         memo.set(norm, pending)
       }
       return pending

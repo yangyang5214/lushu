@@ -21,7 +21,18 @@ MAX_BOOKS = "20000"
 # Max JSON size per book (bytes). ~33 KB for 300 places.
 MAX_DOC_BYTES = "262144"
 
+# 前端公开变量（构建时注入到 bundle，见 vite.config.ts）。
+# 高德「Web端(JS API)」key：地图底图 / 标记 / 路线图面都靠它渲染，必须配置。
+#   这是公开 key（会出现在前端），建议在高德控制台给它绑定站点域名白名单。
+AMAP_JS_KEY = ""
+# 可选：JS API 2.0 安全密钥（控制台里的「安全密钥」），用到插件能力时才需要。
+AMAP_SECURITY_CODE = ""
+# 可选：Cloudflare Turnstile site key，配了才启用注册 / 登录人机校验。
+TURNSTILE_SITE_KEY = ""
+
 # Secrets (RESEND_API_KEY, TURNSTILE_SECRET, ADMIN_SECRET, AMAP_KEY): local → .dev.vars; deploy → wrangler pages secret put
 # ADMIN_SECRET：管理后台 /admin 口令，至少 6 字符；未设置或过短时 /api/admin/* 返回 404。
-# AMAP_KEY：高德「Web 服务」key（不是 JS API key）。/api/places（搜索）和 /api/route
-#           （驾车规划）都只用高德，必须配置；未配置时这两个接口返回 5xx。
+# AMAP_KEY：高德「Web 服务」key（不是 JS API key，上面那个 AMAP_JS_KEY 才是）。/api/places（搜索）
+#           和 /api/route（驾车规划）都只用高德，必须配置；未配置时这两个接口返回 5xx。
+#           支持配多个，用「;」分隔（如 key1;key2）：按轮换顺序分摊调用量。
+#           驾车规划另有硬限流：全站所有驾车请求合计 3 次/秒（超出排队等待）。

@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react'
-import { downloadJourneyImage } from '../lib/export-image'
+import { useState } from 'react'
 import { driveMinutes, formatKm, haversineKm } from '../lib/geo'
 import { t, useI18n } from '../lib/i18n'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
@@ -59,31 +58,12 @@ export function Sidebar() {
     navigateBookOrigin(readonly ? PUBLIC_PATH : undefined)
   }
   const [folded, setFolded] = useState<Record<number, boolean>>({})
-  const [exporting, setExporting] = useState(false)
-  const [exportError, setExportError] = useState(false)
-  const exportLock = useRef(false)
 
   const toggleFold = (index: number) => {
     setFolded((prev) => ({ ...prev, [index]: !prev[index] }))
   }
 
-  const exportImage = async () => {
-    if (exportLock.current) return
-    exportLock.current = true
-    setExporting(true)
-    setExportError(false)
-    try {
-      await downloadJourneyImage(journey.title)
-    } catch {
-      setExportError(true)
-    } finally {
-      exportLock.current = false
-      setExporting(false)
-    }
-  }
-
   return (
-    <>
     <aside className="sheet">
       <div className="sheet-title">
         <button
@@ -107,36 +87,6 @@ export function Sidebar() {
           readOnly={readonly}
           disabled={readonly}
         />
-        <button
-          type="button"
-          className="sheet-export"
-          onClick={() => void exportImage()}
-          disabled={exporting}
-          title={
-            exporting
-              ? t('sidebar.exporting')
-              : exportError
-                ? t('sidebar.exportFail')
-                : t('sidebar.export')
-          }
-          aria-label={
-            exporting
-              ? t('sidebar.exporting')
-              : exportError
-                ? t('sidebar.exportFail')
-                : t('sidebar.export')
-          }
-        >
-          {exporting ? (
-            <i className="sheet-export-spin" />
-          ) : (
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M12 4v10" />
-              <path d="m8 10 4 4 4-4" />
-              <path d="M5 19h14" />
-            </svg>
-          )}
-        </button>
       </div>
 
       {/* 手机浏览（只读）时行程尺收起，总统计挪到行程清单顶部 */}
@@ -270,12 +220,5 @@ export function Sidebar() {
         </div>
       )}
     </aside>
-    {exporting ? (
-      <div className="export-loading" aria-live="polite" aria-busy="true">
-        <i />
-        <span>{t('sidebar.exporting')}</span>
-      </div>
-    ) : null}
-    </>
   )
 }

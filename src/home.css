@@ -2299,12 +2299,17 @@
   white-space: normal;
 }
 
-/* 后台路书详情里的只读路线地图：固定高度 + 圆角，内部 Leaflet 铺满。 */
+/* 后台路书详情里的只读路线地图：固定高度 + 圆角，内部高德 JS 地图铺满。 */
 .admin-map {
   height: min(78vh, 680px);
   border-radius: var(--r);
   border: 1px solid var(--border);
   overflow: hidden;
+}
+
+.route-map-stage {
+  position: relative;
+  height: 100%;
 }
 
 .route-map {

@@ -9,7 +9,7 @@ type AmapResponse = {
   route?: { paths?: Array<{ steps?: Array<{ polyline?: string }> }> }
 }
 
-/** 统一返回：线路已经是 GCJ02，原样交给 Leaflet。 */
+/** 统一返回：线路已经是 GCJ02，原样交给高德。 */
 function fromNormalized(data: NormalizedRoute): [number, number][] | null {
   const line = data?.line
   if (!Array.isArray(line)) return null
@@ -189,7 +189,7 @@ export function fetchRoadLine(points: LngLat[]): Promise<[number, number][] | nu
   return shared.then((line) => (line ? [...line].reverse() : null))
 }
 
-/** 打开路书后立刻预热各天路网，和地图初始化并行，不用等 Leaflet 挂上。 */
+/** 打开路书后立刻预热各天路网，和地图初始化并行，不用等地图挂上。 */
 export function prefetchBookRoads(book: Book): void {
   const journey = buildJourney(book)
   if (!journey.ready) return
