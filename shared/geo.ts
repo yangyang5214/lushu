@@ -1,6 +1,7 @@
 /**
- * 距离与路线顺序：前端（src/lib/geo.ts）和 Pages Function（functions/api）共用这一份。
+ * 路线顺序：前端（src/lib/geo.ts）和 Pages Function（functions/api）共用这一份。
  *
+ * 球面距离只用来串点和判断环线，不参与页面上的公里数；展示里程一律用驾车规划。
  * 顺序只有这一套代码产：地点从哪来都一样（手输、扩展导入、AI 生成），
  * 存下来的 orderedIds 只是缓存，读的时候按起点/终点重推一遍即可。
  */
@@ -37,6 +38,12 @@ export function pathDistanceKm(path: LngLat[]): number {
     sum += haversineKm(path[i], path[i + 1])
   }
   return sum
+}
+
+/** 驾车里程库存指纹：坐标（5 位小数）+ 切天。对不上就把 driveKm 当没数。 */
+export function journeyDriveKey(ordered: LngLat[], isLoop: boolean, splitIds: string[]): string {
+  const route = isLoop && ordered.length > 1 ? [...ordered, ordered[0]] : ordered
+  return `${route.map((p) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';')}|${splitIds.join(',')}`
 }
 
 export function isSamePlace(a: LngLat, b: LngLat, meters = LOOP_METERS): boolean {

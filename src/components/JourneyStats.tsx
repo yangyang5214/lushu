@@ -23,14 +23,18 @@ export function JourneyStats({ showLabel = true }: { showLabel?: boolean }) {
         <em>{t('rail.statPlaces')}</em>
         <b>{journey.ordered.length}</b>
       </span>
-      <span className="rail-stat">
-        <em>{t('rail.statKm')}</em>
-        <b>{formatKm(journey.totalKm)}</b>
-      </span>
-      <span className="rail-stat">
-        <em>{t('rail.statTime')}</em>
-        <b>{formatDuration(journey.totalMin)}</b>
-      </span>
+      {journey.driveReady ? (
+        <>
+          <span className="rail-stat">
+            <em>{t('rail.statKm')}</em>
+            <b>{formatKm(journey.totalKm)}</b>
+          </span>
+          <span className="rail-stat">
+            <em>{t('rail.statTime')}</em>
+            <b>{formatDuration(journey.totalMin)}</b>
+          </span>
+        </>
+      ) : null}
     </div>
   )
 }

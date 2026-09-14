@@ -75,6 +75,10 @@ function placesFromDoc(doc: Record<string, unknown>): Place[] {
   return out
 }
 
+function asNum(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+}
+
 /** 把服务端 doc 还原成与编辑页同构的 Journey，喂给只读地图。 */
 function journeyFromDoc(doc: Record<string, unknown>): Journey {
   return buildJourney({
@@ -85,6 +89,9 @@ function journeyFromDoc(doc: Record<string, unknown>): Journey {
     endId: asId(doc.endId),
     orderedIds: asIds(doc.orderedIds),
     splitIds: asIds(doc.splitIds),
+    driveKm: asNum(doc.driveKm),
+    driveMin: asNum(doc.driveMin),
+    driveKey: asString(doc.driveKey) || undefined,
   })
 }
 

@@ -99,7 +99,7 @@ import {
   adminStats,
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
-import { isSamePlace, orderRoute, pathDistanceKm, type LoopDir } from '../../shared/geo'
+import { isSamePlace, orderRoute, type LoopDir } from '../../shared/geo'
 import type { PublicConfig } from '../../shared/public-config'
 import { clientIp, rateLimited } from '../lib/rate-limit'
 
@@ -948,7 +948,7 @@ function toPublicBook(
   )
 
   // 和前端 buildJourney / splitIntoDays 对齐：环线把起点补回终点，切天只认有序列表里
-  // 真实存在的点（且不在第 0 位）。否则「我的路书」和「公开路书」的总公里 / 天数会对不上。
+  // 真实存在的点（且不在第 0 位）。公开列表的公里数用库存驾车里程，不用球面直线。
   const route = isLoop && ordered.length > 1 ? [...ordered, ordered[0]] : ordered
   const cuts: number[] = []
   ordered.forEach((place, i) => {
@@ -956,8 +956,8 @@ function toPublicBook(
   })
   cuts.sort((a, b) => a - b)
   const days = ready ? cuts.length + 1 : 0
-
-  const km = pathDistanceKm(route)
+  const driveKm = typeof doc.driveKm === 'number' ? doc.driveKm : 0
+  const km = ready && Number.isFinite(driveKm) && driveKm > 0 ? Math.round(driveKm) : 0
 
   // 抽样到 ≤ MAX_PREVIEW_POINTS，但每天的起点 / 终点必须保留，缩略图才和编辑页同形。
   const keep = new Set<number>()
@@ -977,7 +977,7 @@ function toPublicBook(
     startDate: typeof doc.startDate === 'string' ? doc.startDate : '',
     places: places.length,
     days,
-    km: ready ? Math.round(km) : 0,
+    km: ready ? km : 0,
     from: start?.name ?? '',
     to: end?.name ?? '',
     isLoop,

@@ -36,7 +36,7 @@ function PublicCard({ book }: { book: PublicBook }) {
             <span>
               <b>{book.places}</b> {t('card.placesUnit')}
             </span>
-            {book.days > 0 ? (
+            {book.days > 0 && book.km > 0 ? (
               <span>
                 <b>{book.km.toLocaleString()}</b> {t('card.kmUnit')}
               </span>

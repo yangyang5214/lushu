@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { driveMinutes, formatKm, haversineKm } from '../lib/geo'
-import { t, useI18n } from '../lib/i18n'
+import { useEffect, useState } from 'react'
+import { formatKm, formatLegLabel } from '../lib/geo'
+import { useI18n } from '../lib/i18n'
+import { fetchRoad } from '../lib/route'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
@@ -13,18 +14,23 @@ function cityOf(place: Place | undefined): string {
   return parts[parts.length - 1] || place.name
 }
 
-function legLabel(from: Place, to: Place): string {
-  const km = haversineKm(from, to)
-  const min = driveMinutes(km)
-  const kmText =
-    km < 1
-      ? t('unit.meters', { n: Math.round(km * 1000) })
-      : t('unit.km', { n: Math.round(km) })
-  if (min < 60) return `${kmText}  ${t('eta.minutes', { n: min })}`
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  const eta = m ? t('eta.hoursMinutes', { h, m }) : t('eta.hours', { n: h })
-  return `${kmText}  ${eta}`
+function LegLabel({ from, to }: { from: Place; to: Place }) {
+  const [drive, setDrive] = useState<{ km: number; min: number } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setDrive(null)
+    void fetchRoad([from, to]).then((route) => {
+      if (cancelled || !route || !(route.distanceKm > 0)) return
+      setDrive({ km: route.distanceKm, min: route.durationMin })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [from.id, from.lng, from.lat, to.id, to.lng, to.lat])
+
+  if (!drive) return null
+  return <em>{formatLegLabel(drive.km, drive.min)}</em>
 }
 
 function CarIcon() {
@@ -105,7 +111,7 @@ export function Sidebar() {
                   <button type="button" className="day-head" onClick={() => toggleFold(day.index)}>
                     <strong>{t('sidebar.day', { n: day.index + 1 })}</strong>
                     <span>{cityOf(cityPlace)}</span>
-                    <em className="day-km">{formatKm(day.distanceKm)}</em>
+                    {day.distanceKm > 0 ? <em className="day-km">{formatKm(day.distanceKm)}</em> : null}
                     <i className={folded[day.index] ? 'chev folded' : 'chev'} />
                   </button>
                   {folded[day.index] ? null : (
@@ -113,7 +119,7 @@ export function Sidebar() {
                       {leadFrom && visible[0] ? (
                         <li className="leg">
                           <CarIcon />
-                          <em>{legLabel(leadFrom, visible[0])}</em>
+                          <LegLabel from={leadFrom} to={visible[0]} />
                         </li>
                       ) : null}
                       {visible.map((place, i) => {
@@ -156,7 +162,7 @@ export function Sidebar() {
                             {next ? (
                               <div className="leg">
                                 <CarIcon />
-                                <em>{legLabel(place, next)}</em>
+                                <LegLabel from={place} to={next} />
                               </div>
                             ) : null}
                           </li>

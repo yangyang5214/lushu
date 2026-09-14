@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import { dayInk, formatKm, haversineKm, loopOrientation, validSplitIndexes } from '../lib/geo'
+import { dayInk, formatKm, loopOrientation, validSplitIndexes } from '../lib/geo'
 import { useI18n } from '../lib/i18n'
+import { fetchRoad } from '../lib/route'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { JourneyStats } from './JourneyStats'
 
@@ -78,10 +79,35 @@ export function SplitRail() {
   const validIds = new Set(validSplitIndexes(ordered, isLoop).map((i) => ordered[i]?.id))
   const splitSet = new Set(journey.splitIds)
   const beads = isLoop && ordered.length > 1 ? [...ordered, ordered[0]] : ordered
+  const beadsKey = beads.map((p) => `${p.id}:${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join('|')
+  const beadsRef = useRef(beads)
+  beadsRef.current = beads
+  const [legKms, setLegKms] = useState<Array<{ km: number; ready: boolean }>>([])
 
-  const legKms = beads.map((place, i) =>
-    i === beads.length - 1 ? 0 : haversineKm(place, beads[i + 1]),
-  )
+  useEffect(() => {
+    const list = beadsRef.current
+    if (list.length < 2) {
+      setLegKms([])
+      return
+    }
+    let cancelled = false
+    setLegKms(list.map((_, i) => ({ km: 1, ready: i === list.length - 1 })))
+    list.forEach((place, i) => {
+      const next = list[i + 1]
+      if (!next) return
+      void fetchRoad([place, next]).then((route) => {
+        if (cancelled || !route || !(route.distanceKm > 0)) return
+        setLegKms((prev) => {
+          const copy = prev.length === list.length ? [...prev] : list.map(() => ({ km: 1, ready: false }))
+          copy[i] = { km: route.distanceKm, ready: true }
+          return copy
+        })
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [beadsKey])
 
   // 一行装不下时改多行蛇形：先量出每个刻度的实际宽度，再按容器宽度分行。
   const rowsRef = useRef<number[][]>([])
@@ -277,8 +303,8 @@ export function SplitRail() {
                   {i === tail ? null : (
                     <div
                       className="rail-seg"
-                      title={formatKm(legKms[i])}
-                      style={{ flexGrow: legKms[i], background: dayInk(beadDay[i]) }}
+                      title={legKms[i]?.ready ? formatKm(legKms[i].km) : undefined}
+                      style={{ flexGrow: legKms[i]?.ready ? legKms[i].km : 1, background: dayInk(beadDay[i]) }}
                     />
                   )}
                 </Fragment>
@@ -301,7 +327,9 @@ export function SplitRail() {
         {days.map((day) => (
           <li key={day.index}>
             <i style={{ background: dayInk(day.index) }} />
-            {t('rail.day', { n: day.index + 1, km: formatKm(day.distanceKm) })}
+            {day.distanceKm > 0
+              ? t('rail.day', { n: day.index + 1, km: formatKm(day.distanceKm) })
+              : t('sidebar.day', { n: day.index + 1 })}
           </li>
         ))}
       </ol>

@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
-import { buildJourney } from './lib/journey'
+import { buildJourney, journeyDriveKey } from './lib/journey'
+import { fetchRoad } from './lib/route'
 import { isSamePlace, orderRoute, suggestSplitId } from './lib/geo'
 import type { LoopDir } from './lib/geo'
 import { isUntitledTitle, t } from './lib/i18n'
@@ -87,6 +88,8 @@ type Actions = {
   moveSplit: (fromId: string, toId: string) => void
   suggestSplit: () => void
   selectPlace: (id: string | null) => void
+  /** 把高德驾车总里程写回路书（列表 / 公开页用）；路线变了会被清掉。 */
+  setDriveStats: (km: number, min: number, key: string) => void
   reset: () => void
 }
 
@@ -175,8 +178,24 @@ function activePatch(s: Store, f: (b: Book) => Partial<Book>): Partial<Store> {
   if (!b) return {}
   // 别人的路书只读：任何编辑动作都不改动 store（UI 也会隐藏对应入口）。
   if (s.readonlyIds[id]) return {}
+  const extra = f(b)
+  const routeChanged =
+    'places' in extra ||
+    'startId' in extra ||
+    'endId' in extra ||
+    'orderedIds' in extra ||
+    'splitIds' in extra ||
+    'loopDir' in extra
   return {
-    books: { ...s.books, [id]: { ...b, ...f(b), updatedAt: Date.now() } },
+    books: {
+      ...s.books,
+      [id]: {
+        ...b,
+        ...extra,
+        ...(routeChanged ? { driveKm: undefined, driveMin: undefined, driveKey: undefined } : {}),
+        updatedAt: Date.now(),
+      },
+    },
   }
 }
 
@@ -529,6 +548,21 @@ export const useStore = create<Store>()(
 
       selectPlace: (id) => set({ selectedId: id }),
 
+      setDriveStats: (km, min, key) =>
+        set((s) => {
+          const id = s.activeId
+          if (!id || s.readonlyIds[id]) return {}
+          const b = s.books[id]
+          if (!b) return {}
+          if (b.driveKey === key && b.driveKm === km && b.driveMin === min) return {}
+          return {
+            books: {
+              ...s.books,
+              [id]: { ...b, driveKm: km, driveMin: min, driveKey: key, updatedAt: Date.now() },
+            },
+          }
+        }),
+
       reset: () =>
         set({
           books: {},
@@ -608,6 +642,22 @@ export function useLushu<T>(selector: (s: Store & Book) => T): T {
   return selector(flat)
 }
 
+type DriveStats = { distanceKm: number; durationMin: number }
+
+function applyDriveStats(journey: Journey, drives: Array<DriveStats | null>): Journey {
+  if (!journey.ready || drives.length !== journey.days.length) return journey
+  const days = journey.days.map((day, i) => {
+    const stats = drives[i]
+    if (!stats || !(stats.distanceKm > 0)) return day
+    return { ...day, distanceKm: stats.distanceKm, driveMin: stats.durationMin }
+  })
+  const allReady = days.length > 0 && days.every((day) => day.distanceKm > 0)
+  if (!allReady) return { ...journey, days }
+  const totalKm = days.reduce((sum, day) => sum + day.distanceKm, 0)
+  const totalMin = days.reduce((sum, day) => sum + day.driveMin, 0)
+  return { ...journey, days, totalKm, totalMin, driveReady: true }
+}
+
 export function useJourney(): Journey {
   const data = useLushu(
     useShallow((s) => ({
@@ -620,7 +670,55 @@ export function useJourney(): Journey {
       splitIds: s.splitIds,
     })),
   )
-  return useMemo(() => buildJourney(data), [data])
+  const drive = useLushu(
+    useShallow((s) => ({
+      driveKm: s.driveKm,
+      driveMin: s.driveMin,
+      driveKey: s.driveKey,
+    })),
+  )
+  const setDriveStats = useLushu((s) => s.setDriveStats)
+  const readonly = useStore((s) => (s.activeId ? s.readonlyIds[s.activeId] === true : false))
+  const routeBase = useMemo(() => buildJourney(data), [data])
+  const base = useMemo(() => buildJourney({ ...data, ...drive }), [data, drive])
+  const [drives, setDrives] = useState<Array<DriveStats | null>>([])
+  const fingerprint = useMemo(
+    () => journeyDriveKey(routeBase.ordered, routeBase.isLoop, routeBase.splitIds),
+    [routeBase.ordered, routeBase.isLoop, routeBase.splitIds],
+  )
+
+  useEffect(() => {
+    if (!routeBase.ready || routeBase.days.length === 0) {
+      setDrives([])
+      return
+    }
+    const days = routeBase.days
+    let cancelled = false
+    setDrives(days.map(() => null))
+    days.forEach((day, i) => {
+      void fetchRoad(day.places).then((route) => {
+        if (cancelled || !route) return
+        setDrives((prev) => {
+          const next = prev.length === days.length ? [...prev] : days.map(() => null)
+          next[i] = { distanceKm: route.distanceKm, durationMin: route.durationMin }
+          return next
+        })
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [fingerprint, routeBase.ready, routeBase.days])
+
+  useEffect(() => {
+    if (readonly) return
+    if (drives.length === 0 || drives.some((d) => !d || d.distanceKm <= 0)) return
+    const km = drives.reduce((sum, d) => sum + (d?.distanceKm ?? 0), 0)
+    const min = drives.reduce((sum, d) => sum + (d?.durationMin ?? 0), 0)
+    setDriveStats(km, min, fingerprint)
+  }, [drives, fingerprint, readonly, setDriveStats])
+
+  return useMemo(() => applyDriveStats(base, drives), [base, drives])
 }
 
 export function useSelectedId(): string | null {

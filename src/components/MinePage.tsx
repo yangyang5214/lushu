@@ -91,6 +91,9 @@ export function MinePage() {
           endId: book.endId,
           orderedIds: book.orderedIds,
           splitIds: book.splitIds,
+          driveKm: book.driveKm,
+          driveMin: book.driveMin,
+          driveKey: book.driveKey,
         }),
       }))
       .sort((a, b) => {
@@ -173,7 +176,7 @@ export function MinePage() {
                             <span>
                               <b>{journey.places.length}</b> {t('card.placesUnit')}
                             </span>
-                            {journey.ready ? (
+                            {journey.ready && journey.totalKm > 0 ? (
                               <span>
                                 <b>{Math.round(journey.totalKm).toLocaleString()}</b>{' '}
                                 {t('card.kmUnit')}

@@ -1,5 +1,8 @@
 import type { Journey, Place } from '../types'
-import { isSamePlace, pathDistanceKm, splitIntoDays } from './geo'
+import { isSamePlace, splitIntoDays } from './geo'
+import { journeyDriveKey } from '../../shared/geo'
+
+export { journeyDriveKey }
 
 export function buildJourney(input: {
   title: string
@@ -9,6 +12,9 @@ export function buildJourney(input: {
   endId: string | null
   orderedIds: string[]
   splitIds: string[]
+  driveKm?: number
+  driveMin?: number
+  driveKey?: string
 }): Journey {
   const { title, startDate, places, startId, endId, orderedIds, splitIds } = input
   const start = places.find((p) => p.id === startId) ?? null
@@ -21,9 +27,18 @@ export function buildJourney(input: {
     .filter((p): p is Place => Boolean(p))
 
   const days = ready ? splitIntoDays(ordered, splitIds, isLoop) : []
-  const route = isLoop && ordered.length > 1 ? [...ordered, ordered[0]] : ordered
-  const totalKm = ready ? pathDistanceKm(route) : 0
-  const totalMin = days.reduce((sum, d) => sum + d.driveMin, 0)
+  const key = journeyDriveKey(ordered, isLoop, splitIds)
+  const stored =
+    ready &&
+    input.driveKey === key &&
+    typeof input.driveKm === 'number' &&
+    Number.isFinite(input.driveKm) &&
+    input.driveKm > 0
+  const totalKm = stored ? input.driveKm! : 0
+  const totalMin =
+    stored && typeof input.driveMin === 'number' && Number.isFinite(input.driveMin)
+      ? input.driveMin
+      : 0
 
   return {
     title,
@@ -38,5 +53,6 @@ export function buildJourney(input: {
     days,
     totalKm,
     totalMin,
+    driveReady: stored,
   }
 }

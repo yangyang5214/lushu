@@ -23,6 +23,12 @@ export type Book = {
   splitIds: string[]
   /** 环线绕行方向；未设置时用优化器默认解。非环线忽略。 */
   loopDir?: LoopDir
+  /** 高德驾车总里程（公里）；与 driveKey 一起存，路线变了就作废。 */
+  driveKm?: number
+  /** 高德驾车总时长（分钟）。 */
+  driveMin?: number
+  /** 算出 driveKm 时的坐标 / 切天指纹，对不上就当没数。 */
+  driveKey?: string
   createdAt: number
   updatedAt: number
 }
@@ -54,4 +60,6 @@ export type Journey = {
   days: DayPlan[]
   totalKm: number
   totalMin: number
+  /** 驾车里程已齐：总统计 / 每天公里可以显示。 */
+  driveReady: boolean
 }

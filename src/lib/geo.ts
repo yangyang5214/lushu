@@ -4,23 +4,15 @@ import { pathDistanceKm, type LngLat } from '../../shared/geo'
 import { t } from './i18n'
 
 export { gcj02ToWgs84, wgs84ToGcj02 }
-// 距离与路线顺序都在 shared/geo.ts：Pages Function 算公开列表预览用的是同一份，
-// 地点从哪来（手输 / 扩展导入 / AI 生成）都归到同一个结果。
+// 排点顺序在 shared/geo.ts（球面距离只用于串线 / 切天启发式）。
+// 页面上的公里数一律用高德驾车规划，不在这里用直线距离。
 export {
-  haversineKm,
   isSamePlace,
   loopOrientation,
-  pathDistanceKm,
   orderRoute,
   LOOP_METERS,
 } from '../../shared/geo'
 export type { LngLat, LoopDir } from '../../shared/geo'
-
-const AVG_KMH = 68
-
-export function driveMinutes(km: number): number {
-  return Math.round((km / AVG_KMH) * 60)
-}
 
 export function formatKm(km: number): string {
   if (km < 1) return t('unit.meters', { n: Math.round(km * 1000) })
@@ -32,6 +24,15 @@ export function formatDuration(min: number): string {
   const h = Math.floor(min / 60)
   const m = min % 60
   return m ? t('eta.hoursMinutes', { h, m }) : t('eta.hours', { n: h })
+}
+
+/** 行程清单里两点之间的「xx公里  约x小时」：整数公里，和天数头上的 formatKm 略有不同。 */
+export function formatLegLabel(km: number, min: number): string {
+  const kmText =
+    km < 1
+      ? t('unit.meters', { n: Math.round(km * 1000) })
+      : t('unit.km', { n: Math.round(km) })
+  return `${kmText}  ${formatDuration(min)}`
 }
 
 export function validSplitIndexes(ordered: Place[], loop: boolean): number[] {
@@ -65,16 +66,12 @@ export function splitIntoDays(
   })
   ranges.push([from, route.length - 1])
 
-  return ranges.map(([start, end], index) => {
-    const places = route.slice(start, end + 1)
-    const distanceKm = pathDistanceKm(places)
-    return {
-      index,
-      places,
-      distanceKm,
-      driveMin: driveMinutes(distanceKm),
-    }
-  })
+  return ranges.map(([start, end], index) => ({
+    index,
+    places: route.slice(start, end + 1),
+    distanceKm: 0,
+    driveMin: 0,
+  }))
 }
 
 export function suggestSplitId(ordered: Place[], splitIds: string[], loop: boolean): string | null {
@@ -91,10 +88,10 @@ export function suggestSplitId(ordered: Place[], splitIds: string[], loop: boole
       const idx = ordered.findIndex((p) => p.id === place.id)
       if (!valid.has(idx) || taken.has(place.id)) return
       const next = splitIntoDays(ordered, [...splitIds, place.id], loop)
-      const loads = next.map((d) => d.distanceKm)
+      const loads = next.map((d) => pathDistanceKm(d.places))
       const mean = loads.reduce((a, b) => a + b, 0) / loads.length
       const variance = loads.reduce((a, b) => a + (b - mean) ** 2, 0)
-      const score = day.distanceKm - variance
+      const score = pathDistanceKm(day.places) - variance
       if (score > bestScore) {
         bestScore = score
         bestId = place.id
