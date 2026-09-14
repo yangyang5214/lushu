@@ -176,22 +176,3 @@ export async function fetchAdminBook(id: string): Promise<AdminBookDetail> {
   if (!res.ok) throw new Error(`book ${res.status}`)
   return (await res.json()) as AdminBookDetail
 }
-
-/** 删除一本路书（硬删，不可恢复）。 */
-export async function deleteAdminBook(id: string): Promise<void> {
-  const res = await request(`/api/admin/books/${encodeURIComponent(id)}`, { method: 'DELETE' })
-  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
-  if (res.status === 401) throw new Error('unauthorized')
-  if (res.status === 404) throw new Error('not_found')
-  if (!res.ok) throw new Error(`delete book ${res.status}`)
-}
-
-/** 删除一个账号（连同其路书与会话，硬删不可恢复）。 */
-export async function deleteAdminUser(id: string): Promise<{ books: number }> {
-  const res = await request(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' })
-  if (!isJson(res)) throw new Error(t('common.backendUnavailable'))
-  if (res.status === 401) throw new Error('unauthorized')
-  if (res.status === 404) throw new Error('not_found')
-  if (!res.ok) throw new Error(`delete user ${res.status}`)
-  return (await res.json()) as { books: number }
-}

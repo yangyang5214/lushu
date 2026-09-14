@@ -2216,56 +2216,6 @@
   margin-bottom: 0;
 }
 
-/* 表格里的删除操作：默认低调，二次确认时变实心红 */
-.admin-danger-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.admin-danger-hint {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.admin-danger,
-.admin-cancel {
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-
-.admin-danger {
-  color: var(--bad);
-}
-
-.admin-danger:hover {
-  background: rgba(220, 67, 56, 0.08);
-}
-
-.admin-danger.on {
-  border-color: var(--bad);
-  background: var(--bad);
-  color: #fff;
-}
-
-.admin-danger.on:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.admin-cancel {
-  color: var(--muted);
-}
-
-.admin-cancel:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
 .admin-kv {
   display: grid;
   gap: 10px;
@@ -2520,11 +2470,6 @@
 
   .admin-detail-head {
     flex-wrap: wrap;
-  }
-
-  .admin-danger-group {
-    flex-wrap: wrap;
-    justify-content: flex-end;
   }
 
   .admin-map {

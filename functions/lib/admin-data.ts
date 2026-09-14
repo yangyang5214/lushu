@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 //
-// 管理后台数据查询与删除。
+// 管理后台数据查询（只读）。
 
 import { isUserActivated, type UserRow } from './auth'
 
@@ -309,48 +309,3 @@ export async function adminGetBook(
   }
 }
 
-/**
- * 删除一本路书（管理后台）。硬删，同时回收一个容量名额（stats.books）。
- * 返回 false 表示这本书本来就不存在。
- */
-export async function adminDeleteBook(env: Env, bookId: string): Promise<boolean> {
-  const row = await env.DB.prepare('SELECT id FROM books WHERE id = ?')
-    .bind(bookId)
-    .first<{ id: string }>()
-  if (!row) return false
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM books WHERE id = ?').bind(bookId),
-    env.DB.prepare("UPDATE stats SET n = MAX(n - 1, 0) WHERE k = 'books'"),
-  ])
-  return true
-}
-
-/**
- * 删除一个账号：连同其名下的路书、会话、待激活记录一起清掉（硬删，不可恢复）。
- * 返回 null 表示账号不存在；否则返回被连带删除的路书数量。
- */
-export async function adminDeleteUser(
-  env: Env,
-  userId: string,
-): Promise<{ books: number } | null> {
-  const row = await env.DB.prepare('SELECT id, username FROM users WHERE id = ?')
-    .bind(userId)
-    .first<{ id: string; username: string }>()
-  if (!row) return null
-
-  const books =
-    (
-      await env.DB.prepare('SELECT COUNT(*) AS n FROM books WHERE owner_key = ?')
-        .bind(userId)
-        .first<{ n: number }>()
-    )?.n ?? 0
-
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM books WHERE owner_key = ?').bind(userId),
-    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId),
-    env.DB.prepare('DELETE FROM email_activations WHERE email = ?').bind(row.username),
-    env.DB.prepare("UPDATE stats SET n = MAX(n - ?, 0) WHERE k = 'books'").bind(books),
-    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId),
-  ])
-  return { books }
-}

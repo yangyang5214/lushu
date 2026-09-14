@@ -26,8 +26,6 @@
 //   GET    /api/admin/users/:id → 用户详情 + 路书
 //   GET    /api/admin/books     → 路书列表（分页 / 搜索 / 可见性筛选）
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
-//   DELETE /api/admin/books/:id → 删除路书
-//   DELETE /api/admin/users/:id → 删除用户（连同其路书与会话）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
 //   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源统一限 3 次/秒
@@ -93,8 +91,6 @@ import {
   isAdmin,
 } from '../lib/admin'
 import {
-  adminDeleteBook,
-  adminDeleteUser,
   adminGetBook,
   adminGetUser,
   adminListBooks,
@@ -620,24 +616,6 @@ async function adminBookDetail(ctx: Ctx, bookId: string): Promise<Response> {
   const data = await adminGetBook(ctx.env, bookId)
   if (!data) return json({ error: 'not_found' }, 404)
   return json(data)
-}
-
-async function adminBookDelete(ctx: Ctx, bookId: string): Promise<Response> {
-  const gate = await requireAdmin(ctx)
-  if (gate) return gate
-  if (!BOOK_ID_RE.test(bookId)) return json({ error: 'bad_id' }, 400)
-  const deleted = await adminDeleteBook(ctx.env, bookId)
-  if (!deleted) return json({ error: 'not_found' }, 404)
-  return json({ ok: true })
-}
-
-async function adminUserDelete(ctx: Ctx, userId: string): Promise<Response> {
-  const gate = await requireAdmin(ctx)
-  if (gate) return gate
-  if (!OWNER_ID_RE.test(userId)) return json({ error: 'bad_id' }, 400)
-  const result = await adminDeleteUser(ctx.env, userId)
-  if (!result) return json({ error: 'not_found' }, 404)
-  return json({ ok: true, books: result.books })
 }
 
 // ── books ───────────────────────────────────────────────────────────────────
@@ -1589,13 +1567,11 @@ async function handle(ctx: Ctx): Promise<Response> {
     if (seg[1] === 'users' && seg.length === 3) {
       const userId = decodeURIComponent(seg[2])
       if (method === 'GET') return adminUserDetail(ctx, userId)
-      if (method === 'DELETE') return adminUserDelete(ctx, userId)
     }
     if (seg[1] === 'books' && seg.length === 2 && method === 'GET') return adminBooksHandler(ctx)
     if (seg[1] === 'books' && seg.length === 3) {
       const bookId = decodeURIComponent(seg[2])
       if (method === 'GET') return adminBookDetail(ctx, bookId)
-      if (method === 'DELETE') return adminBookDelete(ctx, bookId)
     }
     return json({ error: 'not_found' }, 404)
   }

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import {
   adminLogin,
   adminLogout,
-  deleteAdminBook,
-  deleteAdminUser,
   fetchAdminBook,
   fetchAdminBooks,
   fetchAdminStats,
@@ -282,55 +280,10 @@ function Pager({
   )
 }
 
-/** 二次确认的删除按钮（列表行内 / 详情页共用）。 */
-function DangerConfirm({
-  busy,
-  onConfirm,
-  label,
-  hint,
-}: {
-  busy: boolean
-  onConfirm: () => void
-  label?: string
-  hint?: string
-}) {
-  const t = adminT
-  const [asking, setAsking] = useState(false)
-  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
-
-  if (!asking) {
-    return (
-      <button
-        type="button"
-        className="admin-danger"
-        onClick={(e) => {
-          stop(e)
-          setAsking(true)
-        }}
-      >
-        {label ?? t('common.delete')}
-      </button>
-    )
-  }
-  return (
-    <span className="admin-danger-group" onClick={stop}>
-      {hint ? <span className="admin-danger-hint">{hint}</span> : null}
-      <button type="button" className="admin-danger on" disabled={busy} onClick={onConfirm}>
-        {busy ? t('admin.deleting') : t('admin.confirmDelete')}
-      </button>
-      <button type="button" className="admin-cancel" disabled={busy} onClick={() => setAsking(false)}>
-        {t('common.cancel')}
-      </button>
-    </span>
-  )
-}
-
 function UsersPanel({
   onSelect,
-  onChanged,
 }: {
   onSelect: (id: string) => void
-  onChanged: () => void
 }) {
   const t = adminT
   const [q, setQ] = useState('')
@@ -339,7 +292,6 @@ function UsersPanel({
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
-  const [busyId, setBusyId] = useState('')
 
   const load = useCallback(async () => {
     setError('')
@@ -355,22 +307,6 @@ function UsersPanel({
   useEffect(() => {
     void load()
   }, [load])
-
-  const remove = async (id: string) => {
-    setError('')
-    setBusyId(id)
-    try {
-      await deleteAdminUser(id)
-      setBusyId('')
-      onChanged()
-      // 删掉的是本页最后一条时回退一页，避免停在空页。
-      if (users.length === 1 && offset >= PAGE_SIZE) setOffset(Math.max(0, offset - PAGE_SIZE))
-      else await load()
-    } catch (err) {
-      setBusyId('')
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
 
   return (
     <div className="admin-panel">
@@ -404,7 +340,6 @@ function UsersPanel({
               <th>{t('admin.colBooks')}</th>
               <th>{t('admin.colStatus')}</th>
               <th>{t('admin.colCreated')}</th>
-              <th>{t('admin.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -423,13 +358,6 @@ function UsersPanel({
                   {u.activated ? t('admin.activated') : t('admin.pending')}
                 </td>
                 <td data-label={t('admin.colCreated')}>{fmtTime(u.createdAt)}</td>
-                <td data-label={t('admin.colActions')}>
-                  <DangerConfirm
-                    busy={busyId === u.id}
-                    hint={u.bookCount > 0 ? t('admin.withBooks', { n: u.bookCount }) : undefined}
-                    onConfirm={() => void remove(u.id)}
-                  />
-                </td>
               </tr>
             ))}
           </tbody>
@@ -442,10 +370,8 @@ function UsersPanel({
 
 function BooksPanel({
   onSelect,
-  onChanged,
 }: {
   onSelect: (id: string) => void
-  onChanged: () => void
 }) {
   const t = adminT
   const [q, setQ] = useState('')
@@ -455,7 +381,6 @@ function BooksPanel({
   const [books, setBooks] = useState<AdminBookSummary[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
-  const [busyId, setBusyId] = useState('')
 
   const load = useCallback(async () => {
     setError('')
@@ -471,22 +396,6 @@ function BooksPanel({
   useEffect(() => {
     void load()
   }, [load])
-
-  const remove = async (id: string) => {
-    setError('')
-    setBusyId(id)
-    try {
-      await deleteAdminBook(id)
-      setBusyId('')
-      onChanged()
-      // 删掉的是本页最后一条时回退一页，避免停在空页。
-      if (books.length === 1 && offset >= PAGE_SIZE) setOffset(Math.max(0, offset - PAGE_SIZE))
-      else await load()
-    } catch (err) {
-      setBusyId('')
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
 
   return (
     <div className="admin-panel">
@@ -524,7 +433,6 @@ function BooksPanel({
               <th>{t('admin.colPlaces')}</th>
               <th>{t('admin.colOwner')}</th>
               <th>{t('admin.colUpdated')}</th>
-              <th>{t('admin.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -540,9 +448,6 @@ function BooksPanel({
                   {b.ownerEmail ?? b.ownerHashId ?? t('common.anonymous')}
                 </td>
                 <td data-label={t('admin.colUpdated')}>{fmtTime(b.updatedAt)}</td>
-                <td data-label={t('admin.colActions')}>
-                  <DangerConfirm busy={busyId === b.id} onConfirm={() => void remove(b.id)} />
-                </td>
               </tr>
             ))}
           </tbody>
@@ -556,11 +461,9 @@ function BooksPanel({
 function UserDetail({
   userId,
   onBack,
-  onDeleted,
 }: {
   userId: string
   onBack: () => void
-  onDeleted: () => void
 }) {
   const t = adminT
   const [user, setUser] = useState<AdminUser | null>(null)
@@ -575,7 +478,6 @@ function UserDetail({
     }>
   >([])
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     setUser(null)
@@ -589,29 +491,12 @@ function UserDetail({
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }, [userId])
 
-  const remove = async () => {
-    setError('')
-    setBusy(true)
-    try {
-      await deleteAdminUser(userId)
-      onDeleted()
-    } catch (err) {
-      setBusy(false)
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
   return (
     <div className="admin-detail">
       <div className="admin-detail-head">
         <button type="button" className="btn-ghost admin-back" onClick={onBack}>
           {t('admin.backUsers')}
         </button>
-        <DangerConfirm
-          busy={busy}
-          hint={books.length > 0 ? t('admin.withBooks', { n: books.length }) : undefined}
-          onConfirm={() => void remove()}
-        />
       </div>
       {error ? <p className="admin-error">{error}</p> : null}
       {!user && !error ? <p className="admin-muted">{t('common.loading')}</p> : null}
@@ -686,16 +571,13 @@ function UserDetail({
 function BookDetail({
   bookId,
   onBack,
-  onDeleted,
 }: {
   bookId: string
   onBack: () => void
-  onDeleted: () => void
 }) {
   const t = adminT
   const [book, setBook] = useState<AdminBookDetail | null>(null)
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     void fetchAdminBook(bookId)
@@ -709,25 +591,12 @@ function BookDetail({
   const journey = useMemo(() => (book ? journeyFromDoc(book.doc) : null), [book])
   const json = useMemo(() => (book ? JSON.stringify(book.doc, null, 2) : ''), [book])
 
-  const remove = async () => {
-    setError('')
-    setBusy(true)
-    try {
-      await deleteAdminBook(bookId)
-      onDeleted()
-    } catch (err) {
-      setBusy(false)
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
   return (
     <div className="admin-detail">
       <div className="admin-detail-head">
         <button type="button" className="btn-ghost admin-back" onClick={onBack}>
           {t('admin.backBooks')}
         </button>
-        <DangerConfirm busy={busy} onConfirm={() => void remove()} />
       </div>
       {error ? <p className="admin-error">{error}</p> : null}
       {!book ? <p className="admin-muted">{t('common.loading')}</p> : null}
@@ -869,43 +738,15 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
   let body: ReactNode = null
   if (tab === 'users' && detailId) {
-    body = (
-      <UserDetail
-        userId={detailId}
-        onBack={() => go({ tab: 'users', id: null })}
-        onDeleted={() => {
-          go({ tab: 'users', id: null })
-          void refreshStats()
-        }}
-      />
-    )
+    body = <UserDetail userId={detailId} onBack={() => go({ tab: 'users', id: null })} />
   } else if (tab === 'books' && detailId) {
-    body = (
-      <BookDetail
-        bookId={detailId}
-        onBack={() => go({ tab: 'books', id: null })}
-        onDeleted={() => {
-          go({ tab: 'books', id: null })
-          void refreshStats()
-        }}
-      />
-    )
+    body = <BookDetail bookId={detailId} onBack={() => go({ tab: 'books', id: null })} />
   } else if (tab === 'overview') {
     body = stats ? <StatCards stats={stats} /> : <p className="admin-muted">{t('common.loading')}</p>
   } else if (tab === 'users') {
-    body = (
-      <UsersPanel
-        onSelect={(id) => go({ tab: 'users', id })}
-        onChanged={() => void refreshStats()}
-      />
-    )
+    body = <UsersPanel onSelect={(id) => go({ tab: 'users', id })} />
   } else {
-    body = (
-      <BooksPanel
-        onSelect={(id) => go({ tab: 'books', id })}
-        onChanged={() => void refreshStats()}
-      />
-    )
+    body = <BooksPanel onSelect={(id) => go({ tab: 'books', id })} />
   }
 
   return (
