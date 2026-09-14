@@ -342,7 +342,7 @@ async function authMe(ctx: Ctx): Promise<Response> {
   return json({ user })
 }
 
-/** 改昵称：必须登录；1–5 个字，允许和其他人重复。 */
+/** 改昵称：必须登录；2–20 个 Unicode 字符，仅限中英文、数字和 _ - .，允许重复。 */
 async function authUpdateMe(ctx: Ctx): Promise<Response> {
   const { request, env } = ctx
   const user = await readUser(request, env)

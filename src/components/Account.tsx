@@ -444,6 +444,8 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
   const [error, setError] = useState<AuthError | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const ignoreBlur = useRef(false)
+  /** 输入法组合中：此时不能过滤 / 截断，也不能把 Enter 当提交。 */
+  const composing = useRef(false)
 
   useEffect(() => {
     if (user && !editing) setName(user.displayName)
@@ -465,6 +467,7 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
   const startEdit = () => {
     if (busy) return
     ignoreBlur.current = false
+    composing.current = false
     setName(user.displayName)
     setError(null)
     setEditing(true)
@@ -472,14 +475,16 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
 
   const cancel = () => {
     ignoreBlur.current = true
+    composing.current = false
     setName(user.displayName)
     setError(null)
     setEditing(false)
   }
 
-  const commit = async () => {
+  /** raw 用于避免组合输入刚结束时的 state 滞后，缺省取 state。 */
+  const commit = async (raw?: string) => {
     if (busy) return
-    const trimmed = normalizeChosenDisplayName(name)
+    const trimmed = normalizeChosenDisplayName(raw ?? name)
     if (trimmed === user.displayName) {
       setError(null)
       setEditing(false)
@@ -522,20 +527,46 @@ function ProfilePanel({ onSignOut }: { onSignOut: () => void }) {
               aria-label={t('account.editNickname')}
               aria-invalid={Boolean(error)}
               onChange={(e) => {
-                setName(limitDisplayNameInput(name, e.target.value))
+                const next = e.target.value
+                // 输入法组合中的内容先原样收下，等 compositionend 再按规则收敛；
+                // 否则会在拼字 / 选词阶段就被过滤、截断，中文根本打不出来。
+                if (composing.current) {
+                  setName(next)
+                  return
+                }
+                setName(limitDisplayNameInput(name, next))
                 setError(null)
               }}
-              onBlur={() => {
+              onCompositionStart={() => {
+                composing.current = true
+              }}
+              onCompositionEnd={(e) => {
+                composing.current = false
+                setName(limitDisplayNameInput(name, e.currentTarget.value))
+                setError(null)
+              }}
+              onBlur={(e) => {
+                const stillComposing = composing.current
+                composing.current = false
                 if (ignoreBlur.current) {
                   ignoreBlur.current = false
                   return
                 }
-                void commit()
+                if (stillComposing) {
+                  // 还在组合中就失焦（鼠标点到了别处）：先收敛再提交。
+                  const next = limitDisplayNameInput(name, e.currentTarget.value)
+                  setName(next)
+                  void commit(next)
+                  return
+                }
+                void commit(e.currentTarget.value)
               }}
               onKeyDown={(e) => {
+                // 组合输入期间的 Enter 是「选词」，keyCode 229 也是输入法信号。
+                if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  void commit()
+                  void commit(e.currentTarget.value)
                 }
                 if (e.key === 'Escape') {
                   e.preventDefault()

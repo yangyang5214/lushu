@@ -14,7 +14,12 @@
 //
 // 免费档开销：读一次会话 = 1 行读（带主键索引）；登录/注册 = 1 行写。
 
-import { MAX_DISPLAY_NAME } from '../../shared/display-name'
+import {
+  MAX_DISPLAY_NAME,
+  MIN_DISPLAY_NAME,
+  displayNameLength,
+  sanitizeDisplayNameChars,
+} from '../../shared/display-name'
 import { MAX_PASSWORD, MIN_PASSWORD, hasInvalidPasswordChars } from '../../shared/password'
 
 export type AuthUser = {
@@ -162,11 +167,17 @@ export function validateEmail(email: string): string | null {
   return null
 }
 
-/** 昵称：可选，缺省时取邮箱 @ 前的一段。 */
+/**
+ * 昵称：可选，缺省时取邮箱 @ 前的一段。
+ * 邮箱前缀未必满足昵称规则（可能有 +、%、纯数字、过短），这里先按规则清理，
+ * 再把过短的补到最短长度，保证默认昵称一定合法。
+ */
 export function normalizeDisplayName(raw: unknown, email: string): string {
-  const name = String(raw ?? '').trim()
-  const fallback = email.split('@')[0] || email
-  return [...(name || fallback)].slice(0, MAX_DISPLAY_NAME).join('')
+  const chosen = sanitizeDisplayNameChars(String(raw ?? '').trim())
+  const fallback = sanitizeDisplayNameChars(email.split('@')[0] || email)
+  let name = chosen || fallback
+  while (displayNameLength(name) < MIN_DISPLAY_NAME) name += '_'
+  return [...name].slice(0, MAX_DISPLAY_NAME).join('')
 }
 
 /** 注册口令：长度 8–128 位，且只用字母 / 数字 / 特殊字符（不允许中文、空格）。 */

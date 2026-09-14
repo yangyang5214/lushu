@@ -10,7 +10,7 @@
 // 这里只负责账号态；路书同步仍由 sync.ts 负责。
 
 import { create } from 'zustand'
-import { MAX_DISPLAY_NAME } from '../../shared/display-name'
+import { MAX_DISPLAY_NAME, MIN_DISPLAY_NAME } from '../../shared/display-name'
 import { MAX_PASSWORD, MIN_PASSWORD } from '../../shared/password'
 import { t, type MsgKey } from './i18n'
 import { ownerKey } from './keys'
@@ -82,7 +82,9 @@ export type AuthError =
   | 'turnstile_failed'
   | 'rate_limited'
   | 'empty_display_name'
+  | 'display_name_too_short'
   | 'display_name_too_long'
+  | 'invalid_display_name'
   | 'unauthorized'
   | 'network'
   | 'backend_unavailable'
@@ -101,7 +103,9 @@ const ERROR_KEY: Record<AuthError, MsgKey> = {
   turnstile_failed: 'err.turnstile_failed',
   rate_limited: 'err.rate_limited',
   empty_display_name: 'err.empty_display_name',
+  display_name_too_short: 'err.display_name_too_short',
   display_name_too_long: 'err.display_name_too_long',
+  invalid_display_name: 'err.invalid_display_name',
   unauthorized: 'err.unauthorized',
   network: 'err.network',
   backend_unavailable: 'common.backendUnavailable',
@@ -109,7 +113,7 @@ const ERROR_KEY: Record<AuthError, MsgKey> = {
 
 export function authErrorText(error: AuthError): string {
   return t(ERROR_KEY[error] ?? 'err.generic', {
-    min: MIN_PASSWORD,
+    min: error === 'display_name_too_short' ? MIN_DISPLAY_NAME : MIN_PASSWORD,
     max: error === 'display_name_too_long' ? MAX_DISPLAY_NAME : MAX_PASSWORD,
   })
 }
@@ -144,7 +148,9 @@ const KNOWN_ERRORS: AuthError[] = [
   'turnstile_failed',
   'rate_limited',
   'empty_display_name',
+  'display_name_too_short',
   'display_name_too_long',
+  'invalid_display_name',
   'unauthorized',
 ]
 
