@@ -44,10 +44,6 @@ pnpm pages:dev    # 先 build，再起 Worker，http://localhost:8788
 
 **要 HMR + 真实 D1：** 再开一个终端跑 `pnpm dev`，Vite 会把 `/api/books`、`/api/library` 等转发到 8788 的本地 Worker（可用 `LUSHU_API` 覆盖地址）。
 
-## 界面语言
-
-界面支持简体中文 / English，页头右上角一键切换；首次访问按浏览器语言自动选择，之后记住选择。新建路书的默认书名使用创建时的界面语言。
-
 ## 部署
 
 ```bash

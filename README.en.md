@@ -45,10 +45,6 @@ pnpm pages:dev    # build, then start the Worker on http://localhost:8788
 
 **HMR + real D1:** run `pnpm dev` in a second terminal; Vite forwards `/api/books`, `/api/library`, etc. to the Worker on 8788 (override with `LUSHU_API`).
 
-## UI language
-
-The UI ships in Simplified Chinese and English; toggle it from the top-right of the header. The first visit follows your browser language and the choice is remembered. A new book's default title uses whichever language was active when it was created.
-
 ## Deploy
 
 ```bash
