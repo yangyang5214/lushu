@@ -3,6 +3,7 @@ import { AccountPage } from './components/Account'
 import { AdminPage } from './components/AdminPage'
 import { MapCanvas } from './components/MapCanvas'
 import { MinePage } from './components/MinePage'
+import { MiniProgramPage } from './components/MiniProgramPage'
 import { PublicList } from './components/PublicList'
 import { RouteList } from './components/RouteList'
 import { Sidebar } from './components/Sidebar'
@@ -117,6 +118,7 @@ export default function App() {
 
   if (view === 'admin') return <AdminPage />
   if (view === 'public') return <PublicList />
+  if (view === 'mp') return <MiniProgramPage />
   // 我的路书是个人数据，要登录才能用：未登录（含正在探测）先落在账户页的
   // 登录表单上，不解释理由；登录态就位后这一页自动换回书架。
   if (view === 'account' || (view === 'mine' && !user)) return <AccountPage />

@@ -10,7 +10,7 @@ import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
 import type { Book, Journey, Place, Visibility } from './types'
 
-export type View = 'list' | 'mine' | 'public' | 'account' | 'admin' | 'edit'
+export type View = 'list' | 'mine' | 'public' | 'mp' | 'account' | 'admin' | 'edit'
 
 type NewBook = Partial<
   Pick<

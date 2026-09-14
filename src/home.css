@@ -698,6 +698,190 @@
   margin-top: 44px;
 }
 
+/* ---------- /mp：微信小程序落地页 ---------- */
+.mp-page {
+  position: relative;
+  padding: 48px 0 40px;
+  overflow: hidden;
+}
+
+.mp-page::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  right: 8%;
+  top: 20px;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.16), transparent 72%);
+  filter: blur(28px);
+  pointer-events: none;
+}
+
+.mp-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 56px;
+}
+
+.mp-copy {
+  min-width: 0;
+  max-width: 520px;
+}
+
+.mp-copy h1 {
+  margin: 14px 0 0;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.mp-copy .lede {
+  margin: 16px 0 0;
+  max-width: none;
+}
+
+.mp-points {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mp-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.mp-points h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mp-points p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.mp-stage {
+  justify-self: center;
+}
+
+.mp-card {
+  width: 280px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.mp-code {
+  display: block;
+  width: 216px;
+  height: 216px;
+  margin: 0 auto;
+  background: #fff;
+}
+
+.mp-name {
+  display: block;
+  margin: 16px 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mp-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* 小程序截图展台：四张手机图按使用顺序排，宽屏轻微错落。 */
+.mp-shots {
+  padding: 8px 0 88px;
+  border-top: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.04) 0%, transparent 72%);
+}
+
+.mp-shot-row {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px 22px;
+  align-items: start;
+}
+
+.mp-shot {
+  min-width: 0;
+}
+
+.mp-shot figure {
+  margin: 0;
+}
+
+.mp-shot-phone {
+  overflow: hidden;
+  border-radius: 28px;
+  background: #111;
+  box-shadow:
+    0 0 0 1px rgba(16, 16, 24, 0.08),
+    0 18px 44px -18px rgba(16, 16, 24, 0.38);
+}
+
+.mp-shot-phone img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mp-shot figcaption {
+  margin-top: 16px;
+}
+
+.mp-shot-num {
+  display: block;
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-shot h3 {
+  margin: 4px 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.mp-shot p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+@media (min-width: 821px) {
+  .mp-shot:nth-child(even) {
+    margin-top: 36px;
+  }
+}
+
 /* ---------- 区块标题 ---------- */
 .section-head {
   margin-bottom: 28px;
@@ -1361,6 +1545,41 @@
   .nav-links a {
     font-size: 13.5px;
   }
+
+  .mp-page {
+    padding: 28px 0 20px;
+  }
+
+  .mp-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    text-align: center;
+  }
+
+  .mp-copy {
+    max-width: none;
+  }
+
+  .mp-copy .lede {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .mp-points {
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+  }
+
+  .mp-shots {
+    padding: 8px 0 64px;
+  }
+
+  .mp-shot-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 18px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1370,6 +1589,35 @@
 
   .feature-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mp-card {
+    width: 256px;
+    padding: 22px 18px 18px;
+  }
+
+  .mp-code {
+    width: 200px;
+    height: 200px;
+  }
+
+  .mp-shot-row {
+    display: flex;
+    gap: 14px;
+    margin: 0 -16px;
+    padding: 4px 16px 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mp-shot {
+    flex: 0 0 68%;
+    scroll-snap-align: start;
+  }
+
+  .mp-shot-phone {
+    border-radius: 24px;
   }
 }
 

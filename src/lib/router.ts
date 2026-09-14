@@ -2,6 +2,7 @@ export type Route =
   | { name: 'list' }
   | { name: 'mine' }
   | { name: 'public' }
+  | { name: 'mp' }
   | { name: 'account' }
   | { name: 'admin' }
   /**
@@ -14,6 +15,7 @@ export type Route =
 export const ROOT_PATH = '/'
 export const MINE_PATH = '/list'
 export const PUBLIC_PATH = '/public'
+export const MP_PATH = '/mp'
 export const ACCOUNT_PATH = '/account'
 export const ADMIN_PATH = '/admin'
 /** 管理后台左侧 tab；概览是默认页。 */
@@ -33,7 +35,8 @@ function safeDecode(value: string): string {
 
 /**
  * `/` → 首页（含怎么用），`/list` → 我的路书，`/public` → 公开路书，
- * `/account` → 账户，`/d/1a2b3c4d5e/abbe26963b3f90f90b8ea659` → 某人的某本路书，
+ * `/mp` → 微信小程序，`/account` → 账户，
+ * `/d/1a2b3c4d5e/abbe26963b3f90f90b8ea659` → 某人的某本路书，
  * `/d/abbe26963b3f90f90b8ea659` → 同一本（老链接 / 匿名书架没有 userId）。
  * 旧的无前缀链接 `/{userId}/{bookId}`、`/{bookId}` 仍然兼容。
  * 每个导航项都是独立页面，URL 里不再出现 `#`。
@@ -50,6 +53,7 @@ export function parsePath(pathname: string): Route {
   if (first === 'how') return { name: 'list' }
   if (first === 'list') return { name: 'mine' }
   if (first === 'public') return { name: 'public' }
+  if (first === 'mp') return { name: 'mp' }
   if (first === 'account') return { name: 'account' }
   if (first === 'admin') return { name: 'admin' }
   // 带前缀的新链接去掉 `/r` 这一段，再按路书解析；没有前缀的老链接原样解析。
@@ -140,6 +144,10 @@ export function navigateMine(): void {
 
 export function navigatePublic(): void {
   go(PUBLIC_PATH)
+}
+
+export function navigateMp(): void {
+  go(MP_PATH)
 }
 
 export function navigateAccount(): void {

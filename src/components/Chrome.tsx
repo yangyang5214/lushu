@@ -1,11 +1,11 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { useI18n } from '../lib/i18n'
-import { navigateList, navigateMine, navigatePublic } from '../lib/router'
+import { navigateList, navigateMine, navigateMp, navigatePublic } from '../lib/router'
 import { AccountChip } from './AccountChip'
 import { BrandMark } from './BrandMark'
 import { LangSwitch } from './LangSwitch'
 
-export type NavKey = 'mine' | 'public'
+export type NavKey = 'mine' | 'public' | 'mp'
 
 /** 项目开源地址：页头右上角的 GitHub 图标入口。 */
 export const GITHUB_URL = 'https://github.com/yangyang5214/lushu'
@@ -67,6 +67,9 @@ export function SiteNav({
             onClick={jump(navigatePublic)}
           >
             {t('nav.public')}
+          </a>
+          <a href="/mp" className={active === 'mp' ? 'on' : undefined} onClick={jump(navigateMp)}>
+            {t('nav.mp')}
           </a>
         </nav>
         <div className="nav-actions">
