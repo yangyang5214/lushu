@@ -36,7 +36,7 @@ const zh = {
   'nav.github': '在 GitHub 上看源码',
 
   // ── 搜索 ─────────────────────────────────────────────────────────────────
-  'search.placeholder': '搜索添加新目的地',
+  'search.placeholder': '搜地点 如 泉州 关岳庙',
   'search.noResults': '没有找到，试试更具体的地名',
   'search.offline': '在线搜索暂时不可用，请稍后再试',
   'map.fit': '回到全览',
@@ -351,7 +351,7 @@ const en: Record<MsgKey, string> = {
   'nav.accountTitle': 'Account · {email}',
   'nav.github': 'View the source on GitHub',
 
-  'search.placeholder': 'Search and add a destination',
+  'search.placeholder': 'Search a place, e.g. Quanzhou Guanyue',
   'search.noResults': 'Nothing found — try a more specific place',
   'search.offline': 'Search is temporarily unavailable, please try again later',
   'map.fit': 'Fit route',

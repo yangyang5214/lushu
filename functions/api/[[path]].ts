@@ -1109,7 +1109,7 @@ async function amapPlaceOnce(key: string, q: string): Promise<PlaceHit[] | null>
   const params = new URLSearchParams({
     key,
     keywords: q,
-    offset: '10',
+    offset: '25',
     page: '1',
     extensions: 'base',
   })
@@ -1147,7 +1147,7 @@ async function places(ctx: Ctx): Promise<Response> {
 
   // 缓存键不带 key，换 key 不用失效；缓存的是已经转好坐标的统一形状。
   const cache = typeof caches !== 'undefined' ? caches.default : undefined
-  const cacheKey = new Request(`https://lushu.internal/api/places/v1?q=${encodeURIComponent(q)}`, {
+  const cacheKey = new Request(`https://lushu.internal/api/places/v2?q=${encodeURIComponent(q)}`, {
     method: 'GET',
   })
   if (cache) {

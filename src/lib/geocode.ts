@@ -34,5 +34,5 @@ export async function searchPlaces(query: string): Promise<SearchHit[]> {
   } catch {
     amap = []
   }
-  return dedupe([...local, ...amap]).slice(0, 10)
+  return dedupe([...local, ...amap]).slice(0, 25)
 }
