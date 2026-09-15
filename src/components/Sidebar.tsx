@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { formatKm, formatLegLabel } from '../lib/geo'
+import { formatKm, formatLegLabel, validSplitIndexes } from '../lib/geo'
 import { useI18n } from '../lib/i18n'
 import { fetchRoad } from '../lib/route'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
@@ -55,6 +55,8 @@ export function Sidebar() {
   const setEnd = useLushu((s) => s.setEnd)
   const setTitle = useLushu((s) => s.setTitle)
   const removePlace = useLushu((s) => s.removePlace)
+  const addSplit = useLushu((s) => s.addSplit)
+  const removeSplit = useLushu((s) => s.removeSplit)
   const selectPlace = useLushu((s) => s.selectPlace)
   const closeBook = useLushu((s) => s.closeBook)
   const back = () => {
@@ -63,6 +65,10 @@ export function Sidebar() {
     // 别人分享的路书直接粘链接打开时没有来源页，退回「公开路书」而不是要登录的「我的路书」。
     navigateBookOrigin(readonly ? PUBLIC_PATH : undefined)
   }
+  const nightIds = new Set(
+    validSplitIndexes(journey.ordered, journey.isLoop).map((i) => journey.ordered[i]?.id),
+  )
+  const splitSet = new Set(journey.splitIds)
   const [folded, setFolded] = useState<Record<number, boolean>>({})
 
   const toggleFold = (index: number) => {
@@ -128,6 +134,8 @@ export function Sidebar() {
                           place.id === journey.start?.id &&
                           day.index === journey.days.length - 1 &&
                           i === visible.length - 1
+                        const isNight = !isReturn && splitSet.has(place.id)
+                        const canNight = !isReturn && (nightIds.has(place.id) || isNight)
                         const next = visible[i + 1]
                         const no = isReturn
                           ? journey.ordered.length + 1
@@ -149,13 +157,27 @@ export function Sidebar() {
                                   {isReturn || (place.id === endId && !journey.isLoop) ? (
                                     <mark>{t('sidebar.endBadge')}</mark>
                                   ) : null}
+                                  {isNight ? <mark>{t('rail.nightBadge')}</mark> : null}
                                 </strong>
                               </button>
                               <div className="stop-ops">
                                 {readonly ? null : (
-                                  <button type="button" onClick={() => removePlace(place.id)}>
-                                    {t('common.delete')}
-                                  </button>
+                                  <>
+                                    {canNight ? (
+                                      <button
+                                        type="button"
+                                        className={isNight ? 'on' : ''}
+                                        onClick={() =>
+                                          isNight ? removeSplit(place.id) : addSplit(place.id)
+                                        }
+                                      >
+                                        {isNight ? t('sidebar.cancelNight') : t('sidebar.night')}
+                                      </button>
+                                    ) : null}
+                                    <button type="button" onClick={() => removePlace(place.id)}>
+                                      {t('common.delete')}
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>

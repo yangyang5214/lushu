@@ -51,6 +51,8 @@ const zh = {
   'sidebar.endBadge': '终',
   'sidebar.setStart': '起点',
   'sidebar.setEnd': '终点',
+  'sidebar.night': '过夜',
+  'sidebar.cancelNight': '取消过夜',
   'sidebar.hintEmpty': '搜索添加地点，再设起点和终点。起终点相同即为环线。',
   'sidebar.hintReady': '设好起点和终点后，其余点会按路程串成一条线。',
 
@@ -364,6 +366,8 @@ const en: Record<MsgKey, string> = {
   'sidebar.endBadge': 'E',
   'sidebar.setStart': 'Start',
   'sidebar.setEnd': 'End',
+  'sidebar.night': 'Overnight',
+  'sidebar.cancelNight': 'Cancel overnight',
   'sidebar.hintEmpty':
     'Search to add places, then set a start and an end. The same start and end makes a loop.',
   'sidebar.hintReady':

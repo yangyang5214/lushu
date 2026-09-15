@@ -399,9 +399,17 @@ export const useStore = create<Store>()(
 
       addPlace: (input) => {
         const id = input.id ?? uid('p')
-        const place: Place = { ...input, id }
-        set((s) =>
-          activePatch(s, (b) => {
+        let usedId = id
+        set((s) => {
+          const book = s.activeId ? s.books[s.activeId] : undefined
+          // 经纬度完全相同才算重复：不加、不改 updatedAt、也不弹提示。
+          const dup = book?.places.find((p) => p.lng === input.lng && p.lat === input.lat)
+          if (dup) {
+            usedId = dup.id
+            return {}
+          }
+          const place: Place = { ...input, id }
+          return activePatch(s, (b) => {
             const places = [...b.places, place]
             // 起终点齐全时整条重排（与删点、改起终点同一套）：新点插在哪最优、
             // 要不要顺手把已有的段挪一插，都由 orderRoute 一起决定。
@@ -414,9 +422,9 @@ export const useStore = create<Store>()(
               orderedIds,
               splitIds: pruneSplits(orderedIds, b.splitIds, loopOf(next)),
             }
-          }),
-        )
-        return id
+          })
+        })
+        return usedId
       },
 
       removePlace: (id) =>

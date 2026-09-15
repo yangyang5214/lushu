@@ -57,6 +57,22 @@ function bendStyle(color: string, tail: number, head: number): CSSProperties {
   } as CSSProperties
 }
 
+/**
+ * 分行下标必须恰好覆盖 0..n-1。加/删地点后旧 rows 还是上一轮下标，
+ * 若继续拿来渲染，新珠子进不了 DOM，量宽后又判定「没变」，行程尺会卡住。
+ */
+function rowsCoverBeads(rows: number[][], n: number): boolean {
+  if (n <= 0 || rows.length === 0) return false
+  const seen = new Set<number>()
+  for (const row of rows) {
+    for (const i of row) {
+      if (!Number.isInteger(i) || i < 0 || i >= n || seen.has(i)) return false
+      seen.add(i)
+    }
+  }
+  return seen.size === n
+}
+
 export function SplitRail() {
   const { t } = useI18n()
   const journey = useJourney()
@@ -127,7 +143,8 @@ export function SplitRail() {
       lastWidth = width
       dirty = false
       const els = [...rail.querySelectorAll<HTMLElement>('[data-unit]')]
-      if (!els.length || width <= 0) return
+      // 量到的刻度对不上当前珠子：DOM 还是旧分行，这一轮不算数。
+      if (!els.length || width <= 0 || els.length !== beadsRef.current.length) return
       const measured = els.map((el) => el.getBoundingClientRect().width)
       const prev = beadWidthsRef.current
       if (prev.length !== measured.length || measured.some((w, i) => Math.abs(w - prev[i]) > 0.5)) {
@@ -258,7 +275,8 @@ export function SplitRail() {
   })
 
   // 刻度是行的直接子元素，走线才能 flex-grow 把整行撑满；行尾改用带拐弯的连接线接下一行。
-  const shown = rows.length ? rows : [beads.map((_, i) => i)]
+  // 旧分行对不上当前珠子时先铺成一行，让新地点先出现，再用 layout 重新量宽折行。
+  const shown = rowsCoverBeads(rows, beads.length) ? rows : [beads.map((_, i) => i)]
 
   return (
     <footer className="rail">
