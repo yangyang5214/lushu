@@ -1,0 +1,10 @@
+# 路书 https://lushu.fittools.cc
+User-agent: *
+Allow: /
+
+# 需要登录的个人数据与站点后台，不进搜索引擎
+Disallow: /list
+Disallow: /account
+Disallow: /admin
+
+Sitemap: https://lushu.fittools.cc/sitemap.xml

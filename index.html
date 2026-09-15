@@ -4,11 +4,107 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>路书 · 随意加点，自动串线与分天</title>
+
+    <title>路书 · 自驾行程规划，随意加点、自动串线与过夜分天</title>
+    <meta
+      name="description"
+      content="路书是一款在线自驾行程规划工具：把想去的地点搜进来，自动串成顺路的路线，在过夜处把行程分成一天一天，几分钟整理出一本可以分享的多日路书。"
+    />
+    <meta
+      name="keywords"
+      content="路书,自驾路书,行程规划,自驾游路线,路线规划,多日行程,环线规划,路书工具,微信小程序路书"
+    />
+    <link rel="canonical" href="https://lushu.fittools.cc/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="路书" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="路书 · 自驾行程规划，随意加点、自动串线与过夜分天" />
+    <meta
+      property="og:description"
+      content="把想去的地点搜进来，自动串成顺路的路线，在过夜处分成一天一天，几分钟整理出一本可以分享的多日路书。"
+    />
+    <meta property="og:url" content="https://lushu.fittools.cc/" />
+    <meta property="og:image" content="https://lushu.fittools.cc/gpx_merge_01.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="路书 · 自驾行程规划与分享" />
+    <meta
+      name="twitter:description"
+      content="把想去的地点搜进来，自动串成顺路的路线，在过夜处分成一天一天，几分钟整理出一本可以分享的多日路书。"
+    />
+    <meta name="theme-color" content="#efe4d2" />
+    <meta name="application-name" content="路书" />
+    <meta name="apple-mobile-web-app-title" content="路书" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "路书",
+        "alternateName": "Lushu Roadbook",
+        "url": "https://lushu.fittools.cc/",
+        "applicationCategory": "TravelApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "zh-CN",
+        "description": "路书是一款在线自驾行程规划工具：把想去的地点搜进来，自动串成顺路的路线，在过夜处把行程分成一天一天，几分钟整理出一本可以分享的多日路书。",
+        "featureList": [
+          "搜地点、随手加点",
+          "按路程自动串线",
+          "在过夜处自动分天",
+          "驾车里程与时长统计",
+          "云端书架跨设备同步",
+          "公开分享与复制路书",
+          "微信小程序查看与导航"
+        ]
+      }
+    </script>
+
+    <style>
+      /* 无 JS（含不执行 JS 的爬虫）看到的首页正文。JS 一接管就隐藏、清空，由应用渲染。 */
+      html.js .seo-fallback {
+        display: none;
+      }
+      .seo-fallback {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 56px 20px 80px;
+        font-family: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+        line-height: 1.8;
+        color: #1b1712;
+        background: #efe4d2;
+      }
+      .seo-fallback h1 {
+        font-size: 32px;
+        line-height: 1.35;
+        margin: 0 0 8px;
+      }
+      .seo-fallback .seo-tagline {
+        color: #7a6f62;
+        margin: 0 0 20px;
+      }
+      .seo-fallback h2 {
+        font-size: 21px;
+        margin: 34px 0 10px;
+      }
+      .seo-fallback ul,
+      .seo-fallback ol {
+        padding-left: 22px;
+        margin: 0;
+      }
+      .seo-fallback li {
+        margin: 6px 0;
+      }
+      .seo-fallback a {
+        color: #c23b22;
+      }
+    </style>
+
     <script>
-      // 首屏前先按「上次选择 / 浏览器语言」定好 <html lang> 与标题，避免闪一下中文。
+      // 尽早打上 js 标记：CSS 用它隐藏下面的静态正文，避免应用渲染前闪一下。
+      // 另外按「上次选择 / 浏览器语言」定好 <html lang> 与标题，避免闪一下中文。
       (function () {
         try {
+          document.documentElement.classList.add('js')
           var raw = localStorage.getItem('lushu-lang-v1')
           var lang = raw ? (JSON.parse(raw).state || {}).lang : null
           if (lang !== 'zh' && lang !== 'en') {
@@ -32,8 +128,8 @@
           document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN'
           document.title =
             lang === 'en'
-              ? 'Roadbook · Add places freely, auto-link and split into days'
-              : '路书 · 随意加点，自动串线与分天'
+              ? '路书 Roadbook · Road-trip itinerary planner, auto-route & day splits'
+              : '路书 · 自驾行程规划，随意加点、自动串线与过夜分天'
         } catch (e) {
           /* 隐私模式：保持默认 */
         }
@@ -47,7 +143,50 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        静态首页正文：给搜索引擎 / 不执行 JS 的浏览器看。内容与站内首页一致，
+        JS 加载后由 src/main.tsx 清空并交给 React 渲染，所以用户看不到也不会重复。
+      -->
+      <div class="seo-fallback">
+        <h1>路书 · 自驾行程规划与分享</h1>
+        <p class="seo-tagline">想去的都加进来，顺序自动排，按天好规划。</p>
+        <p>
+          路书是一款在线自驾路书工具：把想去的地点搜进来，不用纠结先去哪、第几天走哪段，
+          路书会按路程把所有点串成顺路的路线；在过夜的城市钉上分割针，行程就自动分成
+          第 1 天、第 2 天……几分钟整理出一本可以分享的多日路书。
+        </p>
+
+        <h2>路书怎么用：三步搞定行程</h2>
+        <ol>
+          <li>
+            <strong>随意加点</strong>：城市、寺庙、老街、营地，想到什么就加什么，不用管顺序，也不用先想第几天。
+          </li>
+          <li>
+            <strong>自动串线</strong>：所有地点按路程自动排成合理顺序；还能钉起终点，起终点相同就是环线。
+          </li>
+          <li>
+            <strong>过夜分天</strong>：在任意地点设过夜分割针，行程自动分成第几天；拖动分割针还能调整每天走多远。
+          </li>
+        </ol>
+
+        <h2>路书还能做什么</h2>
+        <ul>
+          <li>地图按天着色，画出当天要走的路，点与点之间标出大概路程和时间；</li>
+          <li>统计驾车总里程与总时长，每天跑多远一目了然；</li>
+          <li>云端书架保存「我的路书」，可复制、可改名、可设为仅自己可见，跨设备同步；</li>
+          <li>公开后出现在「公开路书」，别人用链接就能看完整路线和每天行程，也能复制成自己的再改；</li>
+          <li>配合微信小程序「gpx merge」，在手机上按天查看行程、点地点直接导航。</li>
+        </ul>
+
+        <h2>开始规划你的路书</h2>
+        <p>
+          <a href="/">打开路书</a> ·
+          <a href="/public">看看别人公开的路书</a> ·
+          <a href="/mp">微信小程序</a>
+        </p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

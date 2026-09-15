@@ -570,7 +570,7 @@ const en: Record<MsgKey, string> = {
   'diagram.day1': 'Day 1 · 286 km',
   'diagram.day2': 'Day 2 · 198 km',
 
-  'meta.title': 'Roadbook · Add places freely, auto-link and split into days',
+  'meta.title': '路书 Roadbook · Road-trip itinerary planner, auto-route & day splits',
 }
 
 const CATALOG: Record<Lang, Record<MsgKey, string>> = { zh, en }
