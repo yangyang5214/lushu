@@ -90,10 +90,10 @@ const zh = {
     '不用纠结先去哪、第几天走哪段。地点搜进来就好，路书按路程串联所有点；在过夜处钉分割针，行程自动分成一天天',
   'home.newBook': '新建路书',
   'home.seePublic': '看看公开路书',
-  'home.flowHeading': '三步搞定行程',
-  'home.flowSub': '先加点，再串线，最后分天——顺序不用你操心。',
-  'home.featuresHeading': '还有这些',
-  'home.featuresSub': '地图、书架与分享，写完之后随时查看和发布。',
+  'home.guideHeading': '每个按钮，都对应路上的一件事',
+  'home.guideSub':
+    '编辑页里能点的东西其实不多。下面挨个说一遍：在哪儿点、点完会发生什么。',
+  'home.guideWhere': '在哪儿点',
 
   'nav.mp': '小程序',
   'mp.kicker': '微信小程序',
@@ -122,32 +122,43 @@ const zh = {
   'mp.s4.title': '一键导航',
   'mp.s4.text': '点地点就能走，不用再手动切导航 App',
   'mp.s4.alt': '小程序地点导航截图',
+  // ── 主页功能介绍：每张卡片一份文案 ────────────────────────────────────────
 
-  'flow.1.key': '地点',
-  'flow.1.title': '随意加点',
-  'flow.1.text':
-    '城市、寺庙、老街、营地，想到什么就加什么。不用管顺序，也不用先想第几天。',
-  'flow.2.key': '路线',
-  'flow.2.title': '自动串线',
-  'flow.2.text':
-    '所有地点按路程自动排成合理顺序。需要的话还能钉起终点，起终点相同就是环线。',
-  'flow.3.key': '天数',
-  'flow.3.title': '过夜分天',
-  'flow.3.text':
-    '在任意地点设过夜分割针，行程自动分成第几天。拖动分割针还能调整每天走多远。',
+  'feat.add.title': '搜一下就加进来',
+  'feat.add.text':
+    '在地图左上角的搜索框里打地名，点中结果就加进行程清单。想到什么加什么，顺序不用管。',
+  'feat.add.where': '地图左上角的搜索框',
+  'feat.add.alt': '示意图：在搜索框里搜到地点，点一下加进行程清单',
+  'feat.ends.title': '起点终点，定下方向',
+  'feat.ends.text':
+    '在任意一行的右侧点「起点」或「终点」。定好之后，其余地点按路程自动串成一条顺路的线；起点和终点选同一个点，就是环线。',
+  'feat.ends.where': '地点那一行右侧的「起点」「终点」',
+  'feat.ends.alt': '示意图：给地点设起点和终点，地图上串成一条路线',
+  'feat.night.title': '点一下「过夜」，行程就分天',
+  'feat.night.text':
+    '在今晚要住下的那个地点点「过夜」，全程立刻分成第 1 天、第 2 天，清单和地图的颜色一起变。',
+  'feat.night.where': '行末的「过夜」按钮',
+  'feat.night.alt': '示意图：在过夜的地点钉上分割针，行程分成两天',
+  'feat.rail.title': '底部的行程尺，一眼看完整个行程',
+  'feat.rail.text':
+    '整条路线按实际里程铺开，一颗珠就是一个地点：点珠子能选中地点，也能直接钉过夜；按住「夜」拖到别的点就能改分天。',
+  'feat.rail.where': '编辑页底部那条尺',
+  'feat.rail.alt': '示意图：底部行程尺上的珠子，把「夜」拖到另一个点',
+  'feat.legs.title': '点与点之间，标着大概要开多久',
+  'feat.legs.text':
+    '相邻两个地点之间会显示里程和驾驶时长；天数、地点数、总里程、驾驶时长这四个总数，跟着你的改动实时重算。',
+  'feat.legs.where': '两个地点之间的行车线，和尺子右上的总数',
+  'feat.legs.alt': '示意图：地点之间的里程与驾驶时长，以及总统计',
 
-  'feature.1.key': '地图',
-  'feature.1.title': '地图按天画路',
-  'feature.1.text':
-    '地图按天着色，画出当天要走的路，点与点之间标出大概路程和时间。',
-  'feature.2.key': '书架',
-  'feature.2.title': '我的路书',
-  'feature.2.text':
-    '写过的路书都在书架上，可复制、可改名，也可设为仅自己可见。',
-  'feature.3.key': '公开',
-  'feature.3.title': '公开路书',
-  'feature.3.text':
-    '公开后出现在「公开路书」里，别人用链接也能看完整路线和每天行程。',
+  'shot.book': '闽南 5 天',
+  'shot.p1': '泉州 关岳庙',
+  'shot.p2': '洛阳桥',
+  'shot.p3': '崇武古城',
+  'shot.p4': '漳州古城',
+  'shot.p5': '云水谣',
+  'shot.loop': '环线',
+  'shot.p5b': '云水谣古道',
+  'shot.p5addr': '南靖县 · 云水谣古镇',
 
   // ── 路书卡片（我的 / 公开共用） ──────────────────────────────────────────
   'card.days': '{n} 天',
@@ -404,12 +415,10 @@ const en: Record<MsgKey, string> = {
     'Stop agonizing over where to go first or how far to drive each day. Just search in the places; the Roadbook links them by distance, and pins at overnight stops split the trip into days.',
   'home.newBook': 'New Roadbook',
   'home.seePublic': 'Browse public Roadbooks',
-  'home.flowHeading': 'Plan a trip in three steps',
-  'home.flowSub':
-    'Add places, link them, then split into days — the order takes care of itself.',
-  'home.featuresHeading': 'And more',
-  'home.featuresSub':
-    'Map, shelf and sharing — review and publish whenever you are done.',
+  'home.guideHeading': 'Every button maps to one thing on the road',
+  'home.guideSub':
+    'The editor has only a handful of controls. Here is each one: where it lives, and what happens when you use it.',
+  'home.guideWhere': 'Where',
 
   'nav.mp': 'Mini Program',
   'mp.kicker': 'WeChat Mini Program',
@@ -438,32 +447,43 @@ const en: Record<MsgKey, string> = {
   'mp.s4.title': 'Navigate',
   'mp.s4.text': 'Tap a stop and go.',
   'mp.s4.alt': 'Mini Program screenshot of place navigation',
+  // ── Home feature guide: one copy block per card ──────────────────────────
 
-  'flow.1.key': 'Places',
-  'flow.1.title': 'Add freely',
-  'flow.1.text':
-    'Cities, temples, old streets, campsites — add anything that comes to mind. No need to worry about order or which day it lands on.',
-  'flow.2.key': 'Route',
-  'flow.2.title': 'Auto-linked',
-  'flow.2.text':
-    'Every place is ordered by distance automatically. Pin a start and an end if you like — the same start and end makes a loop.',
-  'flow.3.key': 'Days',
-  'flow.3.title': 'Split by night',
-  'flow.3.text':
-    'Drop an overnight pin at any stop and the trip splits into days. Drag the pins to change how far you drive each day.',
+  'feat.add.title': 'Search, and it joins the trip',
+  'feat.add.text':
+    'Type a place into the search box at the top-left of the map and pick a result — it lands in the itinerary. Add in any order.',
+  'feat.add.where': 'Search box at the top-left of the map',
+  'feat.add.alt': 'Diagram: searching for a place and adding it to the itinerary',
+  'feat.ends.title': 'A start and an end set the direction',
+  'feat.ends.text':
+    'Click Start or End on any stop. The other places are then strung into one sensible route by distance — pick the same stop for both and you get a loop.',
+  'feat.ends.where': 'The Start / End buttons on each stop',
+  'feat.ends.alt': 'Diagram: setting a start and an end on stops, drawn as a route on the map',
+  'feat.night.title': 'One click on Overnight splits the days',
+  'feat.night.text':
+    'Click Overnight on the stop where you will sleep: the trip splits into Day 1, Day 2 right away, and the itinerary and map recolor.',
+  'feat.night.where': 'The Overnight button on each stop',
+  'feat.night.alt': 'Diagram: pinning an overnight stop, splitting the trip into two days',
+  'feat.rail.title': 'The trip ruler shows the whole trip at a glance',
+  'feat.rail.text':
+    'The route is laid out on a ruler by real distance, one bead per stop: click a bead to select the stop or pin an overnight there; drag the night pin onto another bead to move it.',
+  'feat.rail.where': 'The ruler along the bottom of the editor',
+  'feat.rail.alt': 'Diagram: beads on the trip ruler with the night pin dragged to another stop',
+  'feat.legs.title': 'Between stops: how far, and how long',
+  'feat.legs.text':
+    'Every leg shows its distance and drive time; the four totals — days, stops, distance, drive time — recompute as you edit.',
+  'feat.legs.where': 'The legs between stops, and the totals by the ruler',
+  'feat.legs.alt': 'Diagram: distance and drive time between stops, plus the trip totals',
 
-  'feature.1.key': 'Map',
-  'feature.1.title': 'Routes colored by day',
-  'feature.1.text':
-    'The map colors each day differently and shows the approximate distance and time between stops.',
-  'feature.2.key': 'Shelf',
-  'feature.2.title': 'My Roadbooks',
-  'feature.2.text':
-    'Every Roadbook you write lives on the shelf — duplicate it, rename it, or keep it to yourself.',
-  'feature.3.key': 'Public',
-  'feature.3.title': 'Public Roadbooks',
-  'feature.3.text':
-    'Publish it and it appears under Public Roadbooks; anyone with the link can see the full route and each day of the trip.',
+  'shot.book': 'Minnan · 5 days',
+  'shot.p1': 'Quanzhou',
+  'shot.p2': 'Luoyang Bridge',
+  'shot.p3': 'Chongwu',
+  'shot.p4': 'Zhangzhou',
+  'shot.p5': 'Yunshuiyao',
+  'shot.loop': 'Loop',
+  'shot.p5b': 'Yunshuiyao Old Trail',
+  'shot.p5addr': 'Nanjing County, Fujian',
 
   'card.days': '{n} days',
   'card.draft': 'Draft',

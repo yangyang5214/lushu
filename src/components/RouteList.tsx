@@ -1,129 +1,34 @@
-import type { ReactNode } from 'react'
+import type { ComponentType } from 'react'
 import { requireLogin, useAuth } from '../lib/auth'
 import { useI18n, type MsgKey } from '../lib/i18n'
 import { navigateBook, navigatePublic } from '../lib/router'
 import { useLushu } from '../store'
 import { SiteNav } from './Chrome'
+import { ShotAdd, ShotEnds, ShotLegs, ShotNight, ShotRail } from './FeatureShots'
 import { HeroDiagram } from './HeroDiagram'
 
-function IconSearch() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden>
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="M15.8 15.8 21 21" />
-    </svg>
-  )
-}
-
-function IconPin() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden>
-      <path d="M12 21.5s7-6.4 7-11.5a7 7 0 1 0-14 0c0 5.1 7 11.5 7 11.5Z" />
-      <circle cx="12" cy="10" r="2.6" />
-    </svg>
-  )
-}
-
-function IconCut() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden>
-      <circle cx="6" cy="6.5" r="2.6" />
-      <circle cx="6" cy="17.5" r="2.6" />
-      <path d="M8.3 7.8 20 17.2M8.3 16.2 20 6.8" />
-    </svg>
-  )
-}
-
-function IconMap() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden>
-      <path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13L15.5 6.5 9 4.5Z" />
-      <path d="M9 4.5v13M15.5 6.5v13" />
-    </svg>
-  )
-}
-
-function IconShelf() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden>
-      <path d="M5 5.5h14v13H5Z" />
-      <path d="M5 10h14M5 14.5h14M9 5.5v13" />
-    </svg>
-  )
-}
-
-function IconShare() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden>
-      <circle cx="6.5" cy="12" r="2.4" />
-      <circle cx="17" cy="6.5" r="2.4" />
-      <circle cx="17" cy="17.5" r="2.4" />
-      <path d="M8.7 10.8 14.8 7.6M8.7 13.2 14.8 16.4" />
-    </svg>
-  )
-}
-
-type FlowStep = {
-  step: string
-  labelKey: MsgKey
+type Guide = {
+  /** 序号：01、02…，和配图一起当小标题用。 */
+  num: string
   titleKey: MsgKey
   textKey: MsgKey
-  icon: ReactNode
+  whereKey: MsgKey
+  shot: ComponentType
 }
 
-const FLOW_STEPS: FlowStep[] = [
-  {
-    step: '01',
-    labelKey: 'flow.1.key',
-    titleKey: 'flow.1.title',
-    textKey: 'flow.1.text',
-    icon: <IconSearch />,
-  },
-  {
-    step: '02',
-    labelKey: 'flow.2.key',
-    titleKey: 'flow.2.title',
-    textKey: 'flow.2.text',
-    icon: <IconPin />,
-  },
-  {
-    step: '03',
-    labelKey: 'flow.3.key',
-    titleKey: 'flow.3.title',
-    textKey: 'flow.3.text',
-    icon: <IconCut />,
-  },
+/**
+ * 功能介绍：从「加地点」到「地图按天着色」，一个动作配一张编辑页示意图。
+ * 顺序跟着实际用法走：先加点，再定起终点，然后过夜分天，最后看尺子和地图。
+ */
+const GUIDE: Guide[] = [
+  { num: '01', titleKey: 'feat.add.title', textKey: 'feat.add.text', whereKey: 'feat.add.where', shot: ShotAdd },
+  { num: '02', titleKey: 'feat.ends.title', textKey: 'feat.ends.text', whereKey: 'feat.ends.where', shot: ShotEnds },
+  { num: '03', titleKey: 'feat.night.title', textKey: 'feat.night.text', whereKey: 'feat.night.where', shot: ShotNight },
+  { num: '04', titleKey: 'feat.rail.title', textKey: 'feat.rail.text', whereKey: 'feat.rail.where', shot: ShotRail },
+  { num: '05', titleKey: 'feat.legs.title', textKey: 'feat.legs.text', whereKey: 'feat.legs.where', shot: ShotLegs },
 ]
 
-type Feature = {
-  labelKey: MsgKey
-  titleKey: MsgKey
-  textKey: MsgKey
-  icon: ReactNode
-}
-
-const EXTRA_FEATURES: Feature[] = [
-  {
-    labelKey: 'feature.1.key',
-    titleKey: 'feature.1.title',
-    textKey: 'feature.1.text',
-    icon: <IconMap />,
-  },
-  {
-    labelKey: 'feature.2.key',
-    titleKey: 'feature.2.title',
-    textKey: 'feature.2.text',
-    icon: <IconShelf />,
-  },
-  {
-    labelKey: 'feature.3.key',
-    titleKey: 'feature.3.title',
-    textKey: 'feature.3.text',
-    icon: <IconShare />,
-  },
-]
-
-/** `/`：首页，首屏 + 核心功能；书单都在独立的 `/list`、`/public` 页。 */
+/** `/`：首页，首屏 + 逐个动作的功能介绍；书单都在独立的 `/list`、`/public` 页。 */
 export function RouteList() {
   const { t } = useI18n()
   const createBook = useLushu((s) => s.createBook)
@@ -159,48 +64,34 @@ export function RouteList() {
           </div>
         </section>
 
-        <section className="flow">
+        {/* 每个动作单独展开，一个动作一张编辑页示意图。 */}
+        <section className="guide">
           <div className="shell">
             <header className="section-head">
-              <h2>{t('home.flowHeading')}</h2>
-              <p>{t('home.flowSub')}</p>
+              <h2>{t('home.guideHeading')}</h2>
+              <p>{t('home.guideSub')}</p>
             </header>
-            <ol className="flow-steps">
-              {FLOW_STEPS.map((f, i) => (
-                <li key={f.labelKey} className="flow-step">
-                  <div className="flow-step-card">
-                    <div className="flow-step-top">
-                      <span className="flow-step-num">{f.step}</span>
-                      <span className="feature-icon">{f.icon}</span>
-                    </div>
-                    <span className="flow-step-key">{t(f.labelKey)}</span>
-                    <h3>{t(f.titleKey)}</h3>
-                    <p>{t(f.textKey)}</p>
+            <ol className="feat-rows">
+              {GUIDE.map(({ num, titleKey, textKey, whereKey, shot: Shot }) => (
+                <li key={num} className="feat-row">
+                  <div className="feat-shot">
+                    <Shot />
                   </div>
-                  {i < FLOW_STEPS.length - 1 ? <span className="flow-connector" aria-hidden /> : null}
+                  <div className="feat-copy">
+                    <span className="feat-num">{num}</span>
+                    <h3>{t(titleKey)}</h3>
+                    <p>{t(textKey)}</p>
+                    <p className="feat-where">
+                      <b>{t('home.guideWhere')}</b>
+                      <span>{t(whereKey)}</span>
+                    </p>
+                  </div>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        <section className="features">
-          <div className="shell">
-            <header className="section-head">
-              <h2>{t('home.featuresHeading')}</h2>
-              <p>{t('home.featuresSub')}</p>
-            </header>
-            <div className="feature-grid feature-grid--aux">
-              {EXTRA_FEATURES.map((f) => (
-                <div key={f.labelKey} className="feature feature--aux">
-                  <span className="feature-icon">{f.icon}</span>
-                  <h3>{t(f.titleKey)}</h3>
-                  <p>{t(f.textKey)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
       </main>
     </div>
   )

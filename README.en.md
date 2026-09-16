@@ -38,6 +38,7 @@ React + Vite on the front end, Cloudflare Pages Functions + D1 on the back end, 
 - **Cloud library** — edits land locally first and are written to D1 after a 1.4s debounce. `/list` manages your books, `/public` browses public ones, and cards draw a real route thumbnail.
 - **Sharing and visibility** — a `/d/{userId}/{bookId}` link is readable by anyone (read-only view drops all editing affordances). Switch a book between public and private at any time; private books return 404 to everyone but the owner.
 - **Accounts** — email + password sign-up with email activation; passwords are stored as salted PBKDF2-SHA256, and the session cookie only carries a token digest. The UI ships in Chinese and English.
+- **Feature guide** — below the hero, the home page walks through the editor controls one by one (add a place, start/end, overnight splitting, the trip ruler, distance and drive time), each with a diagram of the editor and copy in both languages.
 
 ## Tech stack
 
