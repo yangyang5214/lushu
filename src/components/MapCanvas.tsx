@@ -74,17 +74,34 @@ export function MapCanvas() {
     }
   }, [api, map, journey, selectedId, selectPlace, t])
 
-  // 点地图任意一点：把那一处的 GCJ02 坐标（和当时的缩放级别）交给右侧卡片。
+  // 点地图：点在高德 POI 招牌上就出那个点，点在空白处就按坐标查（和高德官网一样）。
+  // 底图上的字是高德自己画的，点中时 JS API 会先给一个 `hotspotclick`（带 POI id），
+  // 紧跟着才是普通的 `click` —— 所以拿前者的 id，坐标用后者的真实点击处。
   useEffect(() => {
     if (!map) return
+    let hotspot: { id: string; at: number } | null = null
+    const onHotspot = (event: unknown) => {
+      const id = (event as { id?: string } | null)?.id
+      if (id) hotspot = { id, at: Date.now() }
+    }
     const onClick = (event: unknown) => {
       const lnglat = (event as { lnglat?: AmapLngLat } | null)?.lnglat
       if (!lnglat) return
-      setPoiQuery({ lng: lnglat.getLng(), lat: lnglat.getLat(), zoom: map.getZoom() })
+      // 上一个 hotspotclick 超过 500ms 就不认了：万一这次没跟来 click，别把 id 串到下一次。
+      const hit = hotspot && Date.now() - hotspot.at < 500 ? hotspot.id : undefined
+      hotspot = null
+      setPoiQuery({
+        lng: lnglat.getLng(),
+        lat: lnglat.getLat(),
+        zoom: map.getZoom(),
+        id: hit,
+      })
     }
+    map.on('hotspotclick', onHotspot)
     map.on('click', onClick)
     return () => {
       try {
+        map.off('hotspotclick', onHotspot)
         map.off('click', onClick)
       } catch {
         /* 地图已销毁 */

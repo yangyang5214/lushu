@@ -154,6 +154,9 @@ export function useAmapMap(hostRef: RefObject<HTMLElement | null>, lang: Lang) {
           zooms: [4, 17],
           viewMode: '2D',
           resizeEnable: true,
+          // 底图上的 POI 标注要可点：点中招牌时 JS API 会先回一个 `hotspotclick`
+          // （带那个 POI 的 id / 名字），「点地图看地点」靠它做到点哪个是哪个。
+          isHotspot: true,
         })
         try {
           instance.addControl(

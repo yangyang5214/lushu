@@ -28,7 +28,7 @@
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
 //   GET    /api/config     → 公开前端配置（高德 JS API key / 安全密钥）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
-//   GET    /api/poi?lng=&lat=&z= → 点击地图某点附近的高德地点卡片（评分 / 图片）+ 缓存
+//   GET    /api/poi?lng=&lat=&z= → 点击地图某点的高德地点卡片（逆地理 + 周边检索）+ 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
 //   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源统一限 3 次/秒
 //
@@ -100,7 +100,7 @@ import {
   adminStats,
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
-import { isSamePlace, orderRoute, type LoopDir } from '../../shared/geo'
+import { haversineKm, isSamePlace, orderRoute, type LoopDir } from '../../shared/geo'
 import type { PoiCard } from '../../shared/poi'
 import type { PublicConfig } from '../../shared/public-config'
 import { clientIp, rateLimited } from '../lib/rate-limit'
@@ -1045,6 +1045,13 @@ function amapText(value: string | string[] | undefined): string {
   return (text ?? '').trim()
 }
 
+/** 评分：`0` / `0.0`（高德表示没评分）也当空，前端就不显示星。 */
+function amapRating(value: string | string[] | undefined): string {
+  const text = amapText(value)
+  const score = Number.parseFloat(text)
+  return Number.isFinite(score) && score > 0 ? text : ''
+}
+
 /** 高德 POI 响应 → /api/places 形状。坐标是 GCJ02，要转回 WGS84。 */
 function parseAmapPlaces(data: unknown): PlaceHit[] {
   const payload = data as { status?: string; pois?: AmapPoi[] }
@@ -1104,21 +1111,14 @@ async function amapFetch(url: string): Promise<AmapResult> {
   }
 }
 
-const AMAP_PLACE_URL = 'https://restapi.amap.com/v3/place/text'
-
-/** 单 key POI 检索：限流按退避重试；失败返回 null 让调用方换下一个 key。 */
-async function amapPlaceOnce(key: string, q: string): Promise<PlaceHit[] | null> {
-  const params = new URLSearchParams({
-    key,
-    keywords: q,
-    offset: '25',
-    page: '1',
-    extensions: 'base',
-  })
-  const url = `${AMAP_PLACE_URL}?${params.toString()}`
+/**
+ * 高德单 key 请求：`status=1` 交给 parse；限流（10004 / 10020 等）按退避重试，
+ * 其余错误直接返回 null，交由调用方换下一个 key。
+ */
+async function amapJson<T>(url: string, parse: (data: unknown) => T): Promise<T | null> {
   for (let attempt = 0; ; attempt += 1) {
     const result = await amapFetch(url)
-    if (result.ok) return parseAmapPlaces(result.value)
+    if (result.ok) return parse(result.value)
     if (AMAP_RETRYABLE.has(result.infocode) && attempt < AMAP_RETRY_DELAYS.length) {
       await sleep(AMAP_RETRY_DELAYS[attempt])
       continue
@@ -1127,13 +1127,35 @@ async function amapPlaceOnce(key: string, q: string): Promise<PlaceHit[] | null>
   }
 }
 
-/** 高德 POI 检索（v3 place/text）：多个 key 依次尝试，全失败返回 null 交给前端兜底。 */
-async function amapPlaces(keys: string[], q: string): Promise<PlaceHit[] | null> {
+/** 多个 key 依次尝试，全失败返回 null（空结果不算失败）。 */
+async function amapEachKey<T>(
+  keys: string[],
+  call: (key: string) => Promise<T | null>,
+): Promise<T | null> {
   for (const key of amapKeyOrder(keys)) {
-    const hits = await amapPlaceOnce(key, q)
-    if (hits) return hits
+    const value = await call(key)
+    if (value !== null) return value
   }
   return null
+}
+
+const AMAP_PLACE_URL = 'https://restapi.amap.com/v3/place/text'
+
+/** 单 key POI 检索。 */
+function amapPlaceOnce(key: string, q: string): Promise<PlaceHit[] | null> {
+  const params = new URLSearchParams({
+    key,
+    keywords: q,
+    offset: '25',
+    page: '1',
+    extensions: 'base',
+  })
+  return amapJson(`${AMAP_PLACE_URL}?${params.toString()}`, parseAmapPlaces)
+}
+
+/** 高德 POI 检索（v3 place/text）：多个 key 依次尝试，全失败返回 null 交给前端兜底。 */
+function amapPlaces(keys: string[], q: string): Promise<PlaceHit[] | null> {
+  return amapEachKey(keys, (key) => amapPlaceOnce(key, q))
 }
 
 /**
@@ -1199,9 +1221,33 @@ async function places(ctx: Ctx): Promise<Response> {
 }
 
 const AMAP_AROUND_URL = 'https://restapi.amap.com/v5/place/around'
+const AMAP_REGEO_URL = 'https://restapi.amap.com/v3/geocode/regeo'
+const AMAP_DETAIL_URL = 'https://restapi.amap.com/v3/place/detail'
 const POI_TTL = 60 * 60 * 24 // 地点卡片缓存 1 天：评分 / 图片会变，别缓太久
 /** 一次最多给几个「附近地点」（第一个就是卡片主体）。 */
 const POI_MAX = 5
+/**
+ * 卡片主体怎么选：「有名有姓」的大点（车站 / 商场 / 景区 / 楼盘）只有逆地理给得出来，
+ * 周边检索里全是街边小店，两边结果合并后按距离排，再由 pickPrimary 挑出排第一的那张。
+ *
+ * 手指底下多近算「就是它」：点招牌的误差也就几个像素，20 米足够容下。
+ */
+const POI_AT_M = 20
+/**
+ * 高德把「某个地方的一部分」也当成 POI：站台 / 候车室 / 检票口 / 出入口 / 售票处，
+ * 还有「生活服务场所」这种兜底分类。它们不是能去的地方：手指落在它们身上时，
+ * 不该顶掉所在的那个「地方」（点进人民公园，出的该是人民公园而不是海洋磨盘售票处）。
+ */
+const POI_FACILITY = /场所|出入口|入口|出口|站台|候车|检票|售票|退票|制证|建筑物门|道路名|地名/
+/** 视野很近时也留一点余量：大点的参考点（车站正中）可能离点击处几百米。 */
+const POI_REACH_MIN_M = 500
+
+/** 一次点击的所有候选点。 */
+type PoiHit = {
+  cards: PoiCard[]
+  /** 点击处「进去的那个地方」（景区 / 车站 / 商场）：逆地理的包含面。 */
+  area: PoiCard | null
+}
 
 /** v5 place/around 里我们用到的字段（缺字段时高德会整个省略）。 */
 type AmapAroundPoi = {
@@ -1226,6 +1272,44 @@ type AmapAroundPoi = {
   }
 }
 
+/** v3 geocode/regeo 里的 POI：只有名字 / 地址 / 分类，没有评分和图片。 */
+type AmapRegeoPoi = {
+  id?: string
+  name?: string
+  location?: string
+  distance?: string
+  type?: string
+  address?: string | string[]
+  tel?: string | string[]
+}
+
+/** v3 place/detail 里的字段：点到 POI 招牌时卡片就是它。 */
+type AmapDetailPoi = {
+  id?: string
+  name?: string
+  location?: string
+  type?: string
+  address?: string | string[]
+  pname?: string
+  cityname?: string | string[]
+  adname?: string | string[]
+  tel?: string | string[]
+  photos?: Array<{ url?: string | string[] }>
+  keytag?: string | string[]
+  atag?: string | string[]
+  tag?: string | string[]
+  biz_ext?: { rating?: string | string[]; cost?: string | string[]; opentime2?: string | string[] } | string
+}
+
+/** 标签的可能来源：v5 周边检索放在 business 下，v3 详情放在顶层。 */
+type AmapTagFields = {
+  type?: string
+  keytag?: string | string[]
+  atag?: string | string[]
+  tag?: string | string[]
+  business?: { keytag?: string | string[]; tag?: string | string[] }
+}
+
 /**
  * 点击处周围多大范围找一个地点：视野越远，一点能代表的地方越大，半径就放开一些。
  * `z` 是点击时的地图级别，认不出（老前端不带参数）时按「城区级」处理。
@@ -1240,7 +1324,7 @@ function poiRadius(z: number): number {
 }
 
 /** 高德分类（`风景名胜;风景名胜;国家级景点`）取最后一级当「类别」。 */
-function poiCategory(poi: AmapAroundPoi): string {
+function poiCategory(poi: { type?: string }): string {
   const parts = amapText(poi.type)
     .split(';')
     .map((part) => part.trim())
@@ -1249,9 +1333,12 @@ function poiCategory(poi: AmapAroundPoi): string {
 }
 
 /** 标签：keytag 在前，tag 里的词在后，去重截断；都没有时退回分类。 */
-function poiTags(poi: AmapAroundPoi): string[] {
+function poiTags(poi: AmapTagFields): string[] {
   // keytag 也可能自带逗号（`餐饮服务,快餐厅,快餐厅`），一并拆开。
-  const raw = [amapText(poi.business?.keytag), amapText(poi.business?.tag)]
+  const raw = [
+    amapText(poi.business?.keytag) || amapText(poi.keytag),
+    amapText(poi.business?.tag) || amapText(poi.tag) || amapText(poi.atag),
+  ]
     .join(',')
     .split(/[,，]/)
   const seen = new Set<string>()
@@ -1270,7 +1357,7 @@ function poiTags(poi: AmapAroundPoi): string[] {
 }
 
 /** 高德图片只认 https，别的（空、相对路径、异常协议）丢掉，避免把脏东西塞进 <img>。 */
-function poiPhotos(poi: AmapAroundPoi): string[] {
+function poiPhotos(poi: { photos?: Array<{ url?: string | string[] }> }): string[] {
   const out: string[] = []
   for (const photo of poi.photos ?? []) {
     const url = amapText(photo.url)
@@ -1306,7 +1393,7 @@ function parseAmapPoi(poi: AmapAroundPoi): PoiCard | null {
     distance: Number.isFinite(distance) ? Math.round(distance) : 0,
     lng,
     lat,
-    rating: amapText(poi.business?.rating),
+    rating: amapRating(poi.business?.rating),
     cost: amapText(poi.business?.cost),
     tel: amapText(poi.business?.tel),
     tags: poiTags(poi),
@@ -1327,8 +1414,195 @@ function parseAmapAround(data: unknown): PoiCard[] {
     .slice(0, POI_MAX)
 }
 
-/** 单 key 周边检索：限流按退避重试；失败返回 null 让调用方换下一个 key。 */
-async function amapAroundOnce(
+/**
+ * 高德逆地理（extensions=all）→ 候选点。这里出的才是「这一点属于哪个地方」：
+ * 火车站、商场、景区、楼盘这类大点不会出现在周边检索里（搜出来的全是旁边的小店）。
+ * `limit` 把 3 公里外的景区之类收掉，保持和周边检索差不多的视野。
+ */
+function parseAmapRegeo(data: unknown, limit: number): PoiHit {
+  const payload = data as {
+    regeocode?: {
+      addressComponent?: { province?: string; city?: string; district?: string }
+      pois?: AmapRegeoPoi[]
+      aois?: Array<{ id?: string }>
+    }
+  }
+  const reg = payload?.regeocode
+  if (!reg) return { cards: [], area: null }
+  const comp = reg.addressComponent ?? {}
+  const cards: PoiCard[] = []
+  for (const poi of reg.pois ?? []) {
+    const id = amapText(poi.id)
+    const name = amapText(poi.name)
+    const [lng, lat] = amapText(poi.location).split(',').map(Number)
+    const distance = Number(amapText(poi.distance))
+    if (!id || !name || !Number.isFinite(lng) || !Number.isFinite(lat)) continue
+    if (!Number.isFinite(distance) || distance > limit) continue
+    const address = [
+      amapText(comp.province),
+      amapText(comp.city),
+      amapText(comp.district),
+      amapText(poi.address),
+    ]
+      .filter((part, i, arr) => part && part !== name && arr.indexOf(part) === i)
+      .join(' · ')
+    cards.push({
+      id,
+      name,
+      address,
+      category: poiCategory(poi),
+      url: `https://www.amap.com/detail/${encodeURIComponent(id)}`,
+      distance: Math.round(distance),
+      lng,
+      lat,
+      rating: '',
+      cost: '',
+      tel: amapText(poi.tel),
+      tags: poiTags(poi),
+      opentimeToday: '',
+      opentimeWeek: '',
+      photos: [],
+    })
+  }
+  // 包含面（aois 的第一个就是最具体的那个）：点落在哪个「地方」里面。
+  // 只认能和同一份响应里的 POI 对上 id 的 —— 对不上的（商圈 / 开发区）没有分类和地址，
+  // 而且大到不像一个能加进路书的地方。
+  const aoi = (reg.aois ?? [])[0]
+  const aoiId = amapText(aoi?.id)
+  const area = (aoiId && cards.find((card) => card.id === aoiId)) || null
+  return { cards, area }
+}
+
+/** 高德 POI 详情 → 补进卡片：只填空的字段，不盖掉周边检索已经给好的那份。 */
+function applyAmapDetail(card: PoiCard, detail: AmapDetailPoi): PoiCard {
+  const biz = typeof detail.biz_ext === 'object' && detail.biz_ext !== null ? detail.biz_ext : {}
+  return {
+    ...card,
+    rating: card.rating || amapRating(biz.rating),
+    cost: card.cost || amapText(biz.cost),
+    tel: card.tel || amapText(detail.tel),
+    // place/detail 只有一组营业时间，当作「今日」用。
+    opentimeToday: card.opentimeToday || amapText(biz.opentime2),
+    photos: card.photos.length ? card.photos : poiPhotos(detail),
+  }
+}
+
+/**
+ * 高德 POI 详情（点到 POI 招牌时用）→ 整张卡片。坐标用它自己的点，
+ * 「直线距离」还是从用户点的那一处算。
+ */
+function parseAmapDetail(poi: AmapDetailPoi, lng: number, lat: number): PoiCard | null {
+  const id = amapText(poi.id)
+  const name = amapText(poi.name)
+  const [plng, plat] = amapText(poi.location).split(',').map(Number)
+  if (!id || !name || !Number.isFinite(plng) || !Number.isFinite(plat)) return null
+  const biz = typeof poi.biz_ext === 'object' && poi.biz_ext !== null ? poi.biz_ext : {}
+  const address = [
+    amapText(poi.pname),
+    amapText(poi.cityname),
+    amapText(poi.adname),
+    amapText(poi.address),
+  ]
+    .filter((part, i, arr) => part && part !== name && arr.indexOf(part) === i)
+    .join(' · ')
+  return {
+    id,
+    name,
+    address,
+    category: poiCategory(poi),
+    url: `https://www.amap.com/detail/${encodeURIComponent(id)}`,
+    distance: Math.round(haversineKm({ lng, lat }, { lng: plng, lat: plat }) * 1000),
+    lng: plng,
+    lat: plat,
+    rating: amapRating(biz.rating),
+    cost: amapText(biz.cost),
+    tel: amapText(poi.tel),
+    tags: poiTags(poi),
+    opentimeToday: amapText(biz.opentime2),
+    opentimeWeek: '',
+    photos: poiPhotos(poi),
+  }
+}
+
+/** 逆地理的点 + 周边检索的点：按高德 id 去重（周边检索那份有评分 / 图片，用它），按距离升序。 */
+function mergePois(regeo: PoiCard[], around: PoiCard[]): PoiCard[] {
+  const cards = new Map<string, PoiCard>()
+  regeo.forEach((card) => cards.set(card.id, card))
+  around.forEach((card) => cards.set(card.id, card))
+  return [...cards.values()].sort((a, b) => a.distance - b.distance)
+}
+
+/**
+ * 卡片主体（排第一的那张）：
+ *   1. 点就落在这个「地方」身上（20 米内）→ 就是它。车站 / 商场 / 景区的参考点在正中，
+ *      点它的招牌一定落在里面，旁边的「送车点」「售票处」「站台」不该顶掉它；
+ *   2. 否则手指底下（20 米内）最近的那个正经点 → 点在店招牌上时出的就是那家店；
+ *   3. 都没有 → 这个「地方」（点进公园 / 景区深处）或最近的那个点。
+ *
+ * 点在 POI 招牌上时走不到这里：JS API 直接给了那个点的 id（见 /api/poi 的 id 参数）。
+ */
+function pickPrimary(cards: PoiCard[], area: PoiCard | null): number {
+  if (!cards.length) return -1
+  const indexOf = (card: PoiCard) => cards.findIndex((item) => item.id === card.id)
+  const areaIndex = area ? indexOf(area) : -1
+  if (areaIndex >= 0 && area && area.distance <= POI_AT_M) return areaIndex
+  const near = cards.findIndex(
+    (card) => card.distance <= POI_AT_M && !POI_FACILITY.test(card.category),
+  )
+  if (near >= 0) return near
+  return areaIndex >= 0 ? areaIndex : 0
+}
+
+/** 逆地理 + 周边检索 → 卡片列表：pickPrimary 挑出的那张排第一，大点再补一次详情。 */
+async function rankPois(
+  regeo: PoiHit | null,
+  around: PoiCard[] | null,
+  keys: string[],
+): Promise<PoiCard[] | null> {
+  if (!regeo && !around) return null
+  const cards = mergePois(regeo?.cards ?? [], around ?? [])
+  const primary = pickPrimary(cards, regeo?.area ?? null)
+  const ordered = primary > 0 ? [cards[primary], ...cards.filter((_, i) => i !== primary)] : cards
+  const pois = ordered.slice(0, POI_MAX)
+  const top = pois[0]
+  // 逆地理挑出来的「大点」没有评分 / 图片 / 营业时间，补一份详情（周边检索里有的不用补）。
+  if (top && !(around ?? []).some((card) => card.id === top.id)) {
+    const detail = await amapDetail(keys, top.id)
+    if (detail) pois[0] = applyAmapDetail(top, detail)
+  }
+  return pois
+}
+
+/**
+ * 一次点击拿到哪些地点（最多 POI_MAX 张）；null 表示两个上游都挂了。
+ *
+ * 点了 POI 招牌时 JS API 会把那个点的 id 一起送来（`hotspotclick`），高德自家地图
+ * 就是这么做到「点哪个是哪个」的：直接拿 id 查详情，不靠坐标猜。
+ */
+async function lookupPois(
+  keys: string[],
+  lng: number,
+  lat: number,
+  radius: number,
+  poiId: string,
+): Promise<PoiCard[] | null> {
+  // 两个分支都要周边检索（用来列「附近地点」），先发出去。
+  const aroundPromise = amapAround(keys, lng, lat, radius)
+  if (poiId) {
+    const [detail, around] = await Promise.all([amapDetail(keys, poiId), aroundPromise])
+    const card = detail ? parseAmapDetail(detail, lng, lat) : null
+    if (card) {
+      return [card, ...(around ?? []).filter((item) => item.id !== card.id)].slice(0, POI_MAX)
+    }
+    // 详情查不到（点到的可能不是 POI，而是路名 / 楼栋）：退回按坐标那一套。
+    return rankPois(await amapRegeo(keys, lng, lat, radius), around, keys)
+  }
+  const [regeo, around] = await Promise.all([amapRegeo(keys, lng, lat, radius), aroundPromise])
+  return rankPois(regeo, around, keys)
+}
+
+/** 单 key 周边检索。 */
+function amapAroundOnce(
   key: string,
   lng: number,
   lat: number,
@@ -1344,30 +1618,49 @@ async function amapAroundOnce(
     sortrule: 'distance',
     show_fields: 'business,photos',
   })
-  const url = `${AMAP_AROUND_URL}?${params.toString()}`
-  for (let attempt = 0; ; attempt += 1) {
-    const result = await amapFetch(url)
-    if (result.ok) return parseAmapAround(result.value)
-    if (AMAP_RETRYABLE.has(result.infocode) && attempt < AMAP_RETRY_DELAYS.length) {
-      await sleep(AMAP_RETRY_DELAYS[attempt])
-      continue
-    }
-    return null
-  }
+  return amapJson(`${AMAP_AROUND_URL}?${params.toString()}`, parseAmapAround)
 }
 
-/** 高德周边检索：多个 key 依次尝试，全失败返回 null 交给前端提示。 */
-async function amapAround(
-  keys: string[],
+/** 单 key 逆地理（extensions=all，带周边 POI）。 */
+function amapRegeoOnce(
+  key: string,
   lng: number,
   lat: number,
   radius: number,
-): Promise<PoiCard[] | null> {
-  for (const key of amapKeyOrder(keys)) {
-    const pois = await amapAroundOnce(key, lng, lat, radius)
-    if (pois) return pois
-  }
-  return null
+): Promise<PoiHit | null> {
+  const reach = Math.max(radius, POI_REACH_MIN_M)
+  const params = new URLSearchParams({
+    key,
+    location: `${lng.toFixed(6)},${lat.toFixed(6)}`,
+    // regeo 的 radius 上限是 3000；返回的 pois 不受它严格约束，解析时再收一次。
+    radius: String(Math.min(3000, reach)),
+    extensions: 'all',
+  })
+  return amapJson(`${AMAP_REGEO_URL}?${params.toString()}`, (data) => parseAmapRegeo(data, reach))
+}
+
+/** 单 key POI 详情。 */
+function amapDetailOnce(key: string, id: string): Promise<AmapDetailPoi | null> {
+  const params = new URLSearchParams({ key, id, extensions: 'all' })
+  return amapJson(`${AMAP_DETAIL_URL}?${params.toString()}`, (data) => {
+    const payload = data as { pois?: AmapDetailPoi[] }
+    return payload?.pois?.[0] ?? null
+  })
+}
+
+/** 高德周边检索（v5 place/around）：全失败返回 null 交给前端提示。 */
+function amapAround(keys: string[], lng: number, lat: number, radius: number): Promise<PoiCard[] | null> {
+  return amapEachKey(keys, (key) => amapAroundOnce(key, lng, lat, radius))
+}
+
+/** 高德逆地理：全失败返回 null（还能靠周边检索出卡片）。 */
+function amapRegeo(keys: string[], lng: number, lat: number, radius: number): Promise<PoiHit | null> {
+  return amapEachKey(keys, (key) => amapRegeoOnce(key, lng, lat, radius))
+}
+
+/** 高德 POI 详情：全失败返回 null（卡片少几个字段而已）。 */
+function amapDetail(keys: string[], id: string): Promise<AmapDetailPoi | null> {
+  return amapEachKey(keys, (key) => amapDetailOnce(key, id))
 }
 
 /** 中国大陆大致经纬度范围（含近海）：范围外的点不可能是高德收录的地点。 */
@@ -1376,9 +1669,15 @@ function inChina(lng: number, lat: number): boolean {
 }
 
 /**
- * /api/poi?lng=&lat=&z= → 点击地图某点时，那一点附近的高德地点（评分 / 图片 / 电话 /
+ * /api/poi?lng=&lat=&z=&id= → 点击地图某点时那一点的高德地点（评分 / 图片 / 电话 /
  * 营业时间）。坐标是 GCJ02（底图坐标系），不是路书里的 WGS84；只读，不落库。
- * 没配 AMAP_KEY 或高德失败时回 5xx，前端在卡片里提示，不影响地图本身。
+ *
+ * `id` 是点在 POI 招牌上时高德 JS API（`hotspotclick`）直接给的 POI id —— 有它就直接
+ * 出那个点（高德自家地图就是这么做到「点哪个是哪个」的），其余拿它列「附近地点」。
+ * 没有 `id` 时靠坐标推断：逆地理（regeo）才知道「这一点落在哪个大点上」（车站 / 商场 /
+ * 景区，周边检索给不出这些），周边检索（place/around）才有评分 / 图片和附近的小店。
+ * 两边合并后由 pickPrimary 挑出卡片主体；主体是周边检索里没有的大点时再补一次详情。
+ * 没配 AMAP_KEY 或上游都失败时回 5xx，前端在卡片里提示，不影响地图本身。
  */
 async function poi(ctx: Ctx): Promise<Response> {
   const params = new URL(ctx.request.url).searchParams
@@ -1387,6 +1686,9 @@ async function poi(ctx: Ctx): Promise<Response> {
   if (!Number.isFinite(lng) || !Number.isFinite(lat) || !inChina(lng, lat)) {
     return json({ error: 'bad_location' }, 400)
   }
+  // 高德 POI id（`B001C8WIJI` 这种）。只当查询参数用，上游 host 写死，没有拼串风险。
+  const poiId = (params.get('id') ?? '').trim()
+  if (poiId && !/^[A-Za-z0-9]{4,32}$/.test(poiId)) return json({ error: 'bad_id' }, 400)
   const keys = amapKeys(ctx.env.AMAP_KEY)
   if (!keys.length) return json({ error: 'amap_unconfigured' }, 501)
   const radius = poiRadius(Number(params.get('z')))
@@ -1394,8 +1696,9 @@ async function poi(ctx: Ctx): Promise<Response> {
   // 缓存键把坐标收到 4 位小数（约 11 米）：在同一点附近反复点会打中同一份，
   // 又不会把两个地点混成一张卡片。半径不进键 —— 同一处视野变化时结果基本一致。
   const cache = typeof caches !== 'undefined' ? caches.default : undefined
+  // v3：招牌点哪个是哪个（多了 id） + 卡片主体优先取点击处「进去的那个地方」。
   const cacheKey = new Request(
-    `https://lushu.internal/api/poi/v1?lng=${lng.toFixed(4)}&lat=${lat.toFixed(4)}`,
+    `https://lushu.internal/api/poi/v3?lng=${lng.toFixed(4)}&lat=${lat.toFixed(4)}&id=${encodeURIComponent(poiId)}`,
     { method: 'GET' },
   )
   if (cache) {
@@ -1416,7 +1719,7 @@ async function poi(ctx: Ctx): Promise<Response> {
     }
   }
 
-  const pois = await amapAround(keys, lng, lat, radius)
+  const pois = await lookupPois(keys, lng, lat, radius, poiId)
   if (!pois) return json({ error: 'upstream' }, 502)
 
   // 空结果也缓存：海上、荒野点一下不该每次都去问高德。
