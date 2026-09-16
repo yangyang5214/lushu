@@ -225,6 +225,296 @@ button {
   margin-bottom: 0;
 }
 
+/* 行程表入口：多天行程时出现在书名右边，只做入口，表格在整屏浮层里铺开 */
+.sheet-table {
+  flex: none;
+  border: none;
+  border-radius: 3px;
+  background: #3d7eff;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.sheet-table:hover {
+  background: #2f6ae6;
+}
+
+/* ── 行程表浮层：独立于侧栏「行程清单」的一整屏阅读面 ─────────────────────── */
+.trip-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(24, 30, 40, 0.42);
+}
+
+.trip-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 24px 60px -18px rgba(16, 24, 40, 0.45);
+  overflow: hidden;
+}
+
+.trip-sheet-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.trip-sheet-title {
+  min-width: 0;
+}
+
+.trip-sheet-title h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.trip-sheet-title p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8a93a0;
+  font-size: 12.5px;
+}
+
+.trip-sheet-head .rail-stats {
+  margin: 0 0 0 auto;
+}
+
+.trip-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8a93a0;
+}
+
+.trip-close svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+
+.trip-close:hover {
+  color: var(--seal);
+  background: rgba(194, 59, 34, 0.08);
+}
+
+.trip-sheet-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 行程表：一天一行，列是「天 / 途经 / 里程 / 驾驶时长」 */
+.trip-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.trip-table th,
+.trip-table td {
+  border-bottom: 1px solid #eef0f3;
+  padding: 13px 16px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.trip-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fbfcfd;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #8a93a0;
+  white-space: nowrap;
+}
+
+.trip-table thead th:first-child {
+  width: 132px;
+}
+
+.trip-table thead th:nth-child(3),
+.trip-table thead th:nth-child(4) {
+  width: 118px;
+}
+
+.trip-table tbody th {
+  font-weight: 500;
+}
+
+.trip-table tbody tr:last-child th,
+.trip-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.trip-table tbody tr:hover {
+  background: #fafbfd;
+}
+
+.trip-table tbody tr.on {
+  background: #f5f8ff;
+}
+
+.trip-table tbody tr.on:hover {
+  background: #f0f5ff;
+}
+
+.trip-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trip-day i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.trip-day b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.trip-day em {
+  display: block;
+  font-style: normal;
+  font-size: 11.5px;
+  color: #8a93a0;
+  white-space: nowrap;
+}
+
+.trip-route button {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.trip-route button:hover {
+  color: #3377ff;
+}
+
+.trip-km,
+.trip-time {
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 手机上浮层铺满，表格改成一天一块：天 + 里程 / 时长 一行，途经另起一行 */
+@media (max-width: 640px) {
+  .trip-overlay {
+    padding: 0;
+  }
+
+  .trip-sheet {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .trip-sheet-head {
+    padding: 12px 14px;
+  }
+
+  .trip-sheet-head .rail-stats {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .trip-table,
+  .trip-table tbody,
+  .trip-table tr,
+  .trip-table th,
+  .trip-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .trip-table thead {
+    display: none;
+  }
+
+  .trip-table tr {
+    position: relative;
+    padding: 12px 14px;
+    border-bottom: 1px solid #eef0f3;
+  }
+
+  .trip-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .trip-table th,
+  .trip-table td {
+    border: none;
+    padding: 0;
+  }
+
+  .trip-table tbody th {
+    margin-bottom: 6px;
+  }
+
+  .trip-route {
+    margin-bottom: 6px;
+  }
+
+  .trip-km,
+  .trip-time {
+    display: inline;
+    margin-right: 14px;
+    font-size: 12.5px;
+    color: #5b6472;
+  }
+
+  .trip-km::before,
+  .trip-time::before {
+    content: attr(data-label) ' ';
+    color: #8a93a0;
+  }
+}
+
 .day-block + .day-block {
   border-top: 1px solid #eef0f3;
 }

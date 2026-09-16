@@ -21,6 +21,7 @@ const zh = {
   'common.loading': '正在加载…',
   'common.anonymous': '匿名',
   'common.none': '—',
+  'common.close': '关闭',
 
   // ── 语言切换 ─────────────────────────────────────────────────────────────
   'lang.label': '切换语言',
@@ -55,6 +56,15 @@ const zh = {
   'sidebar.cancelNight': '取消过夜',
   'sidebar.hintEmpty': '搜索添加地点，再设起点和终点。起终点相同即为环线。',
   'sidebar.hintReady': '设好起点和终点后，其余点会按路程串成一条线。',
+
+  // ── 行程表（多天） ───────────────────────────────────────────────────────
+  'table.title': '行程表',
+  'table.open': '行程表',
+  'table.day': '天',
+  'table.route': '途经',
+  'table.km': '里程',
+  'table.time': '驾驶时长',
+  'table.select': '在地图上查看第{n}天',
 
   // ── 里程 / 时间 ──────────────────────────────────────────────────────────
   'unit.meters': '{n}米',
@@ -339,6 +349,7 @@ const en: Record<MsgKey, string> = {
   'common.loading': 'Loading…',
   'common.anonymous': 'Anonymous',
   'common.none': '—',
+  'common.close': 'Close',
 
   'lang.label': 'Change language',
   'lang.zh': '简体中文',
@@ -372,6 +383,15 @@ const en: Record<MsgKey, string> = {
     'Search to add places, then set a start and an end. The same start and end makes a loop.',
   'sidebar.hintReady':
     'Once a start and an end are set, the other stops are strung into a route by distance.',
+
+  // ── Trip table (multi-day) ───────────────────────────────────────────────
+  'table.title': 'Itinerary',
+  'table.open': 'Itinerary',
+  'table.day': 'Day',
+  'table.route': 'Route',
+  'table.km': 'Distance',
+  'table.time': 'Drive time',
+  'table.select': 'Show day {n} on the map',
 
   'unit.meters': '{n} m',
   'unit.km': '{n} km',

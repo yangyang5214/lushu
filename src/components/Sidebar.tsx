@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react'
 import { formatKm, formatLegLabel, validSplitIndexes } from '../lib/geo'
+import { cityOf } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { fetchRoad } from '../lib/route'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { JourneyStats } from './JourneyStats'
-
-function cityOf(place: Place | undefined): string {
-  if (!place) return ''
-  const parts = place.address.split(/[·,，]/).map((s) => s.trim()).filter(Boolean)
-  if (parts[0] && ['上海', '北京', '天津', '重庆'].includes(parts[0])) return parts[0]
-  return parts[parts.length - 1] || place.name
-}
+import { TripTableSheet } from './TripTableSheet'
 
 function LegLabel({ from, to }: { from: Place; to: Place }) {
   const [drive, setDrive] = useState<{ km: number; min: number } | null>(null)
@@ -70,6 +65,9 @@ export function Sidebar() {
   )
   const splitSet = new Set(journey.splitIds)
   const [folded, setFolded] = useState<Record<number, boolean>>({})
+  // 多天行程才值得单开一张表；单天一眼看完。
+  const multiDay = journey.ready && journey.days.length > 1
+  const [tableOpen, setTableOpen] = useState(false)
 
   const toggleFold = (index: number) => {
     setFolded((prev) => ({ ...prev, [index]: !prev[index] }))
@@ -99,6 +97,17 @@ export function Sidebar() {
           readOnly={readonly}
           disabled={readonly}
         />
+        {/* 表格不在这里展开，只作为入口：行程表是独立的一整屏阅读面 */}
+        {multiDay ? (
+          <button
+            type="button"
+            className="sheet-table"
+            onClick={() => setTableOpen(true)}
+            title={t('table.open')}
+          >
+            {t('table.open')}
+          </button>
+        ) : null}
       </div>
 
       {/* 手机浏览（只读）时行程尺收起，总统计挪到行程清单顶部 */}
@@ -247,6 +256,9 @@ export function Sidebar() {
           </p>
         </div>
       )}
+
+      {/* 行程表是 position:fixed 的浮层，放这里不受侧栏裁切影响 */}
+      {tableOpen && multiDay ? <TripTableSheet onClose={() => setTableOpen(false)} /> : null}
     </aside>
   )
 }
