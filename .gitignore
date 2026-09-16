@@ -29,3 +29,6 @@ wrangler.toml
 *.njsproj
 *.sln
 *.sw?
+
+# 讲解视频的中间产物与成片（帧序列 / 音轨 / mp4）：生成物，不入库
+docs
