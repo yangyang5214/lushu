@@ -1,0 +1,58 @@
+name: PR
+
+# PR 准入检查：只做静态校验与构建，不部署、不触碰任何密钥。
+# 部署走 Cloudflare Pages 的 Git 集成（main 分支构建），这里不重复做。
+# 刻意用 pull_request 而不是 pull_request_target：fork 的代码在只读 token、无 secrets 的
+# 环境里跑；checkout v7 也会拒绝在 pull_request_target / workflow_run 下取 fork 代码。
+on:
+  pull_request:
+    branches: [main]
+    # 默认只有 opened/synchronize/reopened；补上 ready_for_review，
+    # 这样草稿转正式时也会跑一遍检查。
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# 最小权限：只需要读代码。
+permissions:
+  contents: read
+
+# 同一个 PR 连续 push 时取消上一轮，省额度也更快看到最新结果。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # 草稿 PR 先不跑，标记 ready for review 时再跑。
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v7
+
+      # pnpm 必须先于 setup-node：setup-node 的 cache: pnpm 需要 pnpm 已在 PATH 上。
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      # Vite 8 要求 ^20.19.0 || >=22.12.0，wrangler 要求 >=22；用 22 LTS。
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: 环境信息
+        run: node -v && pnpm -v
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # oxlint 只在 error 上退出非零，现有 warning 不会卡 CI。
+      - name: Lint（oxlint）
+        run: pnpm lint
+
+      # 与本地同一个入口：tsc -b + functions 类型检查 + vite build。
+      # 不需要 wrangler.toml / secrets：vite.config.ts 读不到时会退回 wrangler.toml.example。
+      - name: 类型检查 + 构建
+        run: pnpm build
