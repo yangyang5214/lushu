@@ -28,6 +28,7 @@
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
 //   GET    /api/config     → 公开前端配置（高德 JS API key / 安全密钥）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
+//   GET    /api/poi?lng=&lat=&z= → 点击地图某点附近的高德地点卡片（评分 / 图片）+ 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
 //   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源统一限 3 次/秒
 //
@@ -100,6 +101,7 @@ import {
 } from '../lib/admin-data'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
 import { isSamePlace, orderRoute, type LoopDir } from '../../shared/geo'
+import type { PoiCard } from '../../shared/poi'
 import type { PublicConfig } from '../../shared/public-config'
 import { clientIp, rateLimited } from '../lib/rate-limit'
 
@@ -1196,6 +1198,253 @@ async function places(ctx: Ctx): Promise<Response> {
   })
 }
 
+const AMAP_AROUND_URL = 'https://restapi.amap.com/v5/place/around'
+const POI_TTL = 60 * 60 * 24 // 地点卡片缓存 1 天：评分 / 图片会变，别缓太久
+/** 一次最多给几个「附近地点」（第一个就是卡片主体）。 */
+const POI_MAX = 5
+
+/** v5 place/around 里我们用到的字段（缺字段时高德会整个省略）。 */
+type AmapAroundPoi = {
+  id?: string
+  name?: string
+  location?: string
+  distance?: string
+  type?: string
+  address?: string | string[]
+  pname?: string
+  cityname?: string | string[]
+  adname?: string | string[]
+  photos?: Array<{ url?: string | string[] }>
+  business?: {
+    rating?: string | string[]
+    cost?: string | string[]
+    tel?: string | string[]
+    keytag?: string | string[]
+    tag?: string | string[]
+    opentime_today?: string | string[]
+    opentime_week?: string | string[]
+  }
+}
+
+/**
+ * 点击处周围多大范围找一个地点：视野越远，一点能代表的地方越大，半径就放开一些。
+ * `z` 是点击时的地图级别，认不出（老前端不带参数）时按「城区级」处理。
+ */
+function poiRadius(z: number): number {
+  if (!Number.isFinite(z)) return 600
+  if (z <= 8) return 5000
+  if (z <= 11) return 2000
+  if (z <= 13) return 800
+  if (z <= 15) return 400
+  return 200
+}
+
+/** 高德分类（`风景名胜;风景名胜;国家级景点`）取最后一级当「类别」。 */
+function poiCategory(poi: AmapAroundPoi): string {
+  const parts = amapText(poi.type)
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  return parts[parts.length - 1] ?? ''
+}
+
+/** 标签：keytag 在前，tag 里的词在后，去重截断；都没有时退回分类。 */
+function poiTags(poi: AmapAroundPoi): string[] {
+  // keytag 也可能自带逗号（`餐饮服务,快餐厅,快餐厅`），一并拆开。
+  const raw = [amapText(poi.business?.keytag), amapText(poi.business?.tag)]
+    .join(',')
+    .split(/[,，]/)
+  const seen = new Set<string>()
+  const tags: string[] = []
+  for (const item of raw) {
+    const tag = item.trim()
+    if (!tag || seen.has(tag)) continue
+    seen.add(tag)
+    tags.push(tag)
+  }
+  if (tags.length === 0) {
+    const category = poiCategory(poi)
+    if (category) tags.push(category)
+  }
+  return tags.slice(0, 6)
+}
+
+/** 高德图片只认 https，别的（空、相对路径、异常协议）丢掉，避免把脏东西塞进 <img>。 */
+function poiPhotos(poi: AmapAroundPoi): string[] {
+  const out: string[] = []
+  for (const photo of poi.photos ?? []) {
+    const url = amapText(photo.url)
+    if (!url.startsWith('https://') || out.includes(url)) continue
+    out.push(url)
+    if (out.length >= 9) break
+  }
+  return out
+}
+
+/** 高德周边 POI → /api/poi 的统一形状；坐标保持 GCJ02（底图直接用）。 */
+function parseAmapPoi(poi: AmapAroundPoi): PoiCard | null {
+  const id = amapText(poi.id)
+  const name = amapText(poi.name)
+  if (!id || !name) return null
+  const [lng, lat] = amapText(poi.location).split(',').map(Number)
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  const distance = Number(amapText(poi.distance))
+  const address = [
+    amapText(poi.pname),
+    amapText(poi.cityname),
+    amapText(poi.adname),
+    amapText(poi.address),
+  ]
+    .filter((part, i, arr) => part && part !== name && arr.indexOf(part) === i)
+    .join(' · ')
+  return {
+    id,
+    name,
+    address,
+    category: poiCategory(poi),
+    url: `https://www.amap.com/detail/${encodeURIComponent(id)}`,
+    distance: Number.isFinite(distance) ? Math.round(distance) : 0,
+    lng,
+    lat,
+    rating: amapText(poi.business?.rating),
+    cost: amapText(poi.business?.cost),
+    tel: amapText(poi.business?.tel),
+    tags: poiTags(poi),
+    opentimeToday: amapText(poi.business?.opentime_today),
+    opentimeWeek: amapText(poi.business?.opentime_week),
+    photos: poiPhotos(poi),
+  }
+}
+
+/** 高德周边检索结果 → 卡片列表（按距离升序，最多 POI_MAX 个）。 */
+function parseAmapAround(data: unknown): PoiCard[] {
+  const payload = data as { status?: string; pois?: AmapAroundPoi[] }
+  if (payload?.status !== '1') return []
+  return (payload.pois ?? [])
+    .map(parseAmapPoi)
+    .filter((poi): poi is PoiCard => poi !== null)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, POI_MAX)
+}
+
+/** 单 key 周边检索：限流按退避重试；失败返回 null 让调用方换下一个 key。 */
+async function amapAroundOnce(
+  key: string,
+  lng: number,
+  lat: number,
+  radius: number,
+): Promise<PoiCard[] | null> {
+  const params = new URLSearchParams({
+    key,
+    // 固定 6 位小数：缓存键的写法差异不会漏到这里。
+    location: `${lng.toFixed(6)},${lat.toFixed(6)}`,
+    radius: String(radius),
+    page_size: '10',
+    page: '1',
+    sortrule: 'distance',
+    show_fields: 'business,photos',
+  })
+  const url = `${AMAP_AROUND_URL}?${params.toString()}`
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await amapFetch(url)
+    if (result.ok) return parseAmapAround(result.value)
+    if (AMAP_RETRYABLE.has(result.infocode) && attempt < AMAP_RETRY_DELAYS.length) {
+      await sleep(AMAP_RETRY_DELAYS[attempt])
+      continue
+    }
+    return null
+  }
+}
+
+/** 高德周边检索：多个 key 依次尝试，全失败返回 null 交给前端提示。 */
+async function amapAround(
+  keys: string[],
+  lng: number,
+  lat: number,
+  radius: number,
+): Promise<PoiCard[] | null> {
+  for (const key of amapKeyOrder(keys)) {
+    const pois = await amapAroundOnce(key, lng, lat, radius)
+    if (pois) return pois
+  }
+  return null
+}
+
+/** 中国大陆大致经纬度范围（含近海）：范围外的点不可能是高德收录的地点。 */
+function inChina(lng: number, lat: number): boolean {
+  return lng >= 73 && lng <= 136 && lat >= 3 && lat <= 54
+}
+
+/**
+ * /api/poi?lng=&lat=&z= → 点击地图某点时，那一点附近的高德地点（评分 / 图片 / 电话 /
+ * 营业时间）。坐标是 GCJ02（底图坐标系），不是路书里的 WGS84；只读，不落库。
+ * 没配 AMAP_KEY 或高德失败时回 5xx，前端在卡片里提示，不影响地图本身。
+ */
+async function poi(ctx: Ctx): Promise<Response> {
+  const params = new URL(ctx.request.url).searchParams
+  const lng = Number(params.get('lng'))
+  const lat = Number(params.get('lat'))
+  if (!Number.isFinite(lng) || !Number.isFinite(lat) || !inChina(lng, lat)) {
+    return json({ error: 'bad_location' }, 400)
+  }
+  const keys = amapKeys(ctx.env.AMAP_KEY)
+  if (!keys.length) return json({ error: 'amap_unconfigured' }, 501)
+  const radius = poiRadius(Number(params.get('z')))
+
+  // 缓存键把坐标收到 4 位小数（约 11 米）：在同一点附近反复点会打中同一份，
+  // 又不会把两个地点混成一张卡片。半径不进键 —— 同一处视野变化时结果基本一致。
+  const cache = typeof caches !== 'undefined' ? caches.default : undefined
+  const cacheKey = new Request(
+    `https://lushu.internal/api/poi/v1?lng=${lng.toFixed(4)}&lat=${lat.toFixed(4)}`,
+    { method: 'GET' },
+  )
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheKey)
+      if (hit) {
+        return new Response(hit.body, {
+          status: 200,
+          headers: {
+            ...JSON_HEADERS,
+            'x-lushu-cache': 'hit',
+            'cache-control': `public, max-age=${POI_TTL}`,
+          },
+        })
+      }
+    } catch {
+      /* 缓存不可用就直接回源 */
+    }
+  }
+
+  const pois = await amapAround(keys, lng, lat, radius)
+  if (!pois) return json({ error: 'upstream' }, 502)
+
+  // 空结果也缓存：海上、荒野点一下不该每次都去问高德。
+  const body = JSON.stringify({ pois })
+  if (cache) {
+    try {
+      ctx.waitUntil(
+        cache.put(
+          cacheKey,
+          new Response(body, {
+            headers: { ...JSON_HEADERS, 'cache-control': `public, max-age=${POI_TTL}` },
+          }),
+        ),
+      )
+    } catch {
+      /* 写缓存失败不影响响应 */
+    }
+  }
+  return new Response(body, {
+    status: 200,
+    headers: {
+      ...JSON_HEADERS,
+      'x-lushu-cache': 'miss',
+      'cache-control': `public, max-age=${POI_TTL}`,
+    },
+  })
+}
+
 /** /api/route 的统一返回：线路坐标一律 GCJ02，直接贴合高德底图。 */
 type RouteLine = {
   source: 'amap'
@@ -1606,6 +1855,7 @@ async function handle(ctx: Ctx): Promise<Response> {
 
   if (seg[0] === 'config' && seg.length === 1 && method === 'GET') return publicConfig(env)
   if (seg[0] === 'places' && method === 'GET') return places(ctx)
+  if (seg[0] === 'poi' && seg.length === 1 && method === 'GET') return poi(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)
   if (seg[0] === 'route' && method === 'POST') return routeBatch(ctx)
 

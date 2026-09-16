@@ -33,6 +33,7 @@ React + Vite on the front end, Cloudflare Pages Functions + D1 on the back end, 
 ## Features
 
 - **Add places freely** — search cities, temples, old streets or campsites and drop them in. No ordering, no need to decide day one yet. Search goes through AMap POI lookup (cached for 3 days) and falls back to a bundled gazetteer when the Worker is not running.
+- **Tap the map for a place** — click anywhere on a roadbook map and a card for the nearest AMap place opens on the right: rating, photos (mostly user review images), phone, opening hours, address and straight-line distance, plus a link to the full reviews on AMap and a list of nearby alternatives to switch to. Confirm with “Add to route” to drop it into the current roadbook (read-only shares show no such action).
 - **Automatic route ordering** — set a start and an end and the route is re-ordered by driving distance; loops can run clockwise or counter-clockwise. The map colours the route per day, adds direction arrows and shows distance and driving time between stops.
 - **Overnight splitting** — click a bead on the trip ruler to mark an overnight stop, or drag the divider pin. The trip becomes day-by-day with per-day mileage and legend, and day count updates instantly.
 - **Cloud library** — edits land locally first and are written to D1 after a 1.4s debounce. `/list` manages your books, `/public` browses public ones, and cards draw a real route thumbnail.
@@ -57,7 +58,7 @@ React + Vite on the front end, Cloudflare Pages Functions + D1 on the back end, 
 ```
 src/            React front end: App.tsx, store.ts, components/, lib/ (amap, geocode, route, sync, i18n…)
 functions/      Pages Functions: api/[[path]].ts (all API routes), lib/ (auth, mail, rate-limit, admin…)
-shared/         Pure functions and types shared by both sides: coordinate conversion, route ordering, password rules, public config
+shared/         Pure functions and types shared by both sides: coordinate conversion, route ordering, password rules, public config, place-card types
 schema.sql      D1 schema; idempotent, no separate migration scripts
 public/         Static assets: favicon, icons, mini-program QR code, sitemap.xml, robots.txt
 scripts/        Local dev script: dev.mjs starts Vite + the local Worker + local D1 (`pnpm dev:all`)
@@ -126,7 +127,7 @@ Public front-end variables live in `[vars]` inside `wrangler.toml` and are injec
 
 | Name | Required | Purpose |
 | --- | --- | --- |
-| `AMAP_KEY` | yes (search / routes) | AMap **Web Service** key — *not* the JS API key above. `/api/places` (search) and `/api/route` (driving) rely on it and return 5xx when unset. Multiple keys are supported as `key1;key2`: they rotate to spread quota and back each other up. |
+| `AMAP_KEY` | yes (search / routes) | AMap **Web Service** key — *not* the JS API key above. `/api/places` (search), `/api/poi` (tap-for-a-place) and `/api/route` (driving) rely on it and return 5xx when unset. Multiple keys are supported as `key1;key2`: they rotate to spread quota and back each other up. |
 | `ADMIN_SECRET` | no | Passphrase for the `/admin` console, at least 6 characters. When unset or too short, every `/api/admin/*` route returns 404 — the console effectively does not exist. |
 | `RESEND_API_KEY` | no | Sends sign-up activation emails; without it the registration flow is unusable. |
 | `TURNSTILE_SECRET` | no | Human-check secret for register / sign-in / resend activation; setting it makes the check mandatory. |
@@ -163,6 +164,7 @@ pnpm deploy       # wrangler pages deploy dist
 - **Local-first**: edits land in the browser first and reach D1 after a 1.4s debounce (`src/lib/sync.ts`). Writes carrying `baseUpdatedAt` get a 409 conflict instead of silently overwriting.
 - **Same-origin defence**: a public repository means the endpoint shapes are public, so every defence lives server-side — no CORS headers, sign-in required for creation, global capacity and per-document size caps, salted PBKDF2-SHA256 passwords, session cookies carrying only a token digest, pinned upstream hosts (no SSRF), constant-time comparison, and id-format validation.
 - **Coordinate systems**: storage is WGS84 throughout, while the AMap basemap and routes use GCJ02; conversion is centralised in `shared/coords.ts`.
+- **Tap for a place**: lookups use AMap nearby search (v5 place/around), with the radius widening as you zoom out. Results are in GCJ02 (the basemap system) and nothing is written on lookup; only “Add to route” converts the point to WGS84 and stores it. Results for the same spot are cached for a day.
 - **Driving throttle**: all driving requests pass one 3-per-second queue (`AMAP_DRIVE_QPS`) so the app does not trip its own upstream rate limit; codes 10004 / 10020 are retried with backoff and a different key.
 - **Visibility**: new books default to private; older documents without the field are treated as public; private books never appear in public listings and return 404 to non-owners (existence is not leaked).
 
@@ -173,9 +175,10 @@ pnpm deploy       # wrangler pages deploy dist
 ## Known limitations
 
 - Routes are **driving only** (AMap driving planner); there is no walking, cycling or transit mode.
-- Without `AMAP_KEY`, search degrades to the bundled gazetteer and no routes are drawn; the app does not fall back to another map provider.
+- Without `AMAP_KEY`, search degrades to the bundled gazetteer, no routes are drawn and the tap-for-a-place card reports an error; the app does not fall back to another map provider.
 - Driving requests are capped at 3 per second (per isolate), so the first ordering of a very long trip may queue.
 - One book is capped at `MAX_DOC_BYTES`; the whole site is capped at `MAX_BOOKS` books.
+- AMap's open platform has no public “review text” API: the card shows the rating, review photos and a link, while the full reviews live on AMap.
 - It runs on the Cloudflare free tier (Pages + a single D1 database).
 
 ## Contributing

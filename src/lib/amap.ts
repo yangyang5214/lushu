@@ -31,6 +31,7 @@ export type AmapMap = {
   addControl(control: unknown): void
   destroy(): void
   resize(): void
+  getZoom(): number
   lngLatToContainer(position: AmapLngLat | [number, number]): AmapPixel
   containerToLngLat(pixel: AmapPixel): AmapLngLat
   setFitView(overlays?: AmapOverlay[], immediately?: boolean, avoid?: number[], maxZoom?: number): void

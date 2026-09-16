@@ -798,6 +798,341 @@ mark {
   color: var(--seal);
 }
 
+/* ============================================================
+   点地图看地点：右侧弹出的高德地点卡片
+   ============================================================ */
+.poi-panel {
+  position: absolute;
+  /* 盖过搜索框与「回到全览」 */
+  z-index: 860;
+  right: 12px;
+  top: 12px;
+  bottom: 12px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+.poi-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 8px 14px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.poi-head-title {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.poi-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  transition: color 0.15s, background 0.15s;
+}
+
+.poi-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+
+.poi-close:hover {
+  color: var(--seal);
+  background: rgba(194, 59, 34, 0.08);
+}
+
+.poi-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 14px;
+}
+
+.poi-state {
+  margin: 0;
+  padding: 16px 14px;
+  color: #8a93a0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.poi-hero {
+  position: relative;
+  height: 134px;
+  background: #f2f4f7;
+}
+
+.poi-hero img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.poi-hero-count {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 11px;
+}
+
+.poi-name {
+  margin: 12px 14px 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.poi-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 6px 14px 0;
+}
+
+.poi-score-num {
+  color: #3377ff;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.poi-score-note {
+  color: #98a1ad;
+  font-size: 11.5px;
+}
+
+.poi-stars {
+  position: relative;
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.poi-stars-base {
+  color: #dfe3ea;
+}
+
+.poi-stars-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #3377ff;
+}
+
+.poi-chip {
+  padding: 2px 7px;
+  border-radius: 2px;
+  background: #f2f4f7;
+  color: #5b6472;
+  font-size: 11.5px;
+}
+
+.poi-tags {
+  margin: 8px 14px 0;
+  color: #5b6472;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.poi-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 14px 0;
+}
+
+.poi-fact {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.poi-fact-k {
+  flex: none;
+  width: 4.6em;
+  color: #98a1ad;
+}
+
+.poi-fact-v {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.poi-fact-v a {
+  color: var(--seal);
+  text-decoration: none;
+}
+
+.poi-fact-v a:hover {
+  text-decoration: underline;
+}
+
+.poi-sec {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #eef0f3;
+}
+
+.poi-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 14px;
+}
+
+.poi-sec-head h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.poi-link {
+  color: #3377ff;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.poi-link:hover {
+  text-decoration: underline;
+}
+
+.poi-photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin: 8px 14px 0;
+}
+
+.poi-photos img {
+  width: 100%;
+  height: 72px;
+  display: block;
+  object-fit: cover;
+  border-radius: 2px;
+  background: #f2f4f7;
+}
+
+.poi-note {
+  margin: 8px 14px 0;
+  color: #98a1ad;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.poi-nearby {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.poi-nearby button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.poi-nearby button:hover {
+  background: #f7f9fc;
+}
+
+.poi-nearby-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poi-nearby-meta {
+  flex: none;
+  color: #98a1ad;
+  font-size: 11.5px;
+}
+
+/* 底部动作条：这一点要不要进路线 */
+.poi-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid #eef0f3;
+  background: #fff;
+}
+
+.poi-add {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 2px;
+  background: #3377ff;
+  color: #fff;
+  font-size: 13px;
+}
+
+.poi-add:hover {
+  background: #2864d8;
+}
+
+.poi-skip {
+  flex: none;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.poi-skip:hover {
+  color: var(--ink);
+  border-color: #c9bda6;
+}
+
+.poi-added {
+  flex: 1;
+  color: #0f9d58;
+  font-size: 13px;
+}
+
 .amap-container {
   font-family: var(--sans);
   background: #d7d2c6;
@@ -1218,6 +1553,20 @@ mark {
     right: 12px;
     top: 12px;
     width: auto;
+  }
+
+  /* 手机上右侧放不下 320px：卡片改成贴地图底部的浮层，左边留给地图 */
+  .poi-panel {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 10px;
+    width: auto;
+    max-height: 76%;
+  }
+
+  .poi-hero {
+    height: 110px;
   }
 
   /* 手机上用双指缩放，收起高德的缩放按钮，免得和搜索框打架。 */

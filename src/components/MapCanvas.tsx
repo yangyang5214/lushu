@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { dayInk, toGcj } from '../lib/geo'
 import {
   createArrowLayer,
@@ -8,12 +8,15 @@ import {
   placeMarker,
   removeOverlays,
   useAmapMap,
+  type AmapLngLat,
   type AmapOverlay,
   type RouteArrowLayer,
 } from '../lib/amap'
 import { useI18n } from '../lib/i18n'
+import type { PoiQuery } from '../lib/poi'
 import { fetchRoadLine } from '../lib/route'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
+import { PoiPanel } from './PoiPanel'
 import { SearchBox } from './SearchBox'
 
 /** 视野自适应：别放到最大级别，四周留白由 fitPlaces 统一给。 */
@@ -27,6 +30,8 @@ export function MapCanvas() {
   const selectPlace = useLushu((s) => s.selectPlace)
   const hostRef = useRef<HTMLDivElement>(null)
   const { api, map, failed } = useAmapMap(hostRef, lang)
+  // 点中的地图位置：右侧弹出那一点的高德地点卡片（只读分享里也能用）。
+  const [poiQuery, setPoiQuery] = useState<PoiQuery | null>(null)
   const markersRef = useRef<AmapOverlay[]>([])
   const arrowsRef = useRef<RouteArrowLayer | null>(null)
   const journeyRef = useRef(journey)
@@ -68,6 +73,24 @@ export function MapCanvas() {
       markersRef.current = []
     }
   }, [api, map, journey, selectedId, selectPlace, t])
+
+  // 点地图任意一点：把那一处的 GCJ02 坐标（和当时的缩放级别）交给右侧卡片。
+  useEffect(() => {
+    if (!map) return
+    const onClick = (event: unknown) => {
+      const lnglat = (event as { lnglat?: AmapLngLat } | null)?.lnglat
+      if (!lnglat) return
+      setPoiQuery({ lng: lnglat.getLng(), lat: lnglat.getLat(), zoom: map.getZoom() })
+    }
+    map.on('click', onClick)
+    return () => {
+      try {
+        map.off('click', onClick)
+      } catch {
+        /* 地图已销毁 */
+      }
+    }
+  }, [map])
 
   useEffect(() => {
     if (!map) return
@@ -123,6 +146,9 @@ export function MapCanvas() {
     <div className="map-stage">
       <div ref={hostRef} className="map" />
       {failed ? <p className="map-hint">{t('map.unavailable')}</p> : null}
+      {poiQuery ? (
+        <PoiPanel query={poiQuery} onClose={() => setPoiQuery(null)} />
+      ) : null}
       <button
         type="button"
         className="map-fit"

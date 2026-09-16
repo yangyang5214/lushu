@@ -33,6 +33,7 @@
 ## 功能
 
 - **随意加点**：搜城市、寺庙、老街、营地，加进来就行，不用管顺序，也不用先想第几天。搜索走高德 POI 检索（结果缓存 3 天），Worker 没起时退化为本地地名库。
+- **点地图看地点**：在路书页点地图任意一点，右侧弹出那一点最近的高德地点卡片——评分、照片（大多是用户评价图）、电话、营业时间、地址、到点击处的直线距离，附「在高德看全部评价」入口，下面还能一键换到附近其它地点。确认后按「加入路线」就落进当前路书（只读分享里没有这个动作）。
 - **自动串线**：定好起点和终点，路线按驾车里程自动重排；环线可切顺时针 / 逆时针。地图按天着色、带方向箭头，点到点显示里程与驾驶时长。
 - **过夜分天**：在行程尺上点珠子设过夜，或直接拖分割针，行程自动分成一天天，每天有独立里程与图例。改过夜点，天数立刻重算。
 - **云端书架**：编辑先落本地，1.4s 防抖后写 D1。`/list` 管理「我的路书」，`/public` 逛别人公开的路书，卡片直接画出缩略线路。
@@ -48,7 +49,7 @@
 | 样式 | 手写 CSS（`src/index.css`、`src/home.css`），无 UI 框架 |
 | 后端 | Cloudflare Pages Functions（本质是 Worker） |
 | 数据库 | Cloudflare D1（SQLite），只读 SQL 全部走参数绑定 |
-| 地图 | 高德 JS API（底图 / 标记 / 图面）· 高德 Web 服务 API（POI 检索 / 驾车规划） |
+| 地图 | 高德 JS API（底图 / 标记 / 图面）· 高德 Web 服务 API（POI 检索 / 周边检索 / 驾车规划） |
 | 邮件 · 人机校验 | Resend（可选）· Cloudflare Turnstile（可选） |
 | 工具链 | pnpm · oxlint · wrangler |
 
@@ -57,7 +58,7 @@
 ```
 src/            React 前端：App.tsx、store.ts、components/、lib/（amap、geocode、route、sync、i18n…）
 functions/      Pages Functions：api/[[path]].ts（全部 API 路由）、lib/（auth、mail、rate-limit、admin…）
-shared/         前后端共用的纯函数与类型：坐标换算、顺路排序、口令规则、公开配置
+shared/         前后端共用的纯函数与类型：坐标换算、顺路排序、口令规则、公开配置、地点卡片类型
 schema.sql      D1 建表脚本，可重复执行，不需要单独的迁移脚本
 public/         静态资源：favicon、icons、小程序码、sitemap.xml、robots.txt
 scripts/        本地开发脚本：dev.mjs 一条命令起 Vite + 本地 Worker + 本地 D1（`pnpm dev:all`）
@@ -126,7 +127,7 @@ pnpm deploy       # 部署到 Cloudflare Pages
 
 | 名称 | 必填 | 用途 |
 | --- | --- | --- |
-| `AMAP_KEY` | 是（搜索 / 路线） | 高德「Web 服务」key，**不是**上面那个 JS API key。`/api/places`（搜索）与 `/api/route`（驾车规划）都只用高德，未配置时这两个接口返回 5xx。支持用 `;` 配多个（`key1;key2`）：按顺序轮换分摊配额，单个失败自动换下一个。 |
+| `AMAP_KEY` | 是（搜索 / 路线） | 高德「Web 服务」key，**不是**上面那个 JS API key。`/api/places`（搜索）、`/api/poi`（点地图看地点）与 `/api/route`（驾车规划）都只用高德，未配置时这几个接口返回 5xx。支持用 `;` 配多个（`key1;key2`）：按顺序轮换分摊配额，单个失败自动换下一个。 |
 | `ADMIN_SECRET` | 否 | 管理后台 `/admin` 口令，至少 6 字符；未设置或过短时 `/api/admin/*` 一律 404（后台等于不存在）。 |
 | `RESEND_API_KEY` | 否 | 发送注册激活邮件；不配则注册流程不可用。 |
 | `TURNSTILE_SECRET` | 否 | 注册 / 登录 / 重发激活的人机校验；配了即强制校验。 |
@@ -163,6 +164,7 @@ pnpm deploy       # wrangler pages deploy dist
 - **本地优先**：编辑先落浏览器，1.4s 防抖后写 D1（`src/lib/sync.ts`）；带 `baseUpdatedAt` 的写入会拿到 409 冲突而不是静默覆盖。
 - **同源防线**：仓库公开意味着端点形状全公开，所以防线都在服务端——不下发 CORS 头、新建必须登录、全站容量与单本体积双上限、口令 PBKDF2-SHA256 加盐迭代、会话 cookie 只存 token 摘要、上游 host 写死（无 SSRF）、恒定时间比较、id 形态校验。
 - **坐标系**：存储统一 WGS84，高德底图与路线用 GCJ02，转换集中在 `shared/coords.ts`。
+- **点地图看地点**：查询走高德周边检索（v5 place/around），半径随视野放大；结果坐标是 GCJ02（底图坐标系），查询本身不写库，只有用户选「加入路线」时才转成 WGS84 落进路书；同一点附近的结果缓存 1 天。
 - **驾车节流**：所有驾车请求先过一道 3 次/秒的排队闸口（`AMAP_DRIVE_QPS`），避免自己把自己打出上游限流；遇 10004 / 10020 按退避重试并换 key。
 - **可见性**：新建默认 private；缺字段的老数据当 public；private 不进公开列表，对非 owner 一律 404（不泄露存在性）。
 
@@ -176,6 +178,7 @@ pnpm deploy       # wrangler pages deploy dist
 - 没配 `AMAP_KEY` 时搜索退化为本地地名库、不绘制路线；站点不回落其他地图源。
 - 驾车请求全站 3 次/秒（每个 isolate 各自限流），地点特别多时首次串线要排队。
 - 单本路书 ≤ `MAX_DOC_BYTES`，全站路书数 ≤ `MAX_BOOKS`。
+- 高德开放平台没有公开「评价正文」接口：点地图弹出的卡片只有评分、评价照片和跳转入口，评价全文要到高德页面看。
 - 跑在 Cloudflare 免费档（Pages + 单库 D1）。
 
 ## 参与贡献
