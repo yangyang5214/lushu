@@ -183,6 +183,7 @@ pnpm deploy       # wrangler pages deploy dist
 
 - Before submitting, make sure `pnpm build` exits 0 (`tsc -b && tsc -p functions/tsconfig.json && vite build`); both `src/` and `functions/` must type-check. `pnpm lint` (oxlint) is optional.
 - You do not need to start a dev server or a browser for that.
+- Pull requests run the same checks automatically (`.github/workflows/pr.yml`: `pnpm lint` + `pnpm build`, Node 22 + pnpm 10); draft PRs are skipped until marked ready for review.
 - Commit messages follow the existing style (Conventional Commits, e.g. `feat(sidebar): …`, `fix(search): …`).
 - Respect this boundary: search and route planning work without signing in, while personal data (my books, creating / duplicating a book, saving edits, the cloud library) requires sign-in. The UI does not announce this — it is documented only.
 - Any new server-side write path needs input validation and authorisation, and upstream hosts must be hard-coded.

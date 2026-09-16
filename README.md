@@ -183,6 +183,7 @@ pnpm deploy       # wrangler pages deploy dist
 
 - 改动后确保 `pnpm build` 退出码为 0（`tsc -b && tsc -p functions/tsconfig.json && vite build`），`src/` 与 `functions/` 两边都要过类型检查；`pnpm lint`（oxlint）可选。
 - 不需要为此起 dev server 或浏览器。
+- PR 会自动跑同一套检查（`.github/workflows/pr.yml`：`pnpm lint` + `pnpm build`，Node 22 + pnpm 10）；草稿 PR 不跑，标记 ready for review 后才跑。
 - 提交信息沿用现有风格（Conventional Commits，如 `feat(sidebar): …`、`fix(search): …`）。
 - 守住这条边界：搜索与路线规划不登录也能用，个人数据（我的路书、新建 / 复制路书、编辑保存、云端书架）必须登录后才能用；页面不提示，只在文档里写明。
 - 服务端新增任何写入路径都要做输入校验与鉴权，上游 host 必须写死。
