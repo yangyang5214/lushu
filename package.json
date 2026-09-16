@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "node scripts/dev.mjs",
     "build": "tsc -b && tsc -p functions/tsconfig.json && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
