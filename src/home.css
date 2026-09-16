@@ -1149,8 +1149,7 @@
 }
 
 .card:hover .card-ops,
-.card:focus-within .card-ops,
-.card.confirming .card-ops {
+.card:focus-within .card-ops {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1177,11 +1176,105 @@
   border-color: #b4413a;
 }
 
-.card-ops button.danger:hover,
-.card-ops button.danger.on {
+.card-ops button.danger:hover {
   color: #fff;
   background: #9c352f;
   border-color: #9c352f;
+}
+
+/* ---------- 确认对话框（删除路书） ---------- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(24, 30, 40, 0.42);
+  overscroll-behavior: contain;
+  animation: confirm-fade 0.14s ease-out;
+}
+
+.confirm-dialog {
+  width: min(380px, 100%);
+  padding: 20px 20px 16px;
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: 0 24px 60px -18px rgba(16, 24, 40, 0.45);
+  animation: confirm-pop 0.16s ease-out;
+}
+
+.confirm-dialog h3 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.confirm-body p {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.confirm-body p.confirm-ask {
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.btn-danger {
+  border: 1px solid #b4413a;
+  border-radius: var(--r-sm);
+  padding: 9px 18px;
+  background: #b4413a;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+.btn-danger:hover {
+  background: #9c352f;
+  border-color: #9c352f;
+}
+
+.btn-danger:active {
+  transform: translateY(1px);
+}
+
+.confirm-actions .btn-ghost,
+.confirm-actions .btn-danger {
+  padding: 7px 16px;
+  font-size: 13px;
+}
+
+@keyframes confirm-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirm-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* 新建卡片 */
@@ -1358,6 +1451,11 @@
   .card-ops {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* 触摸设备上按钮不会 hover，把点按面积放大，别一指点到隔壁的「删除」 */
+  .card-ops button {
+    padding: 8px 14px;
   }
 }
 

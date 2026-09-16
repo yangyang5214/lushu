@@ -187,7 +187,11 @@ const zh = {
   'mine.empty': '还没有自己的路书',
   'mine.makePublic': '设为公开',
   'mine.makePrivate': '设为私密',
-  'mine.confirmDelete': '确认删除',
+  'mine.deleteTitle': '删除路书',
+  'mine.deleteAsk': '确定要删除《{title}》吗？',
+  'mine.deleteWarnLocal': '删除后无法恢复。',
+  'mine.deleteWarnCloud': '删除后无法恢复；云端保存的这一份也会一并删掉，分享出去的链接随即失效。',
+  'mine.deleteAria': '删除《{title}》',
 
   // ── 公开路书 ─────────────────────────────────────────────────────────────
   'public.heading': '公开路书',
@@ -514,7 +518,12 @@ const en: Record<MsgKey, string> = {
   'mine.empty': 'You have no Roadbooks yet',
   'mine.makePublic': 'Make public',
   'mine.makePrivate': 'Make private',
-  'mine.confirmDelete': 'Confirm delete',
+  'mine.deleteTitle': 'Delete Roadbook',
+  'mine.deleteAsk': 'Delete “{title}”?',
+  'mine.deleteWarnLocal': 'This cannot be undone.',
+  'mine.deleteWarnCloud':
+    'This cannot be undone. The copy saved in the cloud is deleted with it, and links you have shared stop working.',
+  'mine.deleteAria': 'Delete “{title}”',
 
   'public.heading': 'Public Roadbooks',
   'public.count': '{n} Roadbooks',
