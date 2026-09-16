@@ -102,8 +102,7 @@ const zh = {
   'home.seePublic': '看看公开路书',
   'home.guideHeading': '每个按钮，都对应路上的一件事',
   'home.guideSub':
-    '编辑页里能点的东西其实不多。下面挨个说一遍：在哪儿点、点完会发生什么。',
-  'home.guideWhere': '在哪儿点',
+    '编辑页里能点的东西不多。下面一个一个说，每个动作都配了张图。',
 
   'nav.mp': '小程序',
   'mp.kicker': '微信小程序',
@@ -137,27 +136,22 @@ const zh = {
   'feat.add.title': '搜一下就加进来',
   'feat.add.text':
     '在地图左上角的搜索框里打地名，点中结果就加进行程清单。想到什么加什么，顺序不用管。',
-  'feat.add.where': '地图左上角的搜索框',
   'feat.add.alt': '示意图：在搜索框里搜到地点，点一下加进行程清单',
   'feat.ends.title': '起点终点，定下方向',
   'feat.ends.text':
     '在任意一行的右侧点「起点」或「终点」。定好之后，其余地点按路程自动串成一条顺路的线；起点和终点选同一个点，就是环线。',
-  'feat.ends.where': '地点那一行右侧的「起点」「终点」',
   'feat.ends.alt': '示意图：给地点设起点和终点，地图上串成一条路线',
   'feat.night.title': '点一下「过夜」，行程就分天',
   'feat.night.text':
     '在今晚要住下的那个地点点「过夜」，全程立刻分成第 1 天、第 2 天，清单和地图的颜色一起变。',
-  'feat.night.where': '行末的「过夜」按钮',
   'feat.night.alt': '示意图：在过夜的地点钉上分割针，行程分成两天',
   'feat.rail.title': '底部的行程尺，一眼看完整个行程',
   'feat.rail.text':
     '整条路线按实际里程铺开，一颗珠就是一个地点：点珠子能选中地点，也能直接钉过夜；按住「夜」拖到别的点就能改分天。',
-  'feat.rail.where': '编辑页底部那条尺',
   'feat.rail.alt': '示意图：底部行程尺上的珠子，把「夜」拖到另一个点',
   'feat.legs.title': '点与点之间，标着大概要开多久',
   'feat.legs.text':
     '相邻两个地点之间会显示里程和驾驶时长；天数、地点数、总里程、驾驶时长这四个总数，跟着你的改动实时重算。',
-  'feat.legs.where': '两个地点之间的行车线，和尺子右上的总数',
   'feat.legs.alt': '示意图：地点之间的里程与驾驶时长，以及总统计',
 
   'shot.book': '闽南 5 天',
@@ -437,8 +431,7 @@ const en: Record<MsgKey, string> = {
   'home.seePublic': 'Browse public Roadbooks',
   'home.guideHeading': 'Every button maps to one thing on the road',
   'home.guideSub':
-    'The editor has only a handful of controls. Here is each one: where it lives, and what happens when you use it.',
-  'home.guideWhere': 'Where',
+    'The editor has only a handful of controls. Here they are, one at a time, each with a picture.',
 
   'nav.mp': 'Mini Program',
   'mp.kicker': 'WeChat Mini Program',
@@ -472,27 +465,22 @@ const en: Record<MsgKey, string> = {
   'feat.add.title': 'Search, and it joins the trip',
   'feat.add.text':
     'Type a place into the search box at the top-left of the map and pick a result — it lands in the itinerary. Add in any order.',
-  'feat.add.where': 'Search box at the top-left of the map',
   'feat.add.alt': 'Diagram: searching for a place and adding it to the itinerary',
   'feat.ends.title': 'A start and an end set the direction',
   'feat.ends.text':
     'Click Start or End on any stop. The other places are then strung into one sensible route by distance — pick the same stop for both and you get a loop.',
-  'feat.ends.where': 'The Start / End buttons on each stop',
   'feat.ends.alt': 'Diagram: setting a start and an end on stops, drawn as a route on the map',
   'feat.night.title': 'One click on Overnight splits the days',
   'feat.night.text':
     'Click Overnight on the stop where you will sleep: the trip splits into Day 1, Day 2 right away, and the itinerary and map recolor.',
-  'feat.night.where': 'The Overnight button on each stop',
   'feat.night.alt': 'Diagram: pinning an overnight stop, splitting the trip into two days',
   'feat.rail.title': 'The trip ruler shows the whole trip at a glance',
   'feat.rail.text':
     'The route is laid out on a ruler by real distance, one bead per stop: click a bead to select the stop or pin an overnight there; drag the night pin onto another bead to move it.',
-  'feat.rail.where': 'The ruler along the bottom of the editor',
   'feat.rail.alt': 'Diagram: beads on the trip ruler with the night pin dragged to another stop',
   'feat.legs.title': 'Between stops: how far, and how long',
   'feat.legs.text':
     'Every leg shows its distance and drive time; the four totals — days, stops, distance, drive time — recompute as you edit.',
-  'feat.legs.where': 'The legs between stops, and the totals by the ruler',
   'feat.legs.alt': 'Diagram: distance and drive time between stops, plus the trip totals',
 
   'shot.book': 'Minnan · 5 days',
