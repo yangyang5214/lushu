@@ -2747,23 +2747,6 @@
   line-height: 1.85;
 }
 
-.feat-copy .feat-where {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 16px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-hi);
-  font-size: 12.5px;
-}
-
-.feat-copy .feat-where b {
-  font-weight: 500;
-  opacity: 0.7;
-}
-
 @media (max-width: 860px) {
   .guide {
     padding: 48px 0 64px;

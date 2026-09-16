@@ -12,7 +12,6 @@ type Guide = {
   num: string
   titleKey: MsgKey
   textKey: MsgKey
-  whereKey: MsgKey
   shot: ComponentType
 }
 
@@ -21,11 +20,11 @@ type Guide = {
  * 顺序跟着实际用法走：先加点，再定起终点，然后过夜分天，最后看尺子和地图。
  */
 const GUIDE: Guide[] = [
-  { num: '01', titleKey: 'feat.add.title', textKey: 'feat.add.text', whereKey: 'feat.add.where', shot: ShotAdd },
-  { num: '02', titleKey: 'feat.ends.title', textKey: 'feat.ends.text', whereKey: 'feat.ends.where', shot: ShotEnds },
-  { num: '03', titleKey: 'feat.night.title', textKey: 'feat.night.text', whereKey: 'feat.night.where', shot: ShotNight },
-  { num: '04', titleKey: 'feat.rail.title', textKey: 'feat.rail.text', whereKey: 'feat.rail.where', shot: ShotRail },
-  { num: '05', titleKey: 'feat.legs.title', textKey: 'feat.legs.text', whereKey: 'feat.legs.where', shot: ShotLegs },
+  { num: '01', titleKey: 'feat.add.title', textKey: 'feat.add.text', shot: ShotAdd },
+  { num: '02', titleKey: 'feat.ends.title', textKey: 'feat.ends.text', shot: ShotEnds },
+  { num: '03', titleKey: 'feat.night.title', textKey: 'feat.night.text', shot: ShotNight },
+  { num: '04', titleKey: 'feat.rail.title', textKey: 'feat.rail.text', shot: ShotRail },
+  { num: '05', titleKey: 'feat.legs.title', textKey: 'feat.legs.text', shot: ShotLegs },
 ]
 
 /** `/`：首页，首屏 + 逐个动作的功能介绍；书单都在独立的 `/list`、`/public` 页。 */
@@ -72,7 +71,7 @@ export function RouteList() {
               <p>{t('home.guideSub')}</p>
             </header>
             <ol className="feat-rows">
-              {GUIDE.map(({ num, titleKey, textKey, whereKey, shot: Shot }) => (
+              {GUIDE.map(({ num, titleKey, textKey, shot: Shot }) => (
                 <li key={num} className="feat-row">
                   <div className="feat-shot">
                     <Shot />
@@ -81,10 +80,6 @@ export function RouteList() {
                     <span className="feat-num">{num}</span>
                     <h3>{t(titleKey)}</h3>
                     <p>{t(textKey)}</p>
-                    <p className="feat-where">
-                      <b>{t('home.guideWhere')}</b>
-                      <span>{t(whereKey)}</span>
-                    </p>
                   </div>
                 </li>
               ))}
