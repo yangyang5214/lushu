@@ -896,125 +896,7 @@
   line-height: 1.7;
 }
 
-/* ---------- 三步流程 ---------- */
-.flow {
-  padding: 56px 0;
-  border-top: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, rgba(124, 92, 255, 0.04) 0%, transparent 100%);
-}
-
-.flow-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-}
-
-.flow-step {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-}
-
-.flow-step-card {
-  flex: 1;
-  min-width: 0;
-  padding: 22px 20px 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.flow-step-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.flow-step-num {
-  color: var(--accent-hi);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-}
-
-.flow-step-key {
-  display: inline-block;
-  margin-top: 2px;
-  color: var(--accent-hi);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.flow-step h3 {
-  margin: 6px 0 8px;
-  font-size: 16px;
-  font-weight: 650;
-}
-
-.flow-step p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.75;
-}
-
-.flow-connector {
-  flex: none;
-  align-self: center;
-  width: 28px;
-  height: 2px;
-  margin: 0 -1px;
-  background: linear-gradient(90deg, var(--accent) 0%, rgba(124, 92, 255, 0.35) 100%);
-  position: relative;
-  z-index: 1;
-}
-
-.flow-connector::after {
-  content: '';
-  position: absolute;
-  right: -1px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-top: 2px solid var(--accent);
-  border-right: 2px solid var(--accent);
-  transform: translateY(-50%) rotate(45deg);
-}
-
-/* ---------- 辅助功能 ---------- */
-.features {
-  padding: 56px 0 88px;
-  border-top: 1px solid var(--border-soft);
-}
-
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.feature-grid--aux {
-  gap: 16px;
-}
-
-.feature-step {
-  display: inline-block;
-  margin-top: 14px;
-  color: var(--accent-hi);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
+/* 小图标底座：小程序页的功能点用，功能配图里的图标也复用这套尺寸。 */
 .feature-icon {
   display: grid;
   place-items: center;
@@ -1033,30 +915,6 @@
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.feature {
-  padding: 18px 18px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  background: var(--surface);
-}
-
-.feature--aux {
-  box-shadow: none;
-}
-
-.feature h3 {
-  margin: 10px 0 6px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.feature p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.75;
 }
 
 /* ---------- 分栏标题 ---------- */
@@ -1503,24 +1361,6 @@
   }
 }
 
-@media (max-width: 960px) {
-  .flow-steps {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .flow-connector {
-    display: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .feature-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-}
-
 @media (max-width: 820px) {
   /* 手机上导航不收起：品牌 + 账户一行，导航项独占一行，避免点不到「我的 / 公开路书」 */
   .nav-in {
@@ -1534,6 +1374,8 @@
   .nav-links {
     order: 3;
     width: 100%;
+    /* 四个导航项 + 英文文案会比一行宽，允许换行 */
+    flex-wrap: wrap;
     gap: 18px;
   }
 
@@ -1573,13 +1415,6 @@
 }
 
 @media (max-width: 560px) {
-  .nav-in {
-    gap: 12px;
-  }
-
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
 
   .mp-card {
     width: 256px;
@@ -1630,14 +1465,6 @@
     top: 80px;
     width: 520px;
     height: 320px;
-  }
-
-  .flow {
-    padding: 40px 0;
-  }
-
-  .features {
-    padding: 40px 0 64px;
   }
 
   .shelf {
@@ -2848,3 +2675,111 @@
     padding: 6px 4px;
   }
 }
+
+/* ---------- 主页：功能介绍（一个动作一张图） ---------- */
+.guide {
+  padding: 64px 0 88px;
+  border-top: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.04) 0%, transparent 46%);
+}
+
+/* 一行之内把配图换到左边或右边，窄屏回到图在上、字在下。 */
+
+.feat-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+
+.feat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 48px;
+}
+
+/* 偶数行把配图换到右边，视觉上有个来回。 */
+.feat-row:nth-child(even) .feat-shot {
+  order: 2;
+}
+
+.feat-shot {
+  min-width: 0;
+}
+
+.shot-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(16, 16, 24, 0.06),
+    0 20px 46px -26px rgba(16, 16, 24, 0.38);
+}
+
+.feat-copy {
+  min-width: 0;
+}
+
+.feat-num {
+  display: block;
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.feat-copy h3 {
+  margin: 8px 0 12px;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.feat-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.feat-copy .feat-where {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 12.5px;
+}
+
+.feat-copy .feat-where b {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+@media (max-width: 860px) {
+  .guide {
+    padding: 48px 0 64px;
+  }
+
+  .feat-rows {
+    gap: 48px;
+  }
+
+  .feat-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .feat-row:nth-child(even) .feat-shot {
+    order: 0;
+  }
+}
+
