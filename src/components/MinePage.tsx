@@ -10,6 +10,7 @@ import { pullMissingCloudBooks, pushBook, refreshCloud, refreshPublic, removeBoo
 import { useLushu } from '../store'
 import type { Book, Journey, Visibility } from '../types'
 import { SiteNav } from './Chrome'
+import { ConfirmDialog } from './ConfirmDialog'
 import { RoutePreview } from './RoutePreview'
 
 function routeLabel(journey: Journey): string {
@@ -35,7 +36,8 @@ export function MinePage() {
   // 本人的公开短 ID：自己的路书链接用 `/d/{userId}/{bookId}`。
   const myId = useAuth((s) => s.user?.hashId)
 
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  // 待删除的路书：不为空时弹出二次确认浮层。
+  const [deleteTarget, setDeleteTarget] = useState<Book | null>(null)
 
   // 每次打开「我的路书」都刷新账号书架，并把云端有、本机缺的路书拉下来。
   useEffect(() => {
@@ -53,6 +55,13 @@ export function MinePage() {
   // 改权限也要登录：写操作靠账号归属或编辑口令授权。
   // 账号书架里的书（含换设备后刚拉下来的）即使没有本机编辑口令也能改可见性。
   const canToggleVisibility = (id: string) => hasToken(id) || cloudById.has(id)
+
+  // 这次删除会不会连云端一起清掉，决定确认框里要不要提「分享出去的链接会失效」。
+  // 判断口径与 removeBook 里的一致。
+  const purgesCloud = (id: string) => {
+    const meta = getMeta(id)
+    return cloudById.has(id) || meta.pushed !== undefined || (Boolean(meta.token) && !meta.remote)
+  }
 
   const applyVisibility = (book: Book, next: Visibility) =>
     requireLogin(() => {
@@ -142,18 +151,7 @@ export function MinePage() {
                     ? fmtDay(book.startDate)
                     : t('card.updatedAt', { date: fmtDay(book.updatedAt) })
                   return (
-                    <li
-                      key={book.id}
-                      className={
-                        book.id === activeId
-                          ? deleteConfirmId === book.id
-                            ? 'card on confirming'
-                            : 'card on'
-                          : deleteConfirmId === book.id
-                            ? 'card confirming'
-                            : 'card'
-                      }
-                    >
+                    <li key={book.id} className={book.id === activeId ? 'card on' : 'card'}>
                       <button
                         type="button"
                         className="card-open"
@@ -202,31 +200,16 @@ export function MinePage() {
                             {isPrivate ? t('mine.makePublic') : t('mine.makePrivate')}
                           </button>
                         ) : null}
-                        {deleteConfirmId === book.id ? (
-                          <>
-                            <button
-                              type="button"
-                              className="danger on"
-                              onClick={() => {
-                                void removeBook(book.id)
-                                setDeleteConfirmId(null)
-                              }}
-                            >
-                              {t('mine.confirmDelete')}
-                            </button>
-                            <button type="button" onClick={() => setDeleteConfirmId(null)}>
-                              {t('common.cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="danger"
-                            onClick={() => setDeleteConfirmId(book.id)}
-                          >
-                            {t('common.delete')}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="danger"
+                          aria-label={t('mine.deleteAria', {
+                            title: book.title || t('common.untitled'),
+                          })}
+                          onClick={() => setDeleteTarget(book)}
+                        >
+                          {t('common.delete')}
+                        </button>
                       </div>
                     </li>
                   )
@@ -236,6 +219,34 @@ export function MinePage() {
           </div>
         </section>
       </main>
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title={t('mine.deleteTitle')}
+          confirmLabel={t('common.delete')}
+          cancelLabel={t('common.cancel')}
+          tone="danger"
+          onConfirm={() => {
+            const id = deleteTarget.id
+            // 本地立即消失，云端删除在后台继续；删不掉的话下次刷新书架会再出现。
+            void removeBook(id)
+            setDeleteTarget(null)
+          }}
+          onCancel={() => setDeleteTarget(null)}
+          body={
+            <>
+              <p className="confirm-ask">
+                {t('mine.deleteAsk', {
+                  title: deleteTarget.title || t('common.untitled'),
+                })}
+              </p>
+              <p>
+                {purgesCloud(deleteTarget.id) ? t('mine.deleteWarnCloud') : t('mine.deleteWarnLocal')}
+              </p>
+            </>
+          }
+        />
+      ) : null}
     </div>
   )
 }
