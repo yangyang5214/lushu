@@ -1,20 +1,14 @@
 import { dayInk, formatDuration, formatKm } from '../lib/geo'
-import { cityOf, fmtDayOffset } from '../lib/format'
+import { fmtDayOffset } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import type { Place } from '../types'
 import { useJourney, useLushu, useSelectedId } from '../store'
 
 /**
- * 一天的途经串。跨城时按城市串（「上海 → 苏州 → 南京」）；同城行程城市名区分不出
- * 当天走了哪几站，退回地点名（相邻重复去掉，切天处前后的同一个点只留一个）。
+ * 一天的途经串：直接串地点名（「外滩 → 豫园 → 朱家角」）。
+ * 城市名太粗，看不出当天实际走了哪几站；相邻重复去掉，切天处前后的同一个过夜点只留一个。
  */
 function routeLabel(places: Place[]): string {
-  const cities: string[] = []
-  for (const place of places) {
-    const city = cityOf(place)
-    if (city && city !== cities[cities.length - 1]) cities.push(city)
-  }
-  if (cities.length > 1) return cities.join(' → ')
   const names: string[] = []
   for (const place of places) {
     if (place.name && place.name !== names[names.length - 1]) names.push(place.name)
