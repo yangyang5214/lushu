@@ -1,13 +1,14 @@
 # 项目规则（AGENTS.md）
 
-## 硬性禁止
+## 浏览器
 
-- **禁止调用任何 Chrome / Chromium / 浏览器命令**（如 `chrome`、`google-chrome`、`chromium`、`open -a "Google Chrome"`、headless 截图、Puppeteer/Playwright 启动浏览器等）。不要用浏览器做验证、截图或调试。
+- **只允许调用 ego**（`ego-browser`；用法见 `~/.agents/skills/ego-browser/SKILL.md`）。
+- **禁止其他任何浏览器命令**：`chrome`、`google-chrome`、`chromium`、`open -a "Google Chrome"`、headless 截图、Puppeteer / Playwright 启动浏览器等。
 
 ## 验证方式
 
-- **改动完成后，只要构建通过即可**：运行 `pnpm build`（= `tsc -b && tsc -p functions/tsconfig.json && vite build`），exit code 为 0 即视为验证通过。
-- 不要为此启动 dev server、浏览器或任何交互式进程；不要自行部署（`pnpm deploy`、`wrangler pages deploy`）。
+- **改动完成后，只要构建通过即可**：运行 `pnpm build`（= `tsc -b && tsc -p functions/tsconfig.json && vite build`），exit code 为 0 即视为验证通过。不需要为此开浏览器。
+- 不要为此启动 dev server 或任何交互式进程；不要自行部署（`pnpm deploy`、`wrangler pages deploy`）。
 - 如需额外静态检查，可运行 `pnpm lint`（oxlint），但它不是必需的通过条件。
 
 ## 代码约定
