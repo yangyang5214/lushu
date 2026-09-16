@@ -60,7 +60,6 @@ functions/      Pages Functions：api/[[path]].ts（全部 API 路由）、lib/�
 shared/         前后端共用的纯函数与类型：坐标换算、顺路排序、口令规则、公开配置
 schema.sql      D1 建表脚本，可重复执行，不需要单独的迁移脚本
 public/         静态资源：favicon、icons、小程序码、sitemap.xml、robots.txt
-extension/      配套浏览器扩展（见 extension/README.md）
 scripts/        本地开发脚本：dev.mjs 一条命令起 Vite + 本地 Worker + 本地 D1（`pnpm dev:all`）
 ```
 
@@ -169,7 +168,6 @@ pnpm deploy       # wrangler pages deploy dist
 
 ## 配套
 
-- **浏览器扩展**（`extension/`）：在路书页面输入一个主题，自动抓小红书攻略 → 用你自己的 DeepSeek Key 提取地点 → 写进当前这本路书。Key 只存本机 `chrome.storage.local`。安装、权限与选择器说明见 [extension/README.md](extension/README.md)。
 - **微信小程序**：站点 `/mp` 页介绍配套小程序（gpx merge）——手机上看当天行程、点地点直接导航。
 
 ## 已知限制

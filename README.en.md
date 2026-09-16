@@ -60,7 +60,6 @@ functions/      Pages Functions: api/[[path]].ts (all API routes), lib/ (auth, m
 shared/         Pure functions and types shared by both sides: coordinate conversion, route ordering, password rules, public config
 schema.sql      D1 schema; idempotent, no separate migration scripts
 public/         Static assets: favicon, icons, mini-program QR code, sitemap.xml, robots.txt
-extension/      Companion browser extension (see extension/README.md)
 scripts/        Local dev script: dev.mjs starts Vite + the local Worker + local D1 (`pnpm dev:all`)
 ```
 
@@ -169,7 +168,6 @@ pnpm deploy       # wrangler pages deploy dist
 
 ## Companion projects
 
-- **Browser extension** (`extension/`): on a book page, type a topic and it scrapes a Xiaohongshu guide, extracts the places with your own DeepSeek key, and writes them into the current book. The key stays in local `chrome.storage.local`. See [extension/README.md](extension/README.md) for install, permissions and selector overrides.
 - **WeChat mini program**: the `/mp` page introduces the companion mini program (gpx merge) — check the day's itinerary on your phone and tap a place to start navigation.
 
 ## Known limitations
