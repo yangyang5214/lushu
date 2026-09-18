@@ -227,13 +227,11 @@ function publicConfig(env: Env): Response {
 
 /**
  * 公开统计：首页「已有 N 位旅行者」用。只回数字，不下发任何账号信息。
- * 只数已激活的账号（老账号没有 activated_at，按已激活算），待激活的半成品
- * 注册不该算进这个数。读库结果交给边缘缓存，首页刷量不会变成 D1 读量。
+ * 直接数 users 全表（含待激活账号）。读库结果交给边缘缓存，首页刷量不会
+ * 变成 D1 读量。
  */
 async function publicStats(env: Env): Promise<Response> {
-  const row = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM users WHERE activated_at IS NULL OR activated_at > 0',
-  ).first<{ n: number }>()
+  const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>()
   const body: PublicStats = { users: row?.n ?? 0 }
   return json(body, 200, { 'cache-control': 'public, max-age=300, s-maxage=600' })
 }

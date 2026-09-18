@@ -58,7 +58,7 @@ export type SaveResult =
       remote?: RemoteBook
     }
 
-/** 首页展示的站点统计（已激活账号数）。取不到就返回 null，首页不显示这一行。 */
+/** 首页展示的站点统计（账号总数）。取不到就返回 null，首页不显示这一行。 */
 export async function fetchPublicStats(): Promise<PublicStats | null> {
   try {
     const res = await request('/api/stats')
