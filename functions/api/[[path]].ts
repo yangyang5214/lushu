@@ -27,6 +27,7 @@
 //   GET    /api/admin/books     → 路书列表（分页 / 搜索 / 可见性筛选）
 //   GET    /api/admin/books/:id → 路书详情（含完整 doc）
 //   GET    /api/config     → 公开前端配置（高德 JS API key / 安全密钥）
+//   GET    /api/stats      → 公开统计（首页上的用户数）
 //   GET    /api/places?q=   → 高德 POI 检索（搜索添加目的地）+ Cache API 缓存
 //   GET    /api/poi?lng=&lat=&z= → 点击地图某点的高德地点卡片（逆地理 + 周边检索）+ 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
@@ -103,6 +104,7 @@ import { gcj02ToWgs84, wgs84ToGcj02 } from '../../shared/coords'
 import { haversineKm, isSamePlace, orderRoute, type LoopDir } from '../../shared/geo'
 import type { PoiCard } from '../../shared/poi'
 import type { PublicConfig } from '../../shared/public-config'
+import type { PublicStats } from '../../shared/public-stats'
 import { clientIp, rateLimited } from '../lib/rate-limit'
 
 type Env = {
@@ -221,6 +223,19 @@ function publicConfig(env: Env): Response {
     amapSecurityCode: env.AMAP_SECURITY_CODE?.trim() ?? '',
   }
   return json(body, 200, { 'cache-control': 'no-store' })
+}
+
+/**
+ * 公开统计：首页「已有 N 位旅行者」用。只回数字，不下发任何账号信息。
+ * 只数已激活的账号（老账号没有 activated_at，按已激活算），待激活的半成品
+ * 注册不该算进这个数。读库结果交给边缘缓存，首页刷量不会变成 D1 读量。
+ */
+async function publicStats(env: Env): Promise<Response> {
+  const row = await env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM users WHERE activated_at IS NULL OR activated_at > 0',
+  ).first<{ n: number }>()
+  const body: PublicStats = { users: row?.n ?? 0 }
+  return json(body, 200, { 'cache-control': 'public, max-age=300, s-maxage=600' })
 }
 
 async function readBody<T>(request: Request): Promise<T | null> {
@@ -2157,6 +2172,7 @@ async function handle(ctx: Ctx): Promise<Response> {
   }
 
   if (seg[0] === 'config' && seg.length === 1 && method === 'GET') return publicConfig(env)
+  if (seg[0] === 'stats' && seg.length === 1 && method === 'GET') return publicStats(env)
   if (seg[0] === 'places' && method === 'GET') return places(ctx)
   if (seg[0] === 'poi' && seg.length === 1 && method === 'GET') return poi(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)

@@ -124,6 +124,7 @@ const zh = {
     '不用纠结先去哪、第几天走哪段。地点搜进来就好，路书按路程串联所有点；在过夜处钉分割针，行程自动分成一天天',
   'home.newBook': '新建路书',
   'home.seePublic': '看看公开路书',
+  'home.userCount': '已有 {n} 位旅行者加入',
 
   'nav.mp': '小程序',
   'mp.kicker': '微信小程序',
@@ -537,6 +538,7 @@ const en: Record<MsgKey, string> = {
     'Stop agonizing over where to go first or how far to drive each day. Just search in the places; the Roadbook links them by distance, and pins at overnight stops split the trip into days.',
   'home.newBook': 'New Roadbook',
   'home.seePublic': 'Browse public Roadbooks',
+  'home.userCount': 'Joined by {n} travelers',
 
   'nav.mp': 'Mini Program',
   'mp.kicker': 'WeChat Mini Program',

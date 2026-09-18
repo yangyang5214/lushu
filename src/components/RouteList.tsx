@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { fetchPublicStats } from '../lib/api'
 import { requireLogin, useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { navigateBook, navigatePublic } from '../lib/router'
@@ -7,8 +9,20 @@ import { HeroDiagram } from './HeroDiagram'
 
 /** `/`：首页，首屏 + 新建入口；功能逐条说明在 `/features`，书单在 `/list`、`/public`。 */
 export function RouteList() {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const createBook = useLushu((s) => s.createBook)
+  // 已激活账号数：首屏按钮下面那一行小字。取不到就不显示，不占位也不报错。
+  const [users, setUsers] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchPublicStats().then((stats) => {
+      if (!cancelled && stats) setUsers(stats.users)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // 新建路书要先登录；未登录会跳到账户页，登录后接着把动作做完。
   const startNew = () =>
@@ -36,6 +50,13 @@ export function RouteList() {
                   {t('home.seePublic')}
                 </button>
               </div>
+              {users > 0 ? (
+                <p className="hero-note">
+                  {t('home.userCount', {
+                    n: users.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US'),
+                  })}
+                </p>
+              ) : null}
             </div>
             <HeroDiagram />
           </div>

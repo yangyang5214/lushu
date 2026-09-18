@@ -1,4 +1,5 @@
 import type { Book, Visibility } from '../types'
+import type { PublicStats } from '../../shared/public-stats'
 import { getMeta, ownerKey } from './keys'
 
 export type RemoteBook = {
@@ -56,6 +57,19 @@ export type SaveResult =
       status: number
       remote?: RemoteBook
     }
+
+/** 首页展示的站点统计（已激活账号数）。取不到就返回 null，首页不显示这一行。 */
+export async function fetchPublicStats(): Promise<PublicStats | null> {
+  try {
+    const res = await request('/api/stats')
+    if (!res.ok || !isJson(res)) return null
+    const data = (await res.json()) as Partial<PublicStats>
+    const users = Number(data.users)
+    return { users: Number.isFinite(users) && users > 0 ? Math.floor(users) : 0 }
+  } catch {
+    return null
+  }
+}
 
 const TIMEOUT_MS = 12_000
 
