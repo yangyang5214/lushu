@@ -9,7 +9,7 @@ import type { LoopDir } from './lib/geo'
 import { isUntitledTitle, t } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
-import type { Book, Journey, Place, Visibility } from './types'
+import { PLACE_NOTE_MAX, type Book, type Journey, type Place, type Visibility } from './types'
 
 export type View = 'list' | 'mine' | 'public' | 'features' | 'mp' | 'account' | 'admin' | 'edit'
 
@@ -76,6 +76,8 @@ type Actions = {
   setTitle: (title: string) => void
   setStartDate: (startDate: string) => void
   addPlace: (input: Omit<Place, 'id'> & { id?: string }) => string
+  /** 改某点的自定义备注（空串即删除）。不影响路线，里程缓存照旧。 */
+  setPlaceNote: (id: string, note: string) => void
   removePlace: (id: string) => void
   setStart: (id: string) => void
   setEnd: (id: string) => void
@@ -171,7 +173,11 @@ function sortedOrder(book: Book, bump: boolean): Book {
 }
 
 /** Apply a patch to the currently open book and bump its updatedAt. */
-function activePatch(s: Store, f: (b: Book) => Partial<Book>): Partial<Store> {
+function activePatch(
+  s: Store,
+  f: (b: Book) => Partial<Book>,
+  opts: { routeChanged?: boolean } = {},
+): Partial<Store> {
   const id = s.activeId
   if (!id) return {}
   const b = s.books[id]
@@ -179,13 +185,19 @@ function activePatch(s: Store, f: (b: Book) => Partial<Book>): Partial<Store> {
   // 别人的路书只读：任何编辑动作都不改动 store（UI 也会隐藏对应入口）。
   if (s.readonlyIds[id]) return {}
   const extra = f(b)
+  // 没改到任何字段（重复点「过夜」、备注只多了个尾空格…）就什么都不动：
+  // 否则 updatedAt 白跳一次，同步层会当脏数据推一轮。
+  if (Object.keys(extra).length === 0) return {}
+  // 默认按改动的字段判断是否动了路线；只改备注这类「不碰坐标」的字段时，
+  // 调用方显式传 routeChanged:false，免得把库存的驾车里程清掉重算。
   const routeChanged =
-    'places' in extra ||
-    'startId' in extra ||
-    'endId' in extra ||
-    'orderedIds' in extra ||
-    'splitIds' in extra ||
-    'loopDir' in extra
+    opts.routeChanged ??
+    ('places' in extra ||
+      'startId' in extra ||
+      'endId' in extra ||
+      'orderedIds' in extra ||
+      'splitIds' in extra ||
+      'loopDir' in extra)
   return {
     books: {
       ...s.books,
@@ -426,6 +438,25 @@ export const useStore = create<Store>()(
         })
         return usedId
       },
+
+      setPlaceNote: (id, note) =>
+        set((s) =>
+          activePatch(
+            s,
+            (b) => {
+              const place = b.places.find((p) => p.id === id)
+              if (!place) return {}
+              const text = note.trim().slice(0, PLACE_NOTE_MAX)
+              if ((place.note ?? '') === text) return {}
+              return {
+                places: b.places.map((p) =>
+                  p.id === id ? { ...p, note: text || undefined } : p,
+                ),
+              }
+            },
+            { routeChanged: false },
+          ),
+        ),
 
       removePlace: (id) =>
         set((s) => ({

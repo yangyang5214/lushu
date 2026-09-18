@@ -241,15 +241,19 @@ type StopSpec = {
   no: string
   name: string
   tone?: string
+  /** 名字后面挂的备注小标签（和侧栏清单、行程表里的是同一种）。 */
+  note?: string
   marks?: MarkSpec[]
   ops?: OpSpec[]
   /** 新加进来的那一行：虚线框标出来。 */
   fresh?: boolean
 }
 
-/** 行程清单里的一行：序号 + 地点名 + 起/终/夜徽标 + 行末的操作按钮。 */
+/** 行程清单里的一行：序号 + 地点名 + 备注标签 + 起/终/夜徽标 + 行末的操作按钮。 */
 function StopRow({ row }: { row: StopSpec }) {
-  const markX = 50 + textW(row.name, 11.5) + 13
+  const nameW = textW(row.name, 11.5)
+  const noteW = row.note ? textW(row.note, 9.5) + 13 : 0
+  const markX = 50 + nameW + 13 + (noteW ? noteW + 5 : 0)
   const pills = (row.ops ?? []).map((op) => ({ ...op, w: textW(op.label, 9.5) + 16 }))
   // 行末按钮右对齐：从右往左算出每个按钮的左边界。
   const total = pills.reduce((sum, p) => sum + p.w + 5, 0)
@@ -281,6 +285,14 @@ function StopRow({ row }: { row: StopSpec }) {
       <Label x={50} y={row.y + 3.8} size={11.5} weight={600}>
         {row.name}
       </Label>
+      {row.note ? (
+        <g>
+          <rect x={50 + nameW + 6} y={row.y - 7.5} width={noteW} height="15" rx="5" fill="#f1f4f8" />
+          <Label x={50 + nameW + 12} y={row.y + 3.4} size={9.5} weight={400} fill={MUTED}>
+            {row.note}
+          </Label>
+        </g>
+      ) : null}
       {(row.marks ?? []).map((mark, i) => (
         <Badge key={mark.label} x={markX + i * 19} y={row.y} label={mark.label} tone={mark.tone} />
       ))}
@@ -567,6 +579,69 @@ export function ShotNight() {
         <StopRow key={row.no} row={row} />
       ))}
       <Cursor x={186} y={158} />
+    </Frame>
+  )
+}
+
+/** 地点备注：行末点「备注」，在名字下方写一句停车、门票、联系人之类的话。 */
+export function ShotNote() {
+  const { t } = useI18n()
+  const note = t('shot.note')
+  const rows: StopSpec[] = [
+    { y: 76, no: '1', name: t('shot.p1'), marks: [{ label: t('sidebar.startBadge'), tone: 'seal' }] },
+    {
+      y: 110,
+      no: '2',
+      name: t('shot.p2'),
+      note,
+      ops: [{ label: t('sidebar.note'), on: true, pulse: true }],
+    },
+    { y: 186, no: '3', name: t('shot.p3') },
+    { y: 218, no: '4', name: t('shot.p4') },
+    { y: 250, no: '5', name: t('shot.p5'), marks: [{ label: t('sidebar.endBadge'), tone: 'seal' }] },
+  ]
+  const points = PTS.side
+  const pins: PinSpec[] = [
+    { at: points[0], label: t('sidebar.startBadge'), name: t('shot.p1'), tone: DAY1 },
+    { at: points[1], label: '2', name: t('shot.p2'), tone: DAY1 },
+    { at: points[2], label: '3', name: t('shot.p3'), tone: DAY1 },
+    { at: points[3], label: '4', name: t('shot.p4'), tone: DAY2 },
+    { at: points[4], label: t('sidebar.endBadge'), name: t('shot.p5'), tone: DAY2 },
+  ]
+  // 展开的输入框：和侧栏一样，缩进在名字下方，聚焦时带一圈蓝色光晕。
+  const boxX = 32
+  const boxY = 126
+  const boxW = 204
+  return (
+    <Frame id="shot-note" layout="side" label={t('feat.note.alt')}>
+      <SheetHead title={t('shot.book')} />
+
+      <Route points={points} split={2} />
+      {pins.map((spec) => (
+        <MapPin key={spec.name} spec={spec} />
+      ))}
+
+      {rows.map((row) => (
+        <StopRow key={row.no} row={row} />
+      ))}
+
+      <rect
+        x={boxX - 2}
+        y={boxY - 2}
+        width={boxW + 4}
+        height="48"
+        rx="9"
+        fill="none"
+        stroke={PIN}
+        strokeWidth="4"
+        opacity="0.16"
+      />
+      <rect x={boxX} y={boxY} width={boxW} height="44" rx="7" fill="#fff" stroke={PIN} />
+      <Label x={boxX + 8} y={boxY + 18} size={10.5}>
+        {note}
+      </Label>
+      <rect x={boxX + 10 + textW(note, 10.5)} y={boxY + 9} width="1.2" height="14" fill={ACCENT} />
+      <Cursor x={198} y={104} />
     </Frame>
   )
 }

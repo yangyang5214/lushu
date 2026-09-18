@@ -4,7 +4,7 @@ import { cityOf } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { fetchRoad } from '../lib/route'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
-import type { Place } from '../types'
+import { PLACE_NOTE_MAX, type Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { BookActions } from './BookActions'
 import { JourneyStats } from './JourneyStats'
@@ -40,6 +40,33 @@ function CarIcon() {
   )
 }
 
+/**
+ * 备注编辑框：点 stop-ops 里的「备注」按钮展开，失焦 / Esc 即收。
+ * 备注本身是名字后面的小标签（.place-note-tag），
+ * 这里只管编辑；输入直写 store，走既有的 1.4s 防抖推送。
+ */
+function PlaceNoteEditor({ place, onToggle }: { place: Place; onToggle: () => void }) {
+  const { t } = useI18n()
+  const setPlaceNote = useLushu((s) => s.setPlaceNote)
+
+  return (
+    <textarea
+      className="stop-note-input"
+      defaultValue={place.note ?? ''}
+      maxLength={PLACE_NOTE_MAX}
+      rows={2}
+      autoFocus
+      placeholder={t('sidebar.notePlaceholder')}
+      aria-label={t('sidebar.noteEdit')}
+      onChange={(e) => setPlaceNote(place.id, e.target.value)}
+      onBlur={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') e.currentTarget.blur()
+      }}
+    />
+  )
+}
+
 export function Sidebar() {
   const { t } = useI18n()
   const journey = useJourney()
@@ -66,6 +93,8 @@ export function Sidebar() {
   )
   const splitSet = new Set(journey.splitIds)
   const [folded, setFolded] = useState<Record<number, boolean>>({})
+  // 正在编辑备注的那个点（同一时刻只开一个，窄侧栏里不叠输入框）。
+  const [noteFor, setNoteFor] = useState<string | null>(null)
   // 多天行程才值得单开一张表；单天一眼看完。
   const multiDay = journey.ready && journey.days.length > 1
   const [tableOpen, setTableOpen] = useState(false)
@@ -163,6 +192,9 @@ export function Sidebar() {
                                 <b>{no}</b>
                                 <strong>
                                   {place.name}
+                                  {place.note ? (
+                                    <span className="place-note-tag">{place.note}</span>
+                                  ) : null}
                                   {place.id === startId && !isReturn ? (
                                     <mark>{t('sidebar.startBadge')}</mark>
                                   ) : null}
@@ -175,6 +207,17 @@ export function Sidebar() {
                               <div className="stop-ops">
                                 {readonly ? null : (
                                   <>
+                                    <button
+                                      type="button"
+                                      className={
+                                        noteFor === place.id || place.note ? 'on' : ''
+                                      }
+                                      onClick={() =>
+                                        setNoteFor(noteFor === place.id ? null : place.id)
+                                      }
+                                    >
+                                      {t('sidebar.note')}
+                                    </button>
                                     {canNight ? (
                                       <button
                                         type="button"
@@ -193,6 +236,12 @@ export function Sidebar() {
                                 )}
                               </div>
                             </div>
+                            {noteFor === place.id ? (
+                              <PlaceNoteEditor
+                                place={place}
+                                onToggle={() => setNoteFor(null)}
+                              />
+                            ) : null}
                             {next ? (
                               <div className="leg">
                                 <CarIcon />
@@ -216,6 +265,9 @@ export function Sidebar() {
                       <b>{i + 1}</b>
                       <strong>
                         {place.name}
+                        {place.note ? (
+                          <span className="place-note-tag">{place.note}</span>
+                        ) : null}
                         {place.id === startId ? <mark>{t('sidebar.startBadge')}</mark> : null}
                         {place.id === endId ? <mark>{t('sidebar.endBadge')}</mark> : null}
                       </strong>
@@ -237,6 +289,15 @@ export function Sidebar() {
                           >
                             {t('sidebar.setEnd')}
                           </button>
+                          <button
+                            type="button"
+                            className={noteFor === place.id || place.note ? 'on' : ''}
+                            onClick={() =>
+                              setNoteFor(noteFor === place.id ? null : place.id)
+                            }
+                          >
+                            {t('sidebar.note')}
+                          </button>
                           <button type="button" onClick={() => removePlace(place.id)}>
                             {t('common.delete')}
                           </button>
@@ -244,6 +305,9 @@ export function Sidebar() {
                       )}
                     </div>
                   </div>
+                  {noteFor === place.id ? (
+                    <PlaceNoteEditor place={place} onToggle={() => setNoteFor(null)} />
+                  ) : null}
                 </li>
               ))}
             </ol>

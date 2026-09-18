@@ -600,17 +600,51 @@ button {
 }
 
 .trip-route button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
   border: none;
   background: none;
   padding: 0;
   text-align: left;
   font-size: 13px;
-  line-height: 1.6;
-  word-break: break-word;
+  line-height: 1.5;
 }
 
-.trip-route button:hover {
+.trip-route button:hover .trip-stop-name {
   color: #3377ff;
+}
+
+/* 一个途经点：名字 + 备注小标签，箭头分开，比「名字(备注)」串成一句好读 */
+.trip-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.trip-stop-name {
+  overflow-wrap: anywhere;
+}
+
+/* 备注小标签：行程表（.trip-stop）与侧栏清单共用；行程尺上不显示备注 */
+.place-note-tag {
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #f1f4f8;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.trip-arrow {
+  color: #c3c9d2;
+  font-style: normal;
+  font-size: 12px;
 }
 
 .trip-km,
@@ -827,6 +861,29 @@ button {
 .stop-ops button.on {
   color: #1b1712;
   font-weight: 600;
+}
+
+.stop-note-input {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  margin: 0 0 8px 32px;
+  padding: 6px 8px;
+  border: 1px solid #d7dee8;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink, #1b1712);
+  resize: vertical;
+  min-height: 46px;
+}
+
+.stop-note-input:focus {
+  outline: none;
+  border-color: #3d7eff;
+  box-shadow: 0 0 0 2px rgba(61, 126, 255, 0.15);
 }
 
 .leg {

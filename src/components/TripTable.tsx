@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { dayInk, formatDuration, formatKm } from '../lib/geo'
 import { fmtDayOffset } from '../lib/format'
 import { useI18n } from '../lib/i18n'
@@ -5,15 +6,15 @@ import type { Place } from '../types'
 import { useJourney, useLushu, useSelectedId } from '../store'
 
 /**
- * 一天的途经串：直接串地点名（「外滩 → 豫园 → 朱家角」）。
- * 城市名太粗，看不出当天实际走了哪几站；相邻重复去掉，切天处前后的同一个过夜点只留一个。
+ * 一天的途经点：按名字去掉相邻重复（切天处前后的同一个过夜点只留一个）。
+ * 城市名太粗，看不出当天实际走了哪几站，所以按点逐个展示。
  */
-function routeLabel(places: Place[]): string {
-  const names: string[] = []
+function uniquePlaces(places: Place[]): Place[] {
+  const out: Place[] = []
   for (const place of places) {
-    if (place.name && place.name !== names[names.length - 1]) names.push(place.name)
+    if (place.name && place.name !== out[out.length - 1]?.name) out.push(place)
   }
-  return names.join(' → ')
+  return out
 }
 
 /**
@@ -65,7 +66,21 @@ export function TripTable({ onPick }: { onPick?: () => void } = {}) {
                     onPick?.()
                   }}
                 >
-                  {routeLabel(day.places)}
+                  {uniquePlaces(day.places).map((place, i) => (
+                    <Fragment key={`${place.id}-${i}`}>
+                      {i > 0 ? (
+                        <i className="trip-arrow" aria-hidden>
+                          →
+                        </i>
+                      ) : null}
+                      <span className="trip-stop">
+                        <span className="trip-stop-name">{place.name}</span>
+                        {place.note ? (
+                          <span className="place-note-tag">{place.note}</span>
+                        ) : null}
+                      </span>
+                    </Fragment>
+                  ))}
                 </button>
               </td>
               <td className="trip-km" data-label={t('table.km')}>

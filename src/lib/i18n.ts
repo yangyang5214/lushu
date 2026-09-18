@@ -77,6 +77,9 @@ const zh = {
   'sidebar.cancelNight': '取消过夜',
   'sidebar.hintEmpty': '搜索添加地点，再设起点和终点。起终点相同即为环线。',
   'sidebar.hintReady': '设好起点和终点后，其余点会按路程串成一条线。',
+  'sidebar.note': '备注',
+  'sidebar.noteEdit': '编辑备注',
+  'sidebar.notePlaceholder': '停车、门票、联系人…',
 
   // ── 行程表（多天） ───────────────────────────────────────────────────────
   'table.title': '行程表',
@@ -163,6 +166,10 @@ const zh = {
   'feat.night.text':
     '在今晚要住下的那个地点点「过夜」，全程立刻分成第 1 天、第 2 天，清单和地图的颜色一起变。',
   'feat.night.alt': '示意图：在过夜的地点钉上分割针，行程分成两天',
+  'feat.note.title': '地点备注',
+  'feat.note.text':
+    '在任意一行点「备注」，写一句停车、门票、联系人之类的话，最多 20 字；名字后面立刻挂上小标签，只读的分享页里也看得到。',
+  'feat.note.alt': '示意图：点行末的「备注」，在名字下方写一句话',
   'feat.rail.title': '行程尺看全程',
   'feat.rail.text':
     '整条路线按里程铺成一根尺子，一颗珠就是一个地点：点珠子选地点或钉过夜，拖动「夜」就能改分天。',
@@ -218,6 +225,7 @@ const zh = {
   'shot.loop': '环线',
   'shot.p5b': '云水谣古道',
   'shot.p5addr': '南靖县 · 云水谣古镇',
+  'shot.note': '停车在西门',
 
   // ── 路书卡片（我的 / 公开共用） ──────────────────────────────────────────
   'card.days': '{n} 天',
@@ -485,6 +493,9 @@ const en: Record<MsgKey, string> = {
     'Search to add places, then set a start and an end. The same start and end makes a loop.',
   'sidebar.hintReady':
     'Once a start and an end are set, the other stops are strung into a route by distance.',
+  'sidebar.note': 'Note',
+  'sidebar.noteEdit': 'Edit note',
+  'sidebar.notePlaceholder': 'Parking, tickets, contacts…',
 
   // ── Trip table (multi-day) ───────────────────────────────────────────────
   'table.title': 'Itinerary',
@@ -568,6 +579,10 @@ const en: Record<MsgKey, string> = {
   'feat.night.text':
     'Click Overnight on the stop where you will sleep: the trip splits into Day 1, Day 2 right away, and the itinerary and map recolor.',
   'feat.night.alt': 'Diagram: pinning an overnight stop, splitting the trip into two days',
+  'feat.note.title': 'Place notes',
+  'feat.note.text':
+    'Click “Note” on any stop and write one line — parking, tickets, a contact — up to 20 characters. It appears as a small tag after the name, and read-only shared pages keep it.',
+  'feat.note.alt': 'Diagram: clicking Note at the end of a row and typing a line under the name',
   'feat.rail.title': 'Trip ruler',
   'feat.rail.text':
     'The route is laid out on a ruler by distance, one bead per stop: click a bead to select a stop or pin an overnight there, and drag the “N” to change days.',
@@ -624,6 +639,7 @@ const en: Record<MsgKey, string> = {
   'shot.loop': 'Loop',
   'shot.p5b': 'Yunshuiyao Old Trail',
   'shot.p5addr': 'Nanjing County, Fujian',
+  'shot.note': 'Park at the west gate',
 
   'card.days': '{n} days',
   'card.draft': 'Draft',

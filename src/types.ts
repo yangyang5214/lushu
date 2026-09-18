@@ -6,7 +6,12 @@ export type Place = {
   address: string
   lng: number
   lat: number
+  /** 自定义备注：停车、门票、联系人等出发前想记下的话。可选，老数据没有。 */
+  note?: string
 }
+
+/** 地点备注字数上限：只记一句话（停车、门票、联系人…），界面与 store 都按它截断。 */
+export const PLACE_NOTE_MAX = 20
 
 /** 路书可见性：默认私密；设为 public 后出现在「公开路书」页。 */
 export type Visibility = 'public' | 'private'
