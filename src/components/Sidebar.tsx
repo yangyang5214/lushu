@@ -6,6 +6,7 @@ import { fetchRoad } from '../lib/route'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
 import type { Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
+import { BookActions } from './BookActions'
 import { JourneyStats } from './JourneyStats'
 import { TripTableSheet } from './TripTableSheet'
 
@@ -108,6 +109,8 @@ export function Sidebar() {
             {t('table.open')}
           </button>
         ) : null}
+        {/* 书名下方：去手机查看（微信扫码进小程序）与分享（设为公开） */}
+        <BookActions />
       </div>
 
       {/* 手机浏览（只读）时行程尺收起，总统计挪到行程清单顶部 */}

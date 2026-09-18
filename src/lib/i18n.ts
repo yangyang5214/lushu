@@ -218,6 +218,24 @@ const zh = {
   'public.count': '{n} 本',
   'public.empty': '还没有公开的路书',
 
+  // ── 路书页：书名下方的「去手机查看 / 分享」 ───────────────────────────────
+  'book.phone': '去手机查看',
+  'book.share': '分享',
+  'book.phoneTitle': '手机上看这本路书',
+  'book.phoneHint':
+    '用微信扫一扫，打开小程序 gpx merge，路上按天查看行程、点地点直接导航。',
+  'book.shareTitle': '分享路书',
+  'book.sharePrivateAsk': '这本路书现在是私密的，只有你自己能打开。',
+  'book.sharePrivateNote': '设为公开后，别人拿到链接不用登录也能看。',
+  'book.sharePublicNote': '这本路书已公开，别人不用登录就能打开这个链接。',
+  'book.shareLink': '分享链接',
+  'book.shareCopy': '复制链接',
+  'book.shareCopied': '已复制',
+  'book.shareCopyFailed': '复制失败',
+  'book.sharePublic': '设为公开并复制链接',
+  'book.shareWorking': '正在公开…',
+  'book.shareFailed': '公开失败，请检查网络后重试',
+
   // ── 账号 / 登录 ──────────────────────────────────────────────────────────
   'auth.serviceDownTitle': '连不上服务',
   'auth.retry': '重试',
@@ -567,6 +585,25 @@ const en: Record<MsgKey, string> = {
   'public.heading': 'Public Roadbooks',
   'public.count': '{n} Roadbooks',
   'public.empty': 'No public Roadbooks yet',
+
+  // ── Book page: “View on phone / Share” under the title ───────────────────
+  'book.phone': 'View on phone',
+  'book.share': 'Share',
+  'book.phoneTitle': 'Open this Roadbook on your phone',
+  'book.phoneHint':
+    'Scan with WeChat to open the gpx merge Mini Program: follow the trip day by day and tap a stop to navigate.',
+  'book.shareTitle': 'Share this Roadbook',
+  'book.sharePrivateAsk': 'This Roadbook is private — only you can open it.',
+  'book.sharePrivateNote':
+    'Make it public and anyone with the link can open it without signing in.',
+  'book.sharePublicNote': 'This Roadbook is public — anyone can open the link without signing in.',
+  'book.shareLink': 'Share link',
+  'book.shareCopy': 'Copy link',
+  'book.shareCopied': 'Copied',
+  'book.shareCopyFailed': 'Copy failed',
+  'book.sharePublic': 'Make public & copy link',
+  'book.shareWorking': 'Publishing…',
+  'book.shareFailed': 'Could not make it public — check your network and retry.',
 
   'auth.serviceDownTitle': 'Cannot reach the service',
   'auth.retry': 'Retry',
