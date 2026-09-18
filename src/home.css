@@ -2774,40 +2774,7 @@
   }
 }
 
-/* ---------- 主页：功能介绍（一个动作一张图） ---------- */
-.guide {
-  padding: 64px 0 88px;
-  border-top: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, rgba(124, 92, 255, 0.04) 0%, transparent 46%);
-}
-
-/* 一行之内把配图换到左边或右边，窄屏回到图在上、字在下。 */
-
-.feat-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 64px;
-}
-
-.feat-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 48px;
-}
-
-/* 偶数行把配图换到右边，视觉上有个来回。 */
-.feat-row:nth-child(even) .feat-shot {
-  order: 2;
-}
-
-.feat-shot {
-  min-width: 0;
-}
-
+/* ---------- 界面示意图（/features 的功能截图列复用） ---------- */
 .shot-svg {
   display: block;
   width: 100%;
@@ -2816,10 +2783,6 @@
   box-shadow:
     0 1px 2px rgba(16, 16, 24, 0.06),
     0 20px 46px -26px rgba(16, 16, 24, 0.38);
-}
-
-.feat-copy {
-  min-width: 0;
 }
 
 .feat-num {
@@ -2831,36 +2794,348 @@
   font-variant-numeric: tabular-nums;
 }
 
-.feat-copy h3 {
-  margin: 8px 0 12px;
-  font-size: 19px;
+
+/* ---------- /features：功能一览（功能点 · 功能点描述 · 功能截图） ---------- */
+.features-page {
+  padding: 44px 0 88px;
+  /* 左边功能点 / 中间描述 / 右边截图；图例与每一行共用这套列宽。 */
+  --feat-cols: 190px minmax(0, 1fr) 380px;
+}
+
+/* 比常规页宽一点，给左侧的功能点全览留出位置。 */
+.features-shell {
+  max-width: 1240px;
+}
+
+.features-layout {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.features-body {
+  min-width: 0;
+}
+
+/* 往下滚动时停在左侧的功能点全览。 */
+.feat-toc {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+
+.feat-toc-label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.feat-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feat-toc a {
+  display: flex;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.feat-toc a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.feat-toc a.on {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--accent-soft);
+}
+
+.feat-toc-num {
+  flex: none;
+  color: var(--accent-hi);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.75;
+}
+
+.feat-toc-name {
+  min-width: 0;
+}
+
+.features-head h1 {
+  margin: 0;
+  font-size: clamp(24px, 3.2vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* 列名图例：和下面每一行同宽同列，但没有边框、字很轻，不抢视线。 */
+.feat-legend {
+  display: grid;
+  grid-template-columns: var(--feat-cols);
+  gap: 40px;
+  padding-bottom: 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.feat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 一个功能点一行，三列：功能点 / 功能点描述 / 功能截图。 */
+.feat-item {
+  display: grid;
+  grid-template-columns: var(--feat-cols);
+  gap: 40px;
+  align-items: start;
+  padding: 30px 0;
+  scroll-margin-top: 92px;
+  border-top: 1px solid var(--border);
+}
+
+.feat-item-head {
+  min-width: 0;
+}
+
+.feat-item-head h2 {
+  margin: 8px 0 0;
+  font-size: 17px;
   font-weight: 650;
+  line-height: 1.45;
   letter-spacing: -0.01em;
 }
 
-.feat-copy p {
+/* 标题就是这一条功能点的永久链接：平时看不出是链接，悬停才变色。 */
+.feat-item-head h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.feat-item-head h2 a:hover {
+  color: var(--accent-hi);
+}
+
+.feat-item-text {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.85;
 }
 
-@media (max-width: 860px) {
-  .guide {
-    padding: 48px 0 64px;
-  }
+.feat-item-shot {
+  min-width: 0;
+}
 
-  .feat-rows {
-    gap: 48px;
-  }
+/* 小程序那一行的两张手机截图（真实截图，不是 SVG 示意图）。 */
+.shot-phones {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: flex-start;
+}
 
-  .feat-row {
+.shot-phones img {
+  display: block;
+  width: auto;
+  max-width: 48%;
+  max-height: 300px;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px rgba(16, 16, 24, 0.08),
+    0 16px 34px -20px rgba(16, 16, 24, 0.4);
+}
+
+@media (max-width: 1100px) {
+  /* 宽度不够时收起左侧全览，回到单栏。 */
+  .features-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
+    gap: 0;
   }
 
-  .feat-row:nth-child(even) .feat-shot {
-    order: 0;
+  .feat-toc {
+    display: none;
   }
 }
 
+@media (max-width: 900px) {
+  .features-page {
+    padding: 28px 0 64px;
+  }
+
+  /* 窄屏不再分列：图例收起来，一行自上而下排。 */
+  .feat-legend {
+    display: none;
+  }
+
+  .feat-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 24px 0;
+  }
+
+  .feat-item-head h2 {
+    font-size: 17px;
+  }
+}
+
+/* 功能截图可点开放大：表格里是缩略图按钮，放大后是整屏浮层。 */
+.feat-shot-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  cursor: zoom-in;
+}
+
+.feat-shot-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.feat-shot-btn .shot-svg {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.feat-shot-btn:hover .shot-svg {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px rgba(16, 16, 24, 0.08),
+    0 26px 54px -26px rgba(16, 16, 24, 0.45);
+}
+
+.feat-shot-btn:hover .shot-phones img {
+  transform: translateY(-2px);
+}
+
+.shot-phones img {
+  transition: transform 0.18s ease;
+}
+
+.home-locked {
+  overflow: hidden;
+}
+
+.shot-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  overflow: auto;
+  background: rgba(16, 16, 24, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.shot-zoom-in {
+  width: 100%;
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.6);
+}
+
+.shot-zoom-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.shot-zoom-head h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.shot-zoom-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.shot-zoom-close:hover {
+  background: var(--border);
+}
+
+.shot-zoom-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.shot-zoom-shot {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.shot-zoom-text {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
+/* 放大态下小程序截图可以更大一些。 */
+.shot-zoom .shot-phones img {
+  max-height: 480px;
+}
+
+@media (max-width: 900px) {
+  .shot-zoom {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .shot-zoom-in {
+    padding: 14px;
+    border-radius: 14px;
+  }
+}

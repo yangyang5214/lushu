@@ -20,9 +20,10 @@ const PIN = '#3d7eff'
 const ACCENT = '#7c5cff'
 const SEAL = '#c23b22'
 const NIGHT = '#ef4444'
-/** 与 lib/geo 的 DAY_INKS 一致：第 1 天红、第 2 天蓝。 */
+/** 与 lib/geo 的 DAY_INKS 一致：第 1 天红、第 2 天蓝、第 3 天黄。 */
 const DAY1 = '#ff4d4f'
 const DAY2 = '#1677ff'
+const DAY3 = '#faad14'
 
 type Point = [number, number]
 
@@ -119,7 +120,7 @@ function Frame({
 }: {
   id: string
   label: string
-  layout: 'side' | 'stack'
+  layout: 'side' | 'stack' | 'plain'
   children: ReactNode
 }) {
   const mapX = layout === 'side' ? SHEET_R : 8
@@ -140,8 +141,12 @@ function Frame({
       </defs>
       <g clipPath={`url(#${id}-clip)`}>
         <rect x="8" y="8" width="504" height="284" fill="#fff" />
-        <rect x={mapX} y="8" width={mapW} height="284" fill={`url(#${id}-sky)`} />
-        <rect x={mapX} y="8" width={mapW} height="284" fill={`url(#${id}-grid)`} />
+        {layout === 'plain' ? null : (
+          <>
+            <rect x={mapX} y="8" width={mapW} height="284" fill={`url(#${id}-sky)`} />
+            <rect x={mapX} y="8" width={mapW} height="284" fill={`url(#${id}-grid)`} />
+          </>
+        )}
         {layout === 'side' ? <line x1={SHEET_R} y1="8" x2={SHEET_R} y2="292" stroke={LINE} /> : null}
         {children}
       </g>
@@ -709,6 +714,441 @@ export function ShotLegs() {
       {stops.map((row) => (
         <StopRow key={row.no} row={row} />
       ))}
+    </Frame>
+  )
+}
+
+/** 06 · 点地图看地点：在地图上点一处，右侧弹出离那一点最近的高德地点。 */
+export function ShotPoi() {
+  const { t } = useI18n()
+  const points: Point[] = [
+    [46, 216],
+    [118, 178],
+    [186, 208],
+    [252, 162],
+  ]
+  const pins: PinSpec[] = [
+    { at: points[0], label: t('sidebar.startBadge'), name: t('shot.p1'), tone: DAY1 },
+    { at: points[1], label: '2', name: t('shot.p2'), tone: DAY1 },
+    { at: points[2], label: '3', name: t('shot.p3'), tone: DAY2 },
+    { at: points[3], label: t('sidebar.endBadge'), name: t('shot.p4'), tone: DAY2 },
+  ]
+  const tap: Point = [206, 244]
+  const cx = 288
+  const cy = 18
+  const cw = 216
+  const ch = 258
+  const px = cx + 10
+  const pw = cw - 20
+  const addW = textW(t('poi.add'), 9.5) + 16
+  return (
+    <Frame id="shot-poi" layout="stack" label={t('feat.poi.alt')}>
+      <defs>
+        <linearGradient id="shot-poi-photo" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#d5e3ff" />
+          <stop offset="1" stopColor="#eef3ff" />
+        </linearGradient>
+        <clipPath id="shot-poi-photo-clip">
+          <rect x={px} y={cy + 10} width={pw} height="84" rx="8" />
+        </clipPath>
+      </defs>
+
+      <Route points={points} split={2} width={3.5} />
+      {pins.map((spec) => (
+        <MapPin key={spec.name} spec={spec} />
+      ))}
+
+      {/* 手指点下去的那一处 */}
+      <circle cx={tap[0]} cy={tap[1]} r="13" fill="none" stroke={ACCENT} strokeWidth="1.6" />
+      <circle cx={tap[0]} cy={tap[1]} r="4.2" fill={ACCENT} />
+      <path
+        d={`M${tap[0] + 13} ${tap[1] - 4} C ${tap[0] + 70} ${tap[1] - 46}, ${cx - 46} ${cy + 40}, ${cx - 2} ${cy + 62}`}
+        stroke={ACCENT}
+        strokeWidth="1.4"
+        strokeDasharray="5 4"
+        fill="none"
+        opacity="0.75"
+      />
+
+      {/* 右侧地点卡片 */}
+      <rect x={cx} y={cy} width={cw} height={ch} rx="14" fill="#fff" />
+      <rect
+        x={cx + 0.5}
+        y={cy + 0.5}
+        width={cw - 1}
+        height={ch - 1}
+        rx="14"
+        fill="none"
+        stroke={LINE}
+      />
+      <rect x={px} y={cy + 10} width={pw} height="84" rx="8" fill="url(#shot-poi-photo)" />
+      <g clipPath="url(#shot-poi-photo-clip)">
+        <path
+          d={`M${px} ${cy + 94} L${px + 44} ${cy + 58} L${px + 78} ${cy + 84} L${px + 108} ${cy + 62} L${px + 160} ${cy + 94} Z`}
+          fill="#a9c4ef"
+        />
+        <path
+          d={`M${px - 4} ${cy + 94} L${px + 40} ${cy + 70} L${px + 84} ${cy + 92} L${px + 130} ${cy + 72} L${px + 200} ${cy + 94} Z`}
+          fill="#8fb0e2"
+          opacity="0.85"
+        />
+      </g>
+
+      <Label x={px} y={cy + 116} size={13} weight={650}>
+        {t('shot.p5')}
+      </Label>
+      <path
+        d={`M${px + 6} ${cy + 125.5} l1.9 3.9 4.3.6-3.1 3 .7 4.3-3.8-2-3.8 2 .7-4.3-3.1-3 4.3-.6Z`}
+        fill="#f5a623"
+      />
+      <Label x={px + 17} y={cy + 135} size={10} fill={MUTED}>
+        {`4.6 · ${t('poi.ratingNote')}`}
+      </Label>
+      <Label x={px} y={cy + 152} size={9.5} fill={MUTED}>
+        {t('shot.p5addr')}
+      </Label>
+      <Label x={px} y={cy + 170} size={9.5} fill={MUTED}>
+        {`${t('poi.distance')} · ${t('unit.meters', { n: 120 })}`}
+      </Label>
+
+      <line x1={px} y1={cy + 184} x2={px + pw} y2={cy + 184} stroke={LINE} />
+      <Label x={px} y={cy + 200} size={9.5} weight={650}>
+        {t('poi.nearby')}
+      </Label>
+      <circle cx={px + 4} cy={cy + 214} r="3" fill={PIN} />
+      <Label x={px + 13} y={cy + 217} size={9.5} fill={MUTED}>
+        {t('shot.p5b')}
+      </Label>
+
+      <Pill x={px} y={cy + 242} label={t('poi.add')} on />
+      <Pill x={px + addW + 6} y={cy + 242} label={t('poi.skip')} />
+    </Frame>
+  )
+}
+
+/** 07 · 云端书架：改动先落本地、防抖后写库；换设备登录同一账号接着改。 */
+export function ShotShelf() {
+  const { t } = useI18n()
+  const cards = [
+    {
+      x: 24,
+      title: t('shot.book'),
+      days: 5,
+      places: 12,
+      chips: [t('card.loop'), t('shot.public')],
+      pts: [
+        [52, 178],
+        [104, 138],
+        [152, 172],
+        [202, 132],
+        [226, 158],
+      ] as Point[],
+    },
+    {
+      x: 268,
+      title: t('shot.book2'),
+      days: 3,
+      places: 8,
+      chips: [t('card.private')],
+      pts: [
+        [296, 178],
+        [348, 138],
+        [396, 172],
+        [444, 132],
+        [470, 158],
+      ] as Point[],
+    },
+  ]
+  const cardY = 100
+  const cardW = 228
+  const cardH = 170
+  const newW = textW(t('mine.newBook'), 9.5) + 16
+  return (
+    <Frame id="shot-shelf" layout="plain" label={t('feat.shelf.alt')}>
+      <defs>
+        {cards.map((card, i) => (
+          <clipPath key={card.title} id={`shot-shelf-thumb-${i}`}>
+            <rect x={card.x + 12} y={cardY + 12} width={cardW - 24} height="84" rx="8" />
+          </clipPath>
+        ))}
+      </defs>
+
+      {/* 页头 */}
+      <rect x="8" y="8" width="504" height="40" fill="#fbfbfd" />
+      <line x1="8" y1="48" x2="512" y2="48" stroke={LINE} />
+      <circle cx="30" cy="28" r="8" fill={ACCENT} opacity="0.16" />
+      <Label x={44} y={32} size={12} weight={700} fill={ACCENT}>
+        lushu
+      </Label>
+      <Label x={285} y={32} size={10.5} fill={MUTED}>
+        {t('nav.mine')}
+      </Label>
+      <Label x={366} y={32} size={10.5} fill={MUTED}>
+        {t('nav.public')}
+      </Label>
+      <circle cx="482" cy="28" r="9" fill={SOFT} />
+      <Label x={482} y={31.6} size={9} weight={600} fill={MUTED} anchor="middle">
+        L
+      </Label>
+
+      <Label x={24} y={80} size={17} weight={700}>
+        {t('mine.heading')}
+      </Label>
+      <Pill x={504 - 16 - newW} y={74} label={t('mine.newBook')} on />
+
+      {cards.map((card, i) => {
+        let chipX = card.x + 12
+        const chips = card.chips.map((label) => {
+          const node = (
+            <Pill key={label} x={chipX} y={cardY + 152} label={label} on={label === t('shot.public')} />
+          )
+          chipX += textW(label, 9.5) + 16 + 6
+          return node
+        })
+        return (
+          <g key={card.title}>
+            <rect x={card.x} y={cardY} width={cardW} height={cardH} rx="14" fill="#fff" />
+            <rect
+              x={card.x + 0.5}
+              y={cardY + 0.5}
+              width={cardW - 1}
+              height={cardH - 1}
+              rx="14"
+              fill="none"
+              stroke={LINE}
+            />
+            <rect x={card.x + 12} y={cardY + 12} width={cardW - 24} height="84" rx="8" fill="#f5f6fb" />
+            <g clipPath={`url(#shot-shelf-thumb-${i})`}>
+              <Route points={card.pts} split={2} width={3} />
+            </g>
+            {card.pts.map(([x, y], j) => (
+              <circle key={`${x}-${y}`} cx={x} cy={y} r="3.2" fill={j <= 2 ? DAY1 : DAY2} stroke="#fff" strokeWidth="1.4" />
+            ))}
+            <Label x={card.x + 12} y={cardY + 110} size={12.5} weight={650}>
+              {card.title}
+            </Label>
+            <Label x={card.x + 12} y={cardY + 130} size={9.5} fill={MUTED}>
+              {`${t('card.days', { n: card.days })} · ${card.places} ${t('card.placesUnit')}`}
+            </Label>
+            {chips}
+          </g>
+        )
+      })}
+    </Frame>
+  )
+}
+
+/** 08 · 分享与可见性：公开后链接人人可读，私密书对外打不开。 */
+export function ShotShare() {
+  const { t } = useI18n()
+  const dx = 112
+  const dy = 42
+  const dw = 296
+  const dh = 216
+  const copyW = textW(t('book.shareCopy'), 9.5) + 16
+  return (
+    <Frame id="shot-share" layout="plain" label={t('feat.share.alt')}>
+      {/* 背后的路书页（示意） */}
+      <rect x="8" y="8" width="504" height="36" fill="#fbfbfd" />
+      <line x1="8" y1="44" x2="512" y2="44" stroke={LINE} />
+      <rect x="24" y="66" width="150" height="200" rx="12" fill="#fafafb" stroke={LINE} />
+      <rect x="190" y="66" width="150" height="200" rx="12" fill="#fafafb" stroke={LINE} />
+      <rect x="356" y="66" width="132" height="200" rx="12" fill="#fafafb" stroke={LINE} />
+      <rect x="8" y="8" width="504" height="284" fill="rgba(16, 16, 24, 0.07)" />
+
+      {/* 分享对话框 */}
+      <rect x={dx + 3} y={dy + 7} width={dw} height={dh} rx="16" fill="rgba(16, 16, 24, 0.10)" />
+      <rect x={dx} y={dy} width={dw} height={dh} rx="16" fill="#fff" />
+      <rect
+        x={dx + 0.5}
+        y={dy + 0.5}
+        width={dw - 1}
+        height={dh - 1}
+        rx="16"
+        fill="none"
+        stroke={LINE}
+      />
+
+      <Label x={dx + 24} y={dy + 36} size={13.5} weight={650}>
+        {t('book.shareTitle')}
+      </Label>
+      <Label x={dx + 24} y={dy + 58} size={9.5} fill={MUTED}>
+        {t('feat.share.note')}
+      </Label>
+      <Label x={dx + 24} y={dy + 84} size={9} weight={650} fill={MUTED}>
+        {t('book.shareLink')}
+      </Label>
+      <rect x={dx + 24} y={dy + 92} width={172} height={28} rx="7" fill={SOFT} />
+      <Label x={dx + 34} y={dy + 110} size={9.5} fill={MUTED}>
+        lushu.fittools.cc/d/8f3a…
+      </Label>
+      <Pill x={dx + 202} y={dy + 106} label={t('book.shareCopy')} on />
+
+      <line x1={dx + 24} y1={dy + 138} x2={dx + dw - 24} y2={dy + 138} stroke={LINE} />
+      <Label x={dx + 24} y={dy + 166} size={10.5} weight={600}>
+        {t('features.visibility')}
+      </Label>
+      <Label x={dx + dw - 24 - copyW - 8} y={dy + 166} size={10} fill={ACCENT} anchor="end">
+        {t('shot.public')}
+      </Label>
+      <rect x={dx + dw - 24 - 40} y={dy + 156} width="40" height="20" rx="10" fill={ACCENT} />
+      <circle cx={dx + dw - 24 - 10} cy={dy + 166} r="7.5" fill="#fff" />
+    </Frame>
+  )
+}
+
+/** 09 · 账号：邮箱 + 口令注册，邮件激活，登录态存在会话 cookie 里。 */
+export function ShotAccount() {
+  const { t } = useI18n()
+  const x0 = 32
+  const y0 = 40
+  const w = 220
+  const h = 220
+  const rx0 = 268
+  const tabW = textW(t('auth.tabLogin'), 13)
+  return (
+    <Frame id="shot-account" layout="plain" label={t('feat.account.alt')}>
+      {/* 登录 / 注册 */}
+      <rect x={x0} y={y0} width={w} height={h} rx="16" fill="#fff" />
+      <rect x={x0 + 0.5} y={y0 + 0.5} width={w - 1} height={h - 1} rx="16" fill="none" stroke={LINE} />
+      <Label x={x0 + 24} y={y0 + 38} size={13} weight={650}>
+        {t('auth.tabLogin')}
+      </Label>
+      <Label x={x0 + 34 + tabW} y={y0 + 38} size={13} fill={MUTED}>
+        {t('auth.tabRegister')}
+      </Label>
+      <rect x={x0 + 24} y={y0 + 46} width={tabW} height="2.4" rx="1.2" fill={ACCENT} />
+
+      <rect x={x0 + 24} y={y0 + 68} width={w - 48} height="30" rx="8" fill={SOFT} />
+      <Label x={x0 + 36} y={y0 + 87} size={10} fill={MUTED}>
+        {t('auth.email')}
+      </Label>
+      <rect x={x0 + 24} y={y0 + 108} width={w - 48} height="30" rx="8" fill={SOFT} />
+      <Label x={x0 + 36} y={y0 + 127} size={10} fill={MUTED}>
+        {t('auth.password')}
+      </Label>
+
+      <rect x={x0 + 24} y={y0 + 154} width={w - 48} height="32" rx="9" fill={ACCENT} />
+      <Label x={x0 + w / 2} y={y0 + 175} size={11.5} weight={650} fill="#fff" anchor="middle">
+        {t('auth.tabLogin')}
+      </Label>
+
+      {/* 账户信息 */}
+      <rect x={rx0} y={y0} width={w} height={h} rx="16" fill="#fff" />
+      <rect x={rx0 + 0.5} y={y0 + 0.5} width={w - 1} height={h - 1} rx="16" fill="none" stroke={LINE} />
+      <circle cx={rx0 + 46} cy={y0 + 46} r="16" fill={ACCENT} opacity="0.16" />
+      <Label x={rx0 + 46} y={y0 + 50.6} size={13} weight={700} fill={ACCENT} anchor="middle">
+        L
+      </Label>
+      <Label x={rx0 + 72} y={y0 + 42} size={11} weight={650}>
+        you@example.com
+      </Label>
+      <Label x={rx0 + 72} y={y0 + 58} size={9} fill={MUTED}>
+        {t('account.email')}
+      </Label>
+
+      <line x1={rx0 + 24} y1={y0 + 82} x2={rx0 + w - 24} y2={y0 + 82} stroke={LINE} />
+      <Label x={rx0 + 24} y={y0 + 104} size={8.5} fill={MUTED}>
+        {t('account.userId')}
+      </Label>
+      <Label x={rx0 + 24} y={y0 + 120} size={11} weight={600}>
+        1a2b3c4d5e
+      </Label>
+      <Label x={rx0 + 24} y={y0 + 146} size={8.5} fill={MUTED}>
+        {t('account.joined')}
+      </Label>
+      <Label x={rx0 + 24} y={y0 + 162} size={11} weight={600}>
+        2026-09-17
+      </Label>
+      <Label x={rx0 + 24} y={y0 + 192} size={10.5} fill={ACCENT}>
+        {t('account.signOut')}
+      </Label>
+    </Frame>
+  )
+}
+
+/** 07 · 行程表：整屏铺开，一天一行；点某一天，地图高亮那一段。 */
+export function ShotTable() {
+  const { t } = useI18n()
+  const cols = { day: 28, route: 116, km: 358, time: 426 }
+  const rows = [
+    { day: 1, stops: `${t('shot.p1')} → ${t('shot.p2')}`, km: 62, min: 70, ink: DAY1 },
+    { day: 2, stops: `${t('shot.p3')} → ${t('shot.p4')}`, km: 76, min: 80, ink: DAY2 },
+    { day: 3, stops: t('shot.p5'), km: 48, min: 55, ink: DAY3 },
+  ]
+  const stats = [
+    { label: t('rail.statDays'), value: '3' },
+    { label: t('rail.statPlaces'), value: '5' },
+    { label: t('rail.statKm'), value: formatKm(186) },
+    { label: t('rail.statTime'), value: formatDuration(205) },
+  ]
+  const top = 104
+  const rowH = 56
+  return (
+    <Frame id="shot-table" layout="plain" label={t('feat.table.alt')}>
+      {/* 浮层头部：标题 + 四个总数 + 关闭 */}
+      <Label x={28} y={38} size={15} weight={700}>
+        {t('table.title')}
+      </Label>
+      <Label x={28} y={56} size={9.5} fill={MUTED}>
+        {t('shot.book')}
+      </Label>
+      {stats.map((stat, i) => (
+        <g key={stat.label}>
+          <Label x={228 + i * 58} y={34} size={7.5} fill={MUTED}>
+            {stat.label}
+          </Label>
+          <Label x={228 + i * 58} y={50} size={9.5} weight={650}>
+            {stat.value}
+          </Label>
+        </g>
+      ))}
+      <circle cx="488" cy="40" r="12" fill={SOFT} />
+      <path d="M483 35l10 10M493 35l-10 10" stroke={MUTED} strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="8" y1="72" x2="512" y2="72" stroke={LINE} />
+
+      {/* 表头 */}
+      <rect x="8" y="72" width="504" height="32" fill="#fafafb" />
+      <Label x={cols.day} y={92} size={9.5} weight={650} fill={MUTED}>
+        {t('table.day')}
+      </Label>
+      <Label x={cols.route} y={92} size={9.5} weight={650} fill={MUTED}>
+        {t('table.route')}
+      </Label>
+      <Label x={cols.km} y={92} size={9.5} weight={650} fill={MUTED}>
+        {t('table.km')}
+      </Label>
+      <Label x={cols.time} y={92} size={9.5} weight={650} fill={MUTED}>
+        {t('table.time')}
+      </Label>
+      <line x1="8" y1="104" x2="512" y2="104" stroke={LINE} />
+
+      {/* 一天一行；第 1 天是点开高亮的那一天 */}
+      {rows.map((row, i) => {
+        const y = top + i * rowH
+        const center = y + rowH / 2
+        return (
+          <g key={row.day}>
+            {i === 0 ? <rect x="8" y={y} width="504" height={rowH} fill={ACCENT} opacity="0.07" /> : null}
+            {i === 0 ? <rect x="8" y={y} width="3" height={rowH} fill={ACCENT} /> : null}
+            <circle cx={cols.day + 4} cy={center} r="3.6" fill={row.ink} />
+            <Label x={cols.day + 16} y={center + 3.6} size={11} weight={650}>
+              {t('sidebar.day', { n: row.day })}
+            </Label>
+            <Label x={cols.route} y={center + 3.8} size={10.5}>
+              {row.stops}
+            </Label>
+            <Label x={cols.km} y={center + 3.6} size={10.5} fill={MUTED}>
+              {formatKm(row.km)}
+            </Label>
+            <Label x={cols.time} y={center + 3.6} size={10.5} fill={MUTED}>
+              {formatDuration(row.min)}
+            </Label>
+            {i > 0 ? <line x1="8" y1={y} x2="512" y2={y} stroke={LINE} /> : null}
+          </g>
+        )
+      })}
+      <line x1="8" y1={top + rows.length * rowH} x2="512" y2={top + rows.length * rowH} stroke={LINE} />
     </Frame>
   )
 }

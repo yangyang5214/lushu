@@ -1,33 +1,11 @@
-import type { ComponentType } from 'react'
 import { requireLogin, useAuth } from '../lib/auth'
-import { useI18n, type MsgKey } from '../lib/i18n'
+import { useI18n } from '../lib/i18n'
 import { navigateBook, navigatePublic } from '../lib/router'
 import { useLushu } from '../store'
 import { SiteNav } from './Chrome'
-import { ShotAdd, ShotEnds, ShotLegs, ShotNight, ShotRail } from './FeatureShots'
 import { HeroDiagram } from './HeroDiagram'
 
-type Guide = {
-  /** 序号：01、02…，和配图一起当小标题用。 */
-  num: string
-  titleKey: MsgKey
-  textKey: MsgKey
-  shot: ComponentType
-}
-
-/**
- * 功能介绍：从「加地点」到「地图按天着色」，一个动作配一张编辑页示意图。
- * 顺序跟着实际用法走：先加点，再定起终点，然后过夜分天，最后看尺子和地图。
- */
-const GUIDE: Guide[] = [
-  { num: '01', titleKey: 'feat.add.title', textKey: 'feat.add.text', shot: ShotAdd },
-  { num: '02', titleKey: 'feat.ends.title', textKey: 'feat.ends.text', shot: ShotEnds },
-  { num: '03', titleKey: 'feat.night.title', textKey: 'feat.night.text', shot: ShotNight },
-  { num: '04', titleKey: 'feat.rail.title', textKey: 'feat.rail.text', shot: ShotRail },
-  { num: '05', titleKey: 'feat.legs.title', textKey: 'feat.legs.text', shot: ShotLegs },
-]
-
-/** `/`：首页，首屏 + 逐个动作的功能介绍；书单都在独立的 `/list`、`/public` 页。 */
+/** `/`：首页，首屏 + 新建入口；功能逐条说明在 `/features`，书单在 `/list`、`/public`。 */
 export function RouteList() {
   const { t } = useI18n()
   const createBook = useLushu((s) => s.createBook)
@@ -62,31 +40,6 @@ export function RouteList() {
             <HeroDiagram />
           </div>
         </section>
-
-        {/* 每个动作单独展开，一个动作一张编辑页示意图。 */}
-        <section className="guide">
-          <div className="shell">
-            <header className="section-head">
-              <h2>{t('home.guideHeading')}</h2>
-              <p>{t('home.guideSub')}</p>
-            </header>
-            <ol className="feat-rows">
-              {GUIDE.map(({ num, titleKey, textKey, shot: Shot }) => (
-                <li key={num} className="feat-row">
-                  <div className="feat-shot">
-                    <Shot />
-                  </div>
-                  <div className="feat-copy">
-                    <span className="feat-num">{num}</span>
-                    <h3>{t(titleKey)}</h3>
-                    <p>{t(textKey)}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
       </main>
     </div>
   )

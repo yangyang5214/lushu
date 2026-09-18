@@ -31,6 +31,7 @@ const zh = {
   // ── 页头 / 导航 ───────────────────────────────────────────────────────────
   'nav.mine': '我的路书',
   'nav.public': '公开路书',
+  'nav.features': '功能',
   'nav.account': '账户',
   'nav.serviceDown': '服务不可用',
   'nav.accountTitle': '账户 · {email}',
@@ -120,9 +121,6 @@ const zh = {
     '不用纠结先去哪、第几天走哪段。地点搜进来就好，路书按路程串联所有点；在过夜处钉分割针，行程自动分成一天天',
   'home.newBook': '新建路书',
   'home.seePublic': '看看公开路书',
-  'home.guideHeading': '每个按钮，都对应路上的一件事',
-  'home.guideSub':
-    '编辑页里能点的东西不多。下面一个一个说，每个动作都配了张图。',
 
   'nav.mp': '小程序',
   'mp.kicker': '微信小程序',
@@ -153,28 +151,65 @@ const zh = {
   'mp.s4.alt': '小程序地点导航截图',
   // ── 主页功能介绍：每张卡片一份文案 ────────────────────────────────────────
 
-  'feat.add.title': '搜一下就加进来',
+  'feat.add.title': '搜了就能加',
   'feat.add.text':
-    '在地图左上角的搜索框里打地名，点中结果就加进行程清单。想到什么加什么，顺序不用管。',
+    '在搜索框里打地名，点中结果就加进路线；想到什么加什么，顺序不用管。',
   'feat.add.alt': '示意图：在搜索框里搜到地点，点一下加进行程清单',
-  'feat.ends.title': '起点终点，定下方向',
+  'feat.ends.title': '定起点终点',
   'feat.ends.text':
     '在任意一行的右侧点「起点」或「终点」。定好之后，其余地点按路程自动串成一条顺路的线；起点和终点选同一个点，就是环线。',
   'feat.ends.alt': '示意图：给地点设起点和终点，地图上串成一条路线',
-  'feat.night.title': '点一下「过夜」，行程就分天',
+  'feat.night.title': '过夜分天',
   'feat.night.text':
     '在今晚要住下的那个地点点「过夜」，全程立刻分成第 1 天、第 2 天，清单和地图的颜色一起变。',
   'feat.night.alt': '示意图：在过夜的地点钉上分割针，行程分成两天',
-  'feat.rail.title': '底部的行程尺，一眼看完整个行程',
+  'feat.rail.title': '行程尺看全程',
   'feat.rail.text':
-    '整条路线按实际里程铺开，一颗珠就是一个地点：点珠子能选中地点，也能直接钉过夜；按住「夜」拖到别的点就能改分天。',
+    '整条路线按里程铺成一根尺子，一颗珠就是一个地点：点珠子选地点或钉过夜，拖动「夜」就能改分天。',
   'feat.rail.alt': '示意图：底部行程尺上的珠子，把「夜」拖到另一个点',
-  'feat.legs.title': '点与点之间，标着大概要开多久',
+  'feat.legs.title': '每段开多久',
   'feat.legs.text':
-    '相邻两个地点之间会显示里程和驾驶时长；天数、地点数、总里程、驾驶时长这四个总数，跟着你的改动实时重算。',
+    '相邻两点之间标着里程和驾驶时长；天数、地点数、总里程、时长跟着改动实时重算。',
   'feat.legs.alt': '示意图：地点之间的里程与驾驶时长，以及总统计',
 
+  // ── /features：功能一览（功能点 / 描述 / 截图） ─────────────────────────
+  'features.heading': '功能一览',
+  'features.caption': '功能点、功能点描述与功能截图',
+  'features.colFeature': '功能点',
+  'features.colDesc': '功能点描述',
+  'features.colShot': '功能截图',
+  'features.zoom': '点开看大图',
+  'features.link': '这一条功能点的链接',
+  'features.visibility': '可见性',
+
+  'feat.poi.title': '点地图看地点',
+  'feat.poi.text':
+    '在地图上点任意一处，右侧弹出附近的高德地点：评分、照片、电话、地址。确认后点「加入路线」就行。',
+  'feat.poi.alt': '示意图：点地图弹出高德地点卡片，可以加入路线',
+  'feat.table.title': '行程表',
+  'feat.table.text':
+    '点「行程表」整屏铺开：一天一行，写着当天的途经、里程和驾驶时长；点某一天，地图就高亮那一段。',
+  'feat.table.alt': '示意图：整屏行程表，一天一行列出途经、里程与驾驶时长',
+  'feat.shelf.title': '云端书架',
+  'feat.shelf.text':
+    '改动先落本地，1.4 秒后写进云端 D1。「我的路书」管自己的书，「公开路书」逛别人的书，卡片上直接画出缩略线路。',
+  'feat.shelf.alt': '示意图：我的路书列表，卡片带缩略线路与可见性',
+  'feat.share.title': '公开与私密',
+  'feat.share.text':
+    '每本路书都有固定链接，设为公开后任何人不用登录就能打开；改回私密，对外一律打不开。',
+  'feat.share.note': '拿到链接的人不用登录也能看。',
+  'feat.share.alt': '示意图：分享对话框，复制链接并切换公开 / 私密',
+  'feat.account.title': '账号与同步',
+  'feat.account.text':
+    '邮箱加口令注册、邮件激活；口令加盐哈希后入库，会话 cookie 里只有 token 摘要。界面中英双语。',
+  'feat.account.alt': '示意图：登录表单与账户信息卡片',
+  'feat.mp.title': '微信小程序',
+  'feat.mp.text': '小程序 gpx merge：按天查看行程，点地点直接导航，不用在手机上重新找路。',
+  'feat.mp.alt': '小程序路书列表与详情截图',
+
   'shot.book': '闽南 5 天',
+  'shot.book2': '潮汕 3 天',
+  'shot.public': '公开',
   'shot.p1': '泉州 关岳庙',
   'shot.p2': '洛阳桥',
   'shot.p3': '崇武古城',
@@ -404,6 +439,7 @@ const en: Record<MsgKey, string> = {
 
   'nav.mine': 'My Roadbooks',
   'nav.public': 'Public Roadbooks',
+  'nav.features': 'Features',
   'nav.account': 'Account',
   'nav.serviceDown': 'Service unavailable',
   'nav.accountTitle': 'Account · {email}',
@@ -490,9 +526,6 @@ const en: Record<MsgKey, string> = {
     'Stop agonizing over where to go first or how far to drive each day. Just search in the places; the Roadbook links them by distance, and pins at overnight stops split the trip into days.',
   'home.newBook': 'New Roadbook',
   'home.seePublic': 'Browse public Roadbooks',
-  'home.guideHeading': 'Every button maps to one thing on the road',
-  'home.guideSub':
-    'The editor has only a handful of controls. Here they are, one at a time, each with a picture.',
 
   'nav.mp': 'Mini Program',
   'mp.kicker': 'WeChat Mini Program',
@@ -523,28 +556,66 @@ const en: Record<MsgKey, string> = {
   'mp.s4.alt': 'Mini Program screenshot of place navigation',
   // ── Home feature guide: one copy block per card ──────────────────────────
 
-  'feat.add.title': 'Search, and it joins the trip',
+  'feat.add.title': 'Search and add',
   'feat.add.text':
-    'Type a place into the search box at the top-left of the map and pick a result — it lands in the itinerary. Add in any order.',
+    'Type a place in the search box and pick a result — it joins the route. Add in any order.',
   'feat.add.alt': 'Diagram: searching for a place and adding it to the itinerary',
-  'feat.ends.title': 'A start and an end set the direction',
+  'feat.ends.title': 'Start and end',
   'feat.ends.text':
     'Click Start or End on any stop. The other places are then strung into one sensible route by distance — pick the same stop for both and you get a loop.',
   'feat.ends.alt': 'Diagram: setting a start and an end on stops, drawn as a route on the map',
-  'feat.night.title': 'One click on Overnight splits the days',
+  'feat.night.title': 'Split by night',
   'feat.night.text':
     'Click Overnight on the stop where you will sleep: the trip splits into Day 1, Day 2 right away, and the itinerary and map recolor.',
   'feat.night.alt': 'Diagram: pinning an overnight stop, splitting the trip into two days',
-  'feat.rail.title': 'The trip ruler shows the whole trip at a glance',
+  'feat.rail.title': 'Trip ruler',
   'feat.rail.text':
-    'The route is laid out on a ruler by real distance, one bead per stop: click a bead to select the stop or pin an overnight there; drag the night pin onto another bead to move it.',
+    'The route is laid out on a ruler by distance, one bead per stop: click a bead to select a stop or pin an overnight there, and drag the “N” to change days.',
   'feat.rail.alt': 'Diagram: beads on the trip ruler with the night pin dragged to another stop',
-  'feat.legs.title': 'Between stops: how far, and how long',
+  'feat.legs.title': 'Drive time per leg',
   'feat.legs.text':
-    'Every leg shows its distance and drive time; the four totals — days, stops, distance, drive time — recompute as you edit.',
+    'Every leg shows its distance and drive time; days, stops, distance and drive time recompute as you edit.',
   'feat.legs.alt': 'Diagram: distance and drive time between stops, plus the trip totals',
 
+  // ── /features: the feature list (feature / description / screenshot) ─────
+  'features.heading': 'Features',
+  'features.caption': 'Feature, description and screenshot',
+  'features.colFeature': 'Feature',
+  'features.colDesc': 'Description',
+  'features.colShot': 'Screenshot',
+  'features.zoom': 'Click to enlarge',
+  'features.link': 'Link to this feature',
+  'features.visibility': 'Visibility',
+
+  'feat.poi.title': 'Tap the map for places',
+  'feat.poi.text':
+    'Tap anywhere on the map and a card shows the nearest AMap place: rating, photos, phone and address. Hit “Add to route” to keep it.',
+  'feat.poi.alt': 'Diagram: tapping the map opens an AMap place card that can be added to the route',
+  'feat.table.title': 'Itinerary table',
+  'feat.table.text':
+    'Open “Itinerary” full screen: one row per day with its stops, distance and drive time — click a day to highlight that stretch on the map.',
+  'feat.table.alt': 'Diagram: the full-screen itinerary table, one row per day with stops, distance and drive time',
+  'feat.shelf.title': 'Cloud shelf',
+  'feat.shelf.text':
+    'Edits land locally first and are written to D1 after 1.4 s. “My Roadbooks” holds yours, “Public Roadbooks” browses others, and every card draws a thumbnail of its route.',
+  'feat.shelf.alt': 'Diagram: the My Roadbooks list with route thumbnails and visibility',
+  'feat.share.title': 'Public or private',
+  'feat.share.text':
+    'Every Roadbook has a stable link. Make it public and anyone can open it without signing in; switch it back to private and it closes to outsiders.',
+  'feat.share.note': 'Anyone with the link can read it.',
+  'feat.share.alt': 'Diagram: the share dialog with a copyable link and a public / private switch',
+  'feat.account.title': 'Account & sync',
+  'feat.account.text':
+    'Sign up with an email and a passphrase, activate by email; passphrases are salted and hashed, and the session cookie holds only a token digest. The UI is bilingual.',
+  'feat.account.alt': 'Diagram: the sign-in form and the account card',
+  'feat.mp.title': 'WeChat Mini Program',
+  'feat.mp.text':
+    'The gpx merge Mini Program shows the trip day by day and navigates straight from a stop — no re-searching on the phone.',
+  'feat.mp.alt': 'Mini Program screenshots of the roadbook list and detail',
+
   'shot.book': 'Minnan · 5 days',
+  'shot.book2': 'Chaoshan · 3 days',
+  'shot.public': 'Public',
   'shot.p1': 'Quanzhou',
   'shot.p2': 'Luoyang Bridge',
   'shot.p3': 'Chongwu',

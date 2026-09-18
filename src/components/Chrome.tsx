@@ -1,11 +1,11 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { useI18n } from '../lib/i18n'
-import { navigateList, navigateMine, navigateMp, navigatePublic } from '../lib/router'
+import { navigateFeatures, navigateList, navigateMine, navigateMp, navigatePublic } from '../lib/router'
 import { AccountChip } from './AccountChip'
 import { BrandMark } from './BrandMark'
 import { LangSwitch } from './LangSwitch'
 
-export type NavKey = 'mine' | 'public' | 'mp'
+export type NavKey = 'features' | 'mine' | 'public' | 'mp'
 
 /** 项目开源地址：页头右上角的 GitHub 图标入口。 */
 export const GITHUB_URL = 'https://github.com/yangyang5214/lushu'
@@ -41,7 +41,7 @@ function jump(fn: () => void) {
   }
 }
 
-/** 全站页头：品牌、三个导航项（当前页高亮）、账户入口。 */
+/** 全站页头：品牌、四个导航项（当前页高亮）、账户入口。 */
 export function SiteNav({
   active,
   extra,
@@ -58,6 +58,13 @@ export function SiteNav({
           <b>lushu</b>
         </a>
         <nav className="nav-links">
+          <a
+            href="/features"
+            className={active === 'features' ? 'on' : undefined}
+            onClick={jump(navigateFeatures)}
+          >
+            {t('nav.features')}
+          </a>
           <a href="/list" className={active === 'mine' ? 'on' : undefined} onClick={jump(navigateMine)}>
             {t('nav.mine')}
           </a>
