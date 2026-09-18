@@ -4,7 +4,7 @@ import { requireLogin, useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { navigateBook, navigatePublic } from '../lib/router'
 import { useLushu } from '../store'
-import { SiteNav } from './Chrome'
+import { SiteFooter, SiteNav } from './Chrome'
 import { HeroDiagram } from './HeroDiagram'
 
 /** `/`：首页，首屏 + 新建入口；功能逐条说明在 `/features`，书单在 `/list`、`/public`。 */
@@ -29,7 +29,7 @@ export function RouteList() {
     requireLogin(() => navigateBook(createBook(), useAuth.getState().user?.hashId))
 
   return (
-    <div className="home">
+    <div className="home has-foot">
       <SiteNav />
 
       <main>
@@ -62,6 +62,8 @@ export function RouteList() {
           </div>
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   )
 }

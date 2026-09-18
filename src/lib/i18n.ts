@@ -36,6 +36,7 @@ const zh = {
   'nav.serviceDown': '服务不可用',
   'nav.accountTitle': '账户 · {email}',
   'nav.github': '在 GitHub 上看源码',
+  'nav.feedback': '功能反馈',
 
   // ── 搜索 ─────────────────────────────────────────────────────────────────
   'search.placeholder': '搜地点 如 泉州 关岳庙',
@@ -453,6 +454,7 @@ const en: Record<MsgKey, string> = {
   'nav.serviceDown': 'Service unavailable',
   'nav.accountTitle': 'Account · {email}',
   'nav.github': 'View the source on GitHub',
+  'nav.feedback': 'Feedback',
 
   'search.placeholder': 'Search a place, e.g. Quanzhou Guanyue',
   'search.noResults': 'Nothing found — try a more specific place',

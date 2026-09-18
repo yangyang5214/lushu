@@ -10,6 +10,9 @@ export type NavKey = 'features' | 'mine' | 'public' | 'mp'
 /** 项目开源地址：页头右上角的 GitHub 图标入口。 */
 export const GITHUB_URL = 'https://github.com/yangyang5214/lushu'
 
+/** 功能反馈：直接打开 GitHub 的新建 issue 页面，不用再让用户自己找。 */
+export const FEEDBACK_URL = 'https://github.com/yangyang5214/lushu/issues/new'
+
 function GithubIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -31,6 +34,21 @@ function GithubLink() {
     >
       <GithubIcon />
     </a>
+  )
+}
+
+/** 全站页脚：版权信息 + 功能反馈入口（直接开 GitHub 新建 issue）。 */
+export function SiteFooter() {
+  const { t } = useI18n()
+  return (
+    <footer className="foot">
+      <div className="shell foot-in">
+        <span className="foot-copy">© {new Date().getFullYear()} lushu</span>
+        <a className="foot-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer noopener">
+          {t('nav.feedback')}
+        </a>
+      </div>
+    </footer>
   )
 }
 
