@@ -13,6 +13,9 @@ export type Place = {
 /** 地点备注字数上限：只记一句话（停车、门票、联系人…），界面与 store 都按它截断。 */
 export const PLACE_NOTE_MAX = 20
 
+/** 全天备注字数上限：和地点备注一样只记一句话，界面与 store 都按它截断。 */
+export const DAY_NOTE_MAX = 20
+
 /** 路书可见性：默认私密；设为 public 后出现在「公开路书」页。 */
 export type Visibility = 'public' | 'private'
 
@@ -26,6 +29,11 @@ export type Book = {
   endId: string | null
   orderedIds: string[]
   splitIds: string[]
+  /**
+   * 每天的备注：下标就是天序号（第 1 天 = `dayNotes[0]`），缺项 / 空串都算没写。
+   * 可选，老数据没有。
+   */
+  dayNotes?: string[]
   /** 环线绕行方向；未设置时用优化器默认解。非环线忽略。 */
   loopDir?: LoopDir
   /** 高德驾车总里程（公里）；与 driveKey 一起存，路线变了就作废。 */

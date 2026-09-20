@@ -9,7 +9,7 @@ import type { LoopDir } from './lib/geo'
 import { isUntitledTitle, t } from './lib/i18n'
 import { getMeta } from './lib/keys'
 import { readRoute } from './lib/router'
-import { PLACE_NOTE_MAX, type Book, type Journey, type Place, type Visibility } from './types'
+import { DAY_NOTE_MAX, PLACE_NOTE_MAX, type Book, type Journey, type Place, type Visibility } from './types'
 
 export type View = 'list' | 'mine' | 'public' | 'features' | 'mp' | 'account' | 'admin' | 'edit'
 
@@ -24,6 +24,7 @@ type NewBook = Partial<
     | 'endId'
     | 'orderedIds'
     | 'splitIds'
+    | 'dayNotes'
     | 'loopDir'
   >
 >
@@ -78,6 +79,11 @@ type Actions = {
   addPlace: (input: Omit<Place, 'id'> & { id?: string }) => string
   /** 改某点的自定义备注（空串即删除）。不影响路线，里程缓存照旧。 */
   setPlaceNote: (id: string, note: string) => void
+  /**
+   * 改某天的备注（空串即删除），`index` 从 0 起（第 1 天 = 0）。
+   * 只记一句话，跟地点备注同一套：不影响路线，也不清里程缓存。
+   */
+  setDayNote: (index: number, note: string) => void
   removePlace: (id: string) => void
   setStart: (id: string) => void
   setEnd: (id: string) => void
@@ -301,6 +307,7 @@ export const useStore = create<Store>()(
           endId: seed?.endId ?? null,
           orderedIds: seed?.orderedIds ?? [],
           splitIds: seed?.splitIds ?? [],
+          dayNotes: seed?.dayNotes,
           loopDir: seed?.loopDir,
           createdAt: now,
           updatedAt: now,
@@ -366,6 +373,7 @@ export const useStore = create<Store>()(
           title: t('card.copySuffix', { title: src.title }),
           visibility: 'private',
           places: src.places.map((p) => ({ ...p })),
+          dayNotes: src.dayNotes ? [...src.dayNotes] : undefined,
           createdAt: now,
           updatedAt: now,
         }
@@ -453,6 +461,28 @@ export const useStore = create<Store>()(
                   p.id === id ? { ...p, note: text || undefined } : p,
                 ),
               }
+            },
+            { routeChanged: false },
+          ),
+        ),
+
+      setDayNote: (index, note) =>
+        set((s) =>
+          activePatch(
+            s,
+            (b) => {
+              const text = note.trim().slice(0, DAY_NOTE_MAX)
+              const dayNotes = [...(b.dayNotes ?? [])]
+              if (index >= dayNotes.length) {
+                if (!text) return {}
+                while (dayNotes.length < index) dayNotes.push('')
+              }
+              if ((dayNotes[index] ?? '') === text) return {}
+              dayNotes[index] = text
+              // 末尾的空备注不留：删掉最靠后那天的备注时，doc 里也别留一串空串。
+              let end = dayNotes.length
+              while (end > 0 && !dayNotes[end - 1]) end -= 1
+              return { dayNotes: end > 0 ? dayNotes.slice(0, end) : undefined }
             },
             { routeChanged: false },
           ),

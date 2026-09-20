@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { formatKm, formatLegLabel, validSplitIndexes } from '../lib/geo'
-import { cityOf } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { useI18n, type MsgKey } from '../lib/i18n'
 import { fetchRoad } from '../lib/route'
 import { navigateBookOrigin, PUBLIC_PATH } from '../lib/router'
-import { PLACE_NOTE_MAX, type Place } from '../types'
+import { DAY_NOTE_MAX, PLACE_NOTE_MAX, type Place } from '../types'
 import { useJourney, useLushu, useReadonly, useSelectedId } from '../store'
 import { BookActions } from './BookActions'
 import { JourneyStats } from './JourneyStats'
@@ -41,24 +40,39 @@ function CarIcon() {
 }
 
 /**
- * 备注编辑框：点 stop-ops 里的「备注」按钮展开，失焦 / Esc 即收。
- * 备注本身是名字后面的小标签（.place-note-tag），
+ * 备注编辑框：点「备注」/ 铅笔展开，失焦 / Esc 即收；地点和整天共用一套。
+ * 备注本身是行内的一小段字（地点的 .place-note-tag / 天数的 .day-note-text），
  * 这里只管编辑；输入直写 store，走既有的 1.4s 防抖推送。
  */
-function PlaceNoteEditor({ place, onToggle }: { place: Place; onToggle: () => void }) {
+function NoteEditor({
+  value,
+  rows = 2,
+  max,
+  className,
+  placeholder,
+  onChange,
+  onToggle,
+}: {
+  value: string
+  rows?: number
+  max: number
+  className: string
+  placeholder: MsgKey
+  onChange: (text: string) => void
+  onToggle: () => void
+}) {
   const { t } = useI18n()
-  const setPlaceNote = useLushu((s) => s.setPlaceNote)
 
   return (
     <textarea
-      className="stop-note-input"
-      defaultValue={place.note ?? ''}
-      maxLength={PLACE_NOTE_MAX}
-      rows={2}
+      className={className}
+      defaultValue={value}
+      maxLength={max}
+      rows={rows}
       autoFocus
-      placeholder={t('sidebar.notePlaceholder')}
+      placeholder={t(placeholder)}
       aria-label={t('sidebar.noteEdit')}
-      onChange={(e) => setPlaceNote(place.id, e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       onBlur={onToggle}
       onKeyDown={(e) => {
         if (e.key === 'Escape') e.currentTarget.blur()
@@ -80,6 +94,9 @@ export function Sidebar() {
   const removePlace = useLushu((s) => s.removePlace)
   const addSplit = useLushu((s) => s.addSplit)
   const removeSplit = useLushu((s) => s.removeSplit)
+  const setPlaceNote = useLushu((s) => s.setPlaceNote)
+  const setDayNote = useLushu((s) => s.setDayNote)
+  const dayNotes = useLushu((s) => s.dayNotes) ?? []
   const selectPlace = useLushu((s) => s.selectPlace)
   const closeBook = useLushu((s) => s.closeBook)
   const back = () => {
@@ -93,8 +110,9 @@ export function Sidebar() {
   )
   const splitSet = new Set(journey.splitIds)
   const [folded, setFolded] = useState<Record<number, boolean>>({})
-  // 正在编辑备注的那个点（同一时刻只开一个，窄侧栏里不叠输入框）。
+  // 正在编辑备注的那个点 / 那天（同一时刻只开一个，窄侧栏里不叠输入框）。
   const [noteFor, setNoteFor] = useState<string | null>(null)
+  const [noteDay, setNoteDay] = useState<number | null>(null)
   // 多天行程才值得单开一张表；单天一眼看完。
   const multiDay = journey.ready && journey.days.length > 1
   const [tableOpen, setTableOpen] = useState(false)
@@ -152,15 +170,54 @@ export function Sidebar() {
           ? journey.days.map((day) => {
               const visible = day.places.filter((_, i) => !(day.index > 0 && i === 0))
               const leadFrom = day.index > 0 ? day.places[0] : null
-              const cityPlace = visible[0] ?? day.places[0]
+              const dayNote = dayNotes[day.index] ?? ''
               return (
                 <section key={day.index} className="day-block">
-                  <button type="button" className="day-head" onClick={() => toggleFold(day.index)}>
-                    <strong>{t('sidebar.day', { n: day.index + 1 })}</strong>
-                    <span>{cityOf(cityPlace)}</span>
-                    {day.distanceKm > 0 ? <em className="day-km">{formatKm(day.distanceKm)}</em> : null}
-                    <i className={folded[day.index] ? 'chev folded' : 'chev'} />
-                  </button>
+                  <div className="day-head">
+                    {/* 天数头整条都是折叠开关；备注按钮得是它的兄弟节点，按钮不能嵌套按钮 */}
+                    <button
+                      type="button"
+                      className="day-fold"
+                      onClick={() => toggleFold(day.index)}
+                      aria-expanded={!folded[day.index]}
+                    >
+                      <strong>{t('sidebar.day', { n: day.index + 1 })}</strong>
+                      {dayNote ? (
+                        <span className="day-note-text" title={dayNote}>
+                          ({dayNote})
+                        </span>
+                      ) : null}
+                      {day.distanceKm > 0 ? (
+                        <em className="day-km">{formatKm(day.distanceKm)}</em>
+                      ) : null}
+                      <i className={folded[day.index] ? 'chev folded' : 'chev'} />
+                    </button>
+                    {readonly ? null : (
+                      <button
+                        type="button"
+                        className={noteDay === day.index || dayNote ? 'day-ops on' : 'day-ops'}
+                        onClick={() => setNoteDay(noteDay === day.index ? null : day.index)}
+                        title={t('sidebar.noteEdit')}
+                        aria-label={t('sidebar.noteEdit')}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden>
+                          <path d="M4 20h4l11-11-4-4L4 16v4Z" />
+                          <path d="M14.5 5.5l4 4" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {noteDay === day.index ? (
+                    <NoteEditor
+                      value={dayNote}
+                      rows={1}
+                      max={DAY_NOTE_MAX}
+                      className="day-note-input"
+                      placeholder="sidebar.note"
+                      onChange={(text) => setDayNote(day.index, text)}
+                      onToggle={() => setNoteDay(null)}
+                    />
+                  ) : null}
                   {folded[day.index] ? null : (
                     <ol className="timeline">
                       {leadFrom && visible[0] ? (
@@ -237,8 +294,12 @@ export function Sidebar() {
                               </div>
                             </div>
                             {noteFor === place.id ? (
-                              <PlaceNoteEditor
-                                place={place}
+                              <NoteEditor
+                                value={place.note ?? ''}
+                                max={PLACE_NOTE_MAX}
+                                className="stop-note-input"
+                                placeholder="sidebar.note"
+                                onChange={(text) => setPlaceNote(place.id, text)}
                                 onToggle={() => setNoteFor(null)}
                               />
                             ) : null}
@@ -306,7 +367,14 @@ export function Sidebar() {
                     </div>
                   </div>
                   {noteFor === place.id ? (
-                    <PlaceNoteEditor place={place} onToggle={() => setNoteFor(null)} />
+                    <NoteEditor
+                      value={place.note ?? ''}
+                      max={PLACE_NOTE_MAX}
+                      className="stop-note-input"
+                      placeholder="sidebar.note"
+                      onChange={(text) => setPlaceNote(place.id, text)}
+                      onToggle={() => setNoteFor(null)}
+                    />
                   ) : null}
                 </li>
               ))}

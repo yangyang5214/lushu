@@ -740,25 +740,69 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  border: none;
   background: #fff;
   padding: 10px 14px;
+}
+
+/* 天数头左边整块是折叠开关；备注按钮得是它的兄弟节点，按钮不能嵌套按钮 */
+.day-fold {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  border: none;
+  background: none;
+  padding: 0;
   text-align: left;
 }
 
 .day-head strong {
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.day-head span {
+/* 备注跟在「第 N 天」后面，用括号裹起来：和 .day-km 同一档灰字，长了省略，不占两行 */
+.day-note-text {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12px;
   color: #8a93a0;
-  font-size: 13px;
+}
+
+/* 天数头的备注入口：一支很淡的铅笔，常显（不 hover 才出现，头就不会跳） */
+.day-ops {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: #c3c9d2;
+  transition: color 0.15s;
+}
+
+.day-ops svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.day-ops:hover,
+.day-ops:focus-visible,
+.day-ops.on {
+  color: #3377ff;
 }
 
 .day-km {
@@ -863,11 +907,10 @@ button {
   font-weight: 600;
 }
 
-.stop-note-input {
+.stop-note-input,
+.day-note-input {
   display: block;
   box-sizing: border-box;
-  width: calc(100% - 32px);
-  margin: 0 0 8px 32px;
   padding: 6px 8px;
   border: 1px solid #d7dee8;
   border-radius: 6px;
@@ -880,7 +923,20 @@ button {
   min-height: 46px;
 }
 
-.stop-note-input:focus {
+/* 地点备注缩在序号圆点右边；天数备注跟天数头左右对齐 */
+.stop-note-input {
+  width: calc(100% - 32px);
+  margin: 0 0 8px 32px;
+}
+
+.day-note-input {
+  width: calc(100% - 28px);
+  margin: 2px 14px 8px;
+  min-height: 34px;
+}
+
+.stop-note-input:focus,
+.day-note-input:focus {
   outline: none;
   border-color: #3d7eff;
   box-shadow: 0 0 0 2px rgba(61, 126, 255, 0.15);

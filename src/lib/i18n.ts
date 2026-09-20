@@ -80,7 +80,6 @@ const zh = {
   'sidebar.hintReady': '设好起点和终点后，其余点会按路程串成一条线。',
   'sidebar.note': '备注',
   'sidebar.noteEdit': '编辑备注',
-  'sidebar.notePlaceholder': '停车、门票、联系人…',
 
   // ── 行程表（多天） ───────────────────────────────────────────────────────
   'table.title': '行程表',
@@ -498,7 +497,6 @@ const en: Record<MsgKey, string> = {
     'Once a start and an end are set, the other stops are strung into a route by distance.',
   'sidebar.note': 'Note',
   'sidebar.noteEdit': 'Edit note',
-  'sidebar.notePlaceholder': 'Parking, tickets, contacts…',
 
   // ── Trip table (multi-day) ───────────────────────────────────────────────
   'table.title': 'Itinerary',
