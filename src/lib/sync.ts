@@ -79,7 +79,14 @@ async function push(id: string): Promise<void> {
     }
 
     if (res.ok) {
-      setMeta(id, { base: res.updatedAt, pushed: book.updatedAt })
+      setMeta(id, {
+        base: res.updatedAt,
+        pushed: book.updatedAt,
+        // 记下这本属于哪个账号：对账时靠它区分「云端删了」和「换了个账号登录」。
+        ...(meta.owner === undefined && useAuth.getState().user?.hashId
+          ? { owner: useAuth.getState().user?.hashId }
+          : {}),
+      })
       update({ status: 'saved', at: Date.now() })
       return
     }
@@ -255,13 +262,60 @@ export async function copyPublicBook(id: string): Promise<string | null> {
   }
 }
 
-/** 把账号书架里有、本机还没有的路书拉下来（打开「我的路书」时用）。 */
-export async function pullMissingCloudBooks(): Promise<void> {
-  const cloud = useCloud.getState().books
-  const local = useStore.getState().books
-  const missing = cloud.filter((c) => !local[c.id])
-  if (missing.length === 0) return
-  await Promise.all(missing.map((c) => pullBook(c.id, { own: true })))
+/** 云端书架里的书最多这么多（与服务端 /api/library 的 LIMIT 一致）。 */
+const LIBRARY_LIMIT = 200
+
+/**
+ * 打开「我的路书」时跟账号书架对账，页面展示的才是云端当前的样子：
+ *   · 云端有、本机没有 → 拉下来（换设备后第一次打开书架）。
+ *   · 本机有没推上去的改动 → 先推上去（离线时留下的脏数据），别被云端旧版本盖掉。
+ *   · 云端版本比本机同步基线新 → 拉云端（在别的设备上改过），列表卡片跟着更新。
+ *   · 云端已删、本机还留着的 → 从本机书架清掉，删除才能跨设备生效。
+ * 只读的分享（meta.remote）与从没成功推送过的本机新书都不参与，避免误删本地数据。
+ */
+export async function reconcileCloudBooks(): Promise<void> {
+  const { books: cloud, loaded, error } = useCloud.getState()
+  if (!loaded || error) return
+
+  await Promise.all(
+    cloud.map(async (c) => {
+      const book = useStore.getState().books[c.id]
+      const meta = getMeta(c.id)
+      if (meta.remote) return
+      if (!book) {
+        await pullBook(c.id, { own: true })
+        return
+      }
+      if (meta.pushed === undefined || book.updatedAt > meta.pushed) {
+        await pushBook(c.id)
+        return
+      }
+      if (c.updatedAt > (meta.base ?? 0)) await pullBook(c.id, { own: true })
+    }),
+  )
+
+  // 云端删除的传播：确实属于这个账号、书架里已推送成功、但云端已经没有的书，本机
+  // 副本也清掉。三重护栏：账号探测已成功、这次 /api/library 完整未截断，且这本书
+  // 记的就是当前账号（换账号登录时别拿别人的书架当「已删」）。
+  const user = useAuth.getState().user
+  if (!user || cloud.length >= LIBRARY_LIMIT) return
+  const cloudIds = new Set(cloud.map((c) => c.id))
+  for (const id of [...useStore.getState().order]) {
+    if (cloudIds.has(id)) continue
+    const book = useStore.getState().books[id]
+    if (!book) continue
+    const meta = getMeta(id)
+    if (meta.remote || meta.pushed === undefined || book.updatedAt > meta.pushed) continue
+    if (meta.owner !== user.hashId) continue
+    // 列表拉取与推送之间有竞态，删之前再确认一次云端真的没了；读得到就留着。
+    try {
+      if (await fetchBook(id)) continue
+    } catch {
+      continue
+    }
+    useStore.getState().deleteBook(id)
+    dropMeta(id)
+  }
 }
 
 /** 删除：本地与服务端一起清掉。 */

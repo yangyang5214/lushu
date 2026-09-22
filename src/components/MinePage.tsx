@@ -6,7 +6,7 @@ import { t, useI18n } from '../lib/i18n'
 import { buildJourney } from '../lib/journey'
 import { getMeta, hasToken } from '../lib/keys'
 import { navigateBook } from '../lib/router'
-import { pullMissingCloudBooks, pushBook, refreshCloud, refreshPublic, removeBook, useCloud } from '../lib/sync'
+import { pushBook, reconcileCloudBooks, refreshCloud, refreshPublic, removeBook, useCloud } from '../lib/sync'
 import { useLushu } from '../store'
 import type { Book, Journey, Visibility } from '../types'
 import { SiteNav } from './Chrome'
@@ -39,14 +39,14 @@ export function MinePage() {
   // 待删除的路书：不为空时弹出二次确认浮层。
   const [deleteTarget, setDeleteTarget] = useState<Book | null>(null)
 
-  // 每次打开「我的路书」都刷新账号书架，并把云端有、本机缺的路书拉下来。
+  // 每次打开「我的路书」都刷新账号书架，并跟云端对一次账（补拉、补推、清掉云端已删的）。
   useEffect(() => {
     void refreshCloud()
   }, [])
 
   useEffect(() => {
-    if (!cloudLoaded || cloud.length === 0) return
-    void pullMissingCloudBooks()
+    if (!cloudLoaded) return
+    void reconcileCloudBooks()
   }, [cloud, cloudLoaded])
 
   // 新建（含复制）都要先登录；未登录会跳到账户页，登录后接着把动作做完。
