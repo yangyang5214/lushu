@@ -280,6 +280,30 @@ const zh = {
   'book.shareWorking': '正在公开…',
   'book.shareFailed': '公开失败，请检查网络后重试',
 
+  // ── 云游：按路线顺序播放的驾车动画 ──────────────────────────────────────
+  'book.drive': '云游',
+  'book.driveTitle': '云游 · 驾车动画',
+  'book.driveAria': '播放驾车动画',
+  'book.driveLoading': '正在取路网、配镜头…',
+  'book.driveEmpty': '至少要有两个地点才能生成驾车动画：先把起终点定下来。',
+  'drive.export': '下载 MP4',
+  'drive.exportRetry': '重试导出',
+  'drive.exporting': '导出中 {pct}%',
+  'drive.exportFailed': '导出失败',
+  'drive.exportFailedHint': '导出失败：请重试；还是不行就换 Chrome / Edge 试试。',
+  'drive.exportUnsupported': '浏览器不支持导出',
+  'drive.exportUnsupportedHint':
+    '这个浏览器不支持导出视频：导出在本地用 WebCodecs 编码，需要 Chrome / Edge 等较新的浏览器。',
+
+  // ── 云游动画里的文案（组件按当前语言翻好再交给动画） ────────────────────
+  'drive.day': '第 {n} 天',
+  'drive.start': '出发',
+  'drive.end': '到达',
+  'drive.legend': '{days} 天 · {stops} 个地点',
+  'drive.traveled': '已行驶',
+  'drive.unitKm': '公里',
+  'drive.completed': '全程走完',
+
   // ── 账号 / 登录 ──────────────────────────────────────────────────────────
   'auth.serviceDownTitle': '连不上服务',
   'auth.retry': '重试',
@@ -693,6 +717,29 @@ const en: Record<MsgKey, string> = {
   'book.sharePublic': 'Make public & copy link',
   'book.shareWorking': 'Publishing…',
   'book.shareFailed': 'Could not make it public — check your network and retry.',
+
+  'book.drive': 'Cloud tour',
+  'book.driveTitle': 'Cloud tour · route animation',
+  'book.driveAria': 'Play the driving animation',
+  'book.driveLoading': 'Fetching roads and framing the camera…',
+  'book.driveEmpty':
+    'A driving animation needs at least two places — set a start and an end first.',
+  'drive.export': 'Download MP4',
+  'drive.exportRetry': 'Retry export',
+  'drive.exporting': 'Exporting {pct}%',
+  'drive.exportFailed': 'Export failed',
+  'drive.exportFailedHint': 'Export failed — try again, or use Chrome / Edge instead.',
+  'drive.exportUnsupported': 'Export not supported',
+  'drive.exportUnsupportedHint':
+    'This browser cannot export video: exporting encodes locally with WebCodecs, which needs a recent Chrome or Edge.',
+
+  'drive.day': 'Day {n}',
+  'drive.start': 'Start',
+  'drive.end': 'End',
+  'drive.legend': '{days} days · {stops} stops',
+  'drive.traveled': 'Driven',
+  'drive.unitKm': 'km',
+  'drive.completed': 'Trip complete',
 
   'auth.serviceDownTitle': 'Cannot reach the service',
   'auth.retry': 'Retry',

@@ -61,36 +61,65 @@ function binCmd(name) {
 let closing = false
 const children = []
 
-function shutdown(code = 0) {
-  if (closing) return
-  closing = true
-  console.log(dim('\n正在关闭本地开发进程…'))
-  for (const child of children) {
-    if (child.exitCode !== null || child.signalCode) continue
+// 子进程是独立进程组（detached），所以要对负的 pid 发信号，
+// 否则 wrangler 拉起来的 workerd 会变成孤儿进程继续占着端口。
+function killTree(pid, signal) {
+  if (WIN) {
     try {
-      if (WIN) child.kill()
-      else process.kill(-child.pid, 'SIGTERM')
-    } catch {
-      try {
-        child.kill('SIGTERM')
-      } catch {}
-    }
+      process.kill(pid, signal)
+    } catch {}
+    return
   }
-  const force = setTimeout(() => {
-    for (const child of children) {
-      if (child.exitCode !== null) continue
-      try {
-        if (WIN) child.kill('SIGKILL')
-        else process.kill(-child.pid, 'SIGKILL')
-      } catch {}
-    }
-  }, 3000)
-  force.unref()
-  setTimeout(() => process.exit(code), 400)
+  try {
+    process.kill(-pid, signal)
+  } catch {
+    try {
+      process.kill(pid, signal)
+    } catch {}
+  }
 }
 
-process.on('SIGINT', () => (closing ? process.exit(0) : shutdown(0)))
-process.on('SIGTERM', () => (closing ? process.exit(0) : shutdown(0)))
+const alive = () => children.filter((c) => c.exitCode === null && !c.signalCode)
+
+function shutdown(code = 0) {
+  if (closing) {
+    // 再按一次 Ctrl-C：立刻强杀，不要再等
+    for (const child of alive()) killTree(child.pid, 'SIGKILL')
+    // wrangler 会把 workerd 放到别的进程组，按子进程 PID 杀不干净
+    try {
+      freePort(API_PORT, '本地 Worker', isOurWorker, { kill: true, quiet: true })
+      freePort(WEB_PORT, 'Vite', isOurWeb, { kill: true, quiet: true })
+    } catch {}
+    process.exit(code)
+  }
+  closing = true
+  console.log(dim('\n正在关闭本地开发进程…'))
+  for (const child of alive()) killTree(child.pid, 'SIGTERM')
+
+  // 等子进程真的退出再退出自己，否则孤儿进程会占住端口
+  let waited = 0
+  const timer = setInterval(() => {
+    waited += 120
+    if (alive().length === 0 || waited >= 2500) {
+      clearInterval(timer)
+      for (const child of alive()) killTree(child.pid, 'SIGKILL')
+      try {
+        freePort(API_PORT, '本地 Worker', isOurWorker, { kill: true, quiet: true })
+        freePort(WEB_PORT, 'Vite', isOurWeb, { kill: true, quiet: true })
+      } catch {}
+      setTimeout(() => process.exit(code), 150)
+    }
+  }, 120)
+}
+
+// 兜底：任何退出路径都不留孤儿进程（含终端关闭的 SIGHUP）
+process.on('exit', () => {
+  for (const child of alive()) killTree(child.pid, 'SIGKILL')
+})
+
+process.on('SIGINT', () => shutdown(0))
+process.on('SIGTERM', () => shutdown(0))
+process.on('SIGHUP', () => shutdown(0))
 
 function start(label, color, binName, args, env) {
   const { cmd, shell } = binCmd(binName)
@@ -183,6 +212,104 @@ function ensureDist() {
   process.exit(1)
 }
 
+// ── 3.5 端口占用：清掉上次残留，别让用户撞 "Address already in use" ──────────
+// npm script 的 PATH 常常不含 /usr/sbin，必须写绝对路径，否则 lsof 静默失败、
+// 脚本以为端口空闲，随后 wrangler 再撞上残留 workerd。
+const LSOF = existsSync('/usr/sbin/lsof') ? '/usr/sbin/lsof' : 'lsof'
+const PS = existsSync('/bin/ps') ? '/bin/ps' : 'ps'
+
+function portListeners(port) {
+  const res = spawnSync(LSOF, ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
+    encoding: 'utf8',
+  })
+  if (res.error || res.status !== 0) return []
+  return [...new Set((res.stdout ?? '').split('\n').map((s) => s.trim()).filter(Boolean))]
+}
+
+function psField(pid, field) {
+  const res = spawnSync(PS, ['-o', `${field}=`, '-p', String(pid)], { encoding: 'utf8' })
+  return res.status === 0 ? (res.stdout ?? '').trim() : ''
+}
+
+function procCwd(pid) {
+  const res = spawnSync(LSOF, ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
+    encoding: 'utf8',
+  })
+  if (res.error || res.status !== 0) return ''
+  // lsof -Fn：n/path
+  const line = (res.stdout ?? '').split('\n').find((l) => l.startsWith('n'))
+  return line ? line.slice(1) : ''
+}
+
+// 同步 sleep，不 spawn 外部命令（跨平台）
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+
+function belongsToProject(pid) {
+  const cmd = psField(pid, 'command')
+  if (cmd.includes(ROOT)) return true
+  const cwd = procCwd(pid)
+  return cwd === ROOT || cwd.startsWith(`${ROOT}/`)
+}
+
+// 本脚本默认独占 API_PORT；凡是 wrangler/workerd 占着就当残留清掉，
+// 避免「识别失败 → 静默跳过 → Address already in use」
+function isOurWorker(pid) {
+  return /wrangler|workerd|miniflare/i.test(psField(pid, 'command'))
+}
+
+function isOurWeb(pid) {
+  const cmd = psField(pid, 'command')
+  if (!/(^|[\s/])vite(\.js|\s|$)/.test(cmd) && !/\/vite\//.test(cmd)) return false
+  return belongsToProject(pid)
+}
+
+/**
+ * 端口清理：如果是本项目上一次 dev 残留的进程就收掉，否则原样返回。
+ * 返回 'free' | 'stale' | 'busy'。
+ */
+function freePort(port, what, isOurs, { kill = true, quiet = false } = {}) {
+  const pids = portListeners(port)
+  if (pids.length === 0) return 'free'
+
+  const stale = pids.filter(isOurs)
+  const onlyOurs = stale.length === pids.length && stale.length > 0
+  if (!onlyOurs) return 'busy'
+  if (!kill) {
+    if (!quiet) {
+      warn(`端口 ${port} 被上次残留的${what}占用（PID ${stale.join(', ')}），启动时会先清理。`)
+    }
+    return 'stale'
+  }
+
+  if (!quiet) step(`清理上次残留的${what}（占用 ${port}：PID ${stale.join(', ')}）`)
+  const killOwners = (signal) => {
+    for (const pid of stale) {
+      // 子进程是独立进程组，杀组才能带走 workerd / vite 的子进程
+      const pgid = WIN ? pid : psField(pid, 'pgid') || pid
+      killTree(Number(pgid), signal)
+      // 再补一刀 PID 本身（进程组已散时 pgid 杀不到）
+      if (!WIN) killTree(Number(pid), signal)
+    }
+  }
+  killOwners('SIGTERM')
+  const deadline = Date.now() + 4000
+  while (Date.now() < deadline && portListeners(port).length > 0) sleepSync(150)
+  killOwners('SIGKILL')
+  sleepSync(200)
+  if (portListeners(port).length === 0) {
+    if (!quiet) note(`端口 ${port} 已释放`)
+    return 'free'
+  }
+  return 'busy'
+}
+
+function describePortHolders(port) {
+  console.log(dim('  占用进程：'))
+  for (const pid of portListeners(port)) {
+    console.log(dim(`  ${pid}  ${psField(pid, 'command').slice(0, 120)}`))
+  }
+}
+
 async function waitForApi(child, timeoutMs = 45_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -203,9 +330,24 @@ ensureWranglerToml()
 ensureD1()
 ensureDist()
 
+const apiPort = freePort(API_PORT, '本地 Worker', isOurWorker, { kill: !CHECK_ONLY })
+const webPort = freePort(WEB_PORT, 'Vite', isOurWeb, { kill: !CHECK_ONLY })
+const portOk = apiPort !== 'busy'
+
 if (CHECK_ONLY) {
   note('--check：检查完成，未启动任何服务')
-  process.exit(0)
+  process.exit(portOk ? 0 : 1)
+}
+
+if (!portOk) {
+  warn(`端口 ${API_PORT} 被其他进程占用，换个端口：pnpm dev:all --api-port ${API_PORT + 2}`)
+  describePortHolders(API_PORT)
+  process.exit(1)
+}
+
+if (webPort === 'busy') {
+  warn(`端口 ${WEB_PORT} 被其他进程占用，Vite 会自动换一个端口（下面看实际地址）。`)
+  describePortHolders(WEB_PORT)
 }
 
 console.log(`

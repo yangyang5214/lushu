@@ -19,8 +19,11 @@
     "deploy": "wrangler pages deploy dist"
   },
   "dependencies": {
+    "@remotion/player": "4.0.527",
+    "@remotion/web-renderer": "4.0.527",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "remotion": "4.0.527",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

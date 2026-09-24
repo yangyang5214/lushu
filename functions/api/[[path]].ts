@@ -32,6 +32,7 @@
 //   GET    /api/poi?lng=&lat=&z= → 点击地图某点的高德地点卡片（逆地理 + 周边检索）+ 缓存
 //   GET    /api/route?coords= → 单段驾车路线：高德驾车规划 + Cache API 缓存
 //   POST   /api/route         → 多段批量（body.segments），缓存命中并行、回源统一限 3 次/秒
+//   GET    /api/staticmap?center=&zoom= → 高德静态地图（云游动画底图）+ Cache API 缓存
 //
 // 暴露面控制（公开仓库 = 端点形状全部公开，所以防线必须在服务端）：
 //   1. 不下发 CORS 头：只服务同源 SPA，第三方站点无法用访客浏览器打这个 API。
@@ -119,7 +120,7 @@ type Env = {
   EMAIL_FROM?: string
   /**
    * 高德 Web 服务 key。可配多个（用 `;` 分隔），会轮换分摊配额并互相兜底；
-   * `/api/places`、`/api/route` 都依赖它，一个都没配时返回 5xx。
+   * `/api/places`、`/api/poi`、`/api/route`、`/api/staticmap` 都依赖它，一个都没配时返回 5xx。
    */
   AMAP_KEY?: string
   /** 高德「Web端(JS API)」key，经 GET /api/config 下发给前端画地图。 */
@@ -2108,6 +2109,114 @@ async function routeBatch(ctx: Ctx): Promise<Response> {
   })
 }
 
+// ── 静态地图（云游动画的底图） ──────────────────────────────────────────────
+
+const AMAP_STATIC_URL = 'https://restapi.amap.com/v3/staticmap'
+/**
+ * 舞台固定 1024×576（16:9），尺寸 / 倍率写死在服务端：前端只能给镜头中心和级别。
+ * scale=2 拿回 2 倍像素，动画里镜头推到 1.5 倍左右也不糊。
+ */
+const STATIC_MAP_SIZE = '1024*576'
+const STATIC_MAP_SCALE = 2
+const STATIC_MAP_TTL = 60 * 60 * 24 * 7
+/** 缓存键挂在假域名上：只为拼一个稳定的 Cache API key，不会真的请求它。 */
+const STATIC_MAP_CACHE_HOST = 'https://lushu.internal/api/staticmap/v1'
+
+/** 云游镜头：高德底图的中心点与整数级别。 */
+type StaticMapView = { lng: number; lat: number; zoom: number }
+
+/** 解析 /api/staticmap 的镜头参数；越界 / 非整数级别一律 400，不往上游透传。 */
+function parseStaticMap(url: URL): StaticMapView | { error: string } {
+  const center = (url.searchParams.get('center') ?? '').trim()
+  const zoomText = (url.searchParams.get('zoom') ?? '').trim()
+  const hit = /^(-?\d{1,3}(?:\.\d{1,7})?),(-?\d{1,3}(?:\.\d{1,7})?)$/.exec(center)
+  if (!hit) return { error: 'bad_center' }
+  const lng = Number(hit[1])
+  const lat = Number(hit[2])
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return { error: 'bad_center' }
+  // ±85.05 是 Web 墨卡托的极点，再往南北高德也画不出来。
+  if (lng < -180 || lng > 180 || lat < -85 || lat > 85) return { error: 'bad_center' }
+  if (!/^\d{1,2}$/.test(zoomText)) return { error: 'bad_zoom' }
+  const zoom = Number(zoomText)
+  if (zoom < 1 || zoom > 17) return { error: 'bad_zoom' }
+  return { lng, lat, zoom }
+}
+
+/**
+ * 单 key 拉一张静态图。高德出错时也回 200 的 JSON（错误信息在 body 里），
+ * 所以必须看 content-type：不是图片就当这次失败，交给下一个 key。
+ */
+async function staticMapOnce(key: string, view: StaticMapView): Promise<ArrayBuffer | null> {
+  const params = new URLSearchParams({
+    key,
+    location: `${view.lng.toFixed(6)},${view.lat.toFixed(6)}`,
+    zoom: String(view.zoom),
+    size: STATIC_MAP_SIZE,
+    scale: String(STATIC_MAP_SCALE),
+  })
+  try {
+    const res = await fetch(`${AMAP_STATIC_URL}?${params.toString()}`, {
+      signal: AbortSignal.timeout(9000),
+    })
+    if (!res.ok) return null
+    const type = res.headers.get('content-type') ?? ''
+    if (!type.startsWith('image/')) return null
+    return await res.arrayBuffer()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * /api/staticmap?center=lng,lat&zoom=8 → 云游动画的底图（PNG）。
+ * 上游 host 写死、key 不出后端；同一镜头缓存一周，反复播放不重复计费。
+ */
+async function staticMap(ctx: Ctx): Promise<Response> {
+  const view = parseStaticMap(new URL(ctx.request.url))
+  if ('error' in view) return json({ error: view.error }, 400)
+  const keys = amapKeys(ctx.env.AMAP_KEY)
+  if (!keys.length) return json({ error: 'amap_unconfigured' }, 501)
+
+  const center = `${view.lng.toFixed(6)},${view.lat.toFixed(6)}`
+  const imageHeaders = {
+    'content-type': 'image/png',
+    'cache-control': `public, max-age=${STATIC_MAP_TTL}`,
+  }
+  const cache = typeof caches !== 'undefined' ? caches.default : undefined
+  const cacheKey = new Request(`${STATIC_MAP_CACHE_HOST}?center=${center}&zoom=${view.zoom}`, {
+    method: 'GET',
+  })
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheKey)
+      if (hit) {
+        return new Response(hit.body, {
+          status: 200,
+          headers: { ...imageHeaders, 'x-lushu-cache': 'hit' },
+        })
+      }
+    } catch {
+      /* 缓存不可用就直接回源 */
+    }
+  }
+
+  const image = await amapEachKey(keys, (key) => staticMapOnce(key, view))
+  if (!image) return json({ error: 'upstream' }, 502)
+
+  if (cache) {
+    try {
+      // 同一份 ArrayBuffer 要喂给两个 Response，缓存那份必须自己拷一份。
+      ctx.waitUntil(cache.put(cacheKey, new Response(image.slice(0), { headers: imageHeaders })))
+    } catch {
+      /* 写缓存失败不影响响应 */
+    }
+  }
+  return new Response(image, {
+    status: 200,
+    headers: { ...imageHeaders, 'x-lushu-cache': 'miss' },
+  })
+}
+
 // ── router ──────────────────────────────────────────────────────────────────
 
 async function handle(ctx: Ctx): Promise<Response> {
@@ -2175,6 +2284,7 @@ async function handle(ctx: Ctx): Promise<Response> {
   if (seg[0] === 'poi' && seg.length === 1 && method === 'GET') return poi(ctx)
   if (seg[0] === 'route' && method === 'GET') return routeProxy(ctx)
   if (seg[0] === 'route' && method === 'POST') return routeBatch(ctx)
+  if (seg[0] === 'staticmap' && seg.length === 1 && method === 'GET') return staticMap(ctx)
 
   return json({ error: 'not_found' }, 404)
 }

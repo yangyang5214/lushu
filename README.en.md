@@ -39,6 +39,7 @@ React + Vite on the front end, Cloudflare Pages Functions + D1 on the back end, 
 - **Overnight splitting** — click a bead on the trip ruler to mark an overnight stop, or drag the divider pin. The trip becomes day-by-day with per-day mileage and legend, and day count updates instantly.
 - **Cloud library** — edits land locally first and are written to D1 after a 1.4s debounce. `/list` manages your books, `/public` browses public ones, and cards draw a real route thumbnail.
 - **Sharing and visibility** — a `/d/{userId}/{bookId}` link is readable by anyone (read-only view drops all editing affordances). Switch a book between public and private at any time; private books return 404 to everyone but the owner.
+- **Cloud tour animation** — the “Cloud tour” button under the book title plays the whole roadbook as a driving animation (Remotion): an AMap static map underneath, a car driving the AMap road network in route order, day badges switching along the way, stops lighting up one by one, and total distance and drive time in the intro and outro. Drag the progress bar to review any leg; it plays on read-only shares too. The dialog can also **download the animation as an MP4**, encoded frame by frame in the browser with no server involvement.
 - **Accounts** — email + password sign-up with email activation; passwords are stored as salted PBKDF2-SHA256, and the session cookie only carries a token digest. The UI ships in Chinese and English.
 - **Feature guide** — below the hero, the home page walks through the editor controls one by one (add a place, start/end, overnight splitting, the trip ruler, distance and drive time), each with a diagram of the editor and copy in both languages.
 
@@ -50,7 +51,8 @@ React + Vite on the front end, Cloudflare Pages Functions + D1 on the back end, 
 | Styling | Hand-written CSS (`src/index.css`, `src/home.css`), no UI framework |
 | Back end | Cloudflare Pages Functions (a Worker underneath) |
 | Database | Cloudflare D1 (SQLite); every read/write uses bound parameters |
-| Maps | AMap JS API (basemap, markers, route rendering) · AMap Web Service API (POI search, driving routes) |
+| Maps | AMap JS API (basemap, markers, route rendering) · AMap Web Service API (POI search, nearby search, driving routes, static maps) |
+| Animation | Remotion Player (frame-by-frame driving animation, see `src/lib/drive.ts`) |
 | Email · bot check | Resend (optional) · Cloudflare Turnstile (optional) |
 | Tooling | pnpm · oxlint · wrangler |
 
@@ -128,7 +130,7 @@ Public front-end variables live in `[vars]` inside `wrangler.toml` and are injec
 
 | Name | Required | Purpose |
 | --- | --- | --- |
-| `AMAP_KEY` | yes (search / routes) | AMap **Web Service** key — *not* the JS API key above. `/api/places` (search), `/api/poi` (tap-for-a-place) and `/api/route` (driving) rely on it and return 5xx when unset. Multiple keys are supported as `key1;key2`: they rotate to spread quota and back each other up. |
+| `AMAP_KEY` | yes (search / routes) | AMap **Web Service** key — *not* the JS API key above. `/api/places` (search), `/api/poi` (tap-for-a-place), `/api/route` (driving) and `/api/staticmap` (cloud-tour basemap) rely on it and return 5xx when unset. Multiple keys are supported as `key1;key2`: they rotate to spread quota and back each other up. |
 | `ADMIN_SECRET` | no | Passphrase for the `/admin` console, at least 6 characters. When unset or too short, every `/api/admin/*` route returns 404 — the console effectively does not exist. |
 | `RESEND_API_KEY` | no | Sends sign-up activation emails; without it the registration flow is unusable. |
 | `TURNSTILE_SECRET` | no | Human-check secret for register / sign-in / resend activation; setting it makes the check mandatory. |
@@ -167,6 +169,8 @@ pnpm deploy       # wrangler pages deploy dist
 - **Coordinate systems**: storage is WGS84 throughout, while the AMap basemap and routes use GCJ02; conversion is centralised in `shared/coords.ts`.
 - **Tap for a place**: tapping a POI label on the basemap gives the AMap JS API (`hotspotclick`) the POI id outright, so the card is that exact place — the same “whatever you tap is what you get” behaviour as amap.com. Tapping empty space falls back to guessing from the coordinate: reverse geocoding (v3 geocode/regeo) works out which place the point is *inside* (stations, scenic areas, malls — the big POIs nearby search never returns), while nearby search (v5 place/around) supplies ratings, photos and the small shops around it, and the top card is picked from the merged result. The radius widens as you zoom out. Results are in GCJ02 (the basemap system) and nothing is written on lookup; only “Add to route” converts the point to WGS84 and stores it. Results for the same spot are cached for a day.
 - **Driving throttle**: all driving requests pass one 3-per-second queue (`AMAP_DRIVE_QPS`) so the app does not trip its own upstream rate limit; codes 10004 / 10020 are retried with backoff and a different key.
+- **Aligning the cloud tour basemap**: static maps cannot be called from the browser (the Web Service key never ships), so they go through the `/api/staticmap` proxy, which only accepts a camera centre and zoom. AMap static maps use a **512px** tile base, not the JS API's 256px — verified by drawing a `paths` polyline on a static map and comparing it with the Mercator projection in `src/lib/drive.ts`: under 1px of perpendicular error. Assuming 256px would shift the route a dozen pixels off the roads.
+- **Exporting the cloud tour as MP4**: `@remotion/web-renderer` draws the same composition frame by frame into a canvas in the browser and WebCodecs encodes it to h264/mp4 (muxed by mediabunny). Nothing is uploaded and no sign-in is needed — the server has no rendering job. The package plus its encoders is heavy, so it is only `import()`-ed when the user presses export. Two details keep the export identical to the preview: the car icon is pinned to a data URL with `?inline` (that SVG layer is serialised into an image for the export, and an SVG used as an image does not load external resources — the car would vanish), and playback is paused while exporting so the two do not fight over the CPU.
 - **Visibility**: new books default to private; older documents without the field are treated as public; private books never appear in public listings and return 404 to non-owners (existence is not leaked).
 
 ## Companion projects
@@ -180,6 +184,7 @@ pnpm deploy       # wrangler pages deploy dist
 - Driving requests are capped at 3 per second (per isolate), so the first ordering of a very long trip may queue.
 - One book is capped at `MAX_DOC_BYTES`; the whole site is capped at `MAX_BOOKS` books.
 - AMap's open platform has no public “review text” API: the card shows the rating, review photos and a link, while the full reviews live on AMap.
+- Exporting the cloud tour as MP4 relies on WebCodecs, so it works in recent Chrome / Edge; Safari and Firefox report “export not supported”. Exporting keeps the page busy for a while (a 30-second clip usually takes tens of seconds, scaling with the route).
 - It runs on the Cloudflare free tier (Pages + a single D1 database).
 
 ## Contributing

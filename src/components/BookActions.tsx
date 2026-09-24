@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { saveVisibility } from '../lib/api'
 import { requireLogin } from '../lib/auth'
@@ -10,6 +10,14 @@ import type { Book } from '../types'
 
 /** 微信公众平台下载的小程序码（太阳码），与 `/mp` 落地页共用一张。 */
 const MP_CODE_SRC = '/mp-code.jpg'
+
+/**
+ * 云游（Remotion 驾车动画）体积不小，点到才加载：首屏和路书页不背这份 bundle。
+ * 用 lazy 拿命名导出的组件，`import()` 会自动切出一个独立 chunk。
+ */
+const CloudDrive = lazy(() =>
+  import('./CloudDrive').then((mod) => ({ default: mod.CloudDrive })),
+)
 
 function IconPhone() {
   return (
@@ -26,6 +34,16 @@ function IconShare() {
       <path d="M12 3.5v10" />
       <path d="M8.5 7 12 3.5 15.5 7" />
       <path d="M6 12.5v7h12v-7" />
+    </svg>
+  )
+}
+
+/** 云游：一朵云 + 播放三角，和「分享」的箭头区分开。 */
+function IconDrive() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden>
+      <path d="M7 17.5h10.4a3.6 3.6 0 0 0 .4-7.17A5.2 5.2 0 0 0 8.1 9.3 3.9 3.9 0 0 0 7 17.5Z" />
+      <path d="M11 11.4 14.4 13.6 11 15.8Z" />
     </svg>
   )
 }
@@ -244,8 +262,9 @@ function ShareDialog({ book, onClose }: { book: Book; onClose: () => void }) {
 }
 
 /**
- * 路书名下方的两个操作：「去手机查看」（微信扫码进小程序 / 介绍页）与
- * 「分享」（设为公开，别人不用登录也能看）。别人的分享是只读，没有分享入口。
+ * 路书名下方的操作：「去手机查看」（微信扫码进小程序 / 介绍页）、
+ * 「分享」（设为公开，别人不用登录也能看）与「云游」（按路线顺序播放驾车动画）。
+ * 别人的分享是只读，没有分享入口，但「云游」只是看，谁都能放。
  */
 export function BookActions() {
   const { t } = useI18n()
@@ -253,6 +272,7 @@ export function BookActions() {
   const book = useLushu((s) => (s.activeId ? s.books[s.activeId] : undefined))
   const [phoneOpen, setPhoneOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [driveOpen, setDriveOpen] = useState(false)
 
   if (!book) return null
 
@@ -269,9 +289,36 @@ export function BookActions() {
             {t('book.share')}
           </button>
         )}
+        <button
+          type="button"
+          className={driveOpen ? 'sheet-action on' : 'sheet-action'}
+          onClick={() => setDriveOpen(true)}
+          aria-label={t('book.driveAria')}
+        >
+          <IconDrive />
+          {t('book.drive')}
+        </button>
       </div>
       {phoneOpen ? <PhoneDialog onClose={() => setPhoneOpen(false)} /> : null}
       {shareOpen ? <ShareDialog book={book} onClose={() => setShareOpen(false)} /> : null}
+      {driveOpen ? (
+        <Suspense
+          fallback={
+            <div className="drive-overlay">
+              <section className="drive-sheet" aria-label={t('book.driveTitle')}>
+                <header className="drive-head">
+                  <h3>{t('book.driveTitle')}</h3>
+                </header>
+                <div className="drive-stage">
+                  <p className="drive-note">{t('book.driveLoading')}</p>
+                </div>
+              </section>
+            </div>
+          }
+        >
+          <CloudDrive onClose={() => setDriveOpen(false)} />
+        </Suspense>
+      ) : null}
     </>
   )
 }

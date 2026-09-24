@@ -227,10 +227,11 @@ button {
   margin-bottom: 0;
 }
 
-/* 书名下方：去手机查看 / 分享（沿用编辑页的蓝灰控件色，见 .stop-ops / .sheet-table） */
+/* 书名下方：去手机查看 / 分享 / 云游（沿用编辑页的蓝灰控件色，见 .stop-ops / .sheet-table） */
 .sheet-actions {
   flex: 1 0 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -263,6 +264,267 @@ button {
   color: #1f5fe0;
   border-color: #9cbcff;
   background: rgba(51, 119, 255, 0.07);
+}
+
+/* 云游浮层开着时，按钮保持选中态 */
+.sheet-action.on {
+  color: #1f5fe0;
+  border-color: #9cbcff;
+  background: rgba(51, 119, 255, 0.12);
+}
+
+/* ── 云游：Remotion Player 播放的驾车动画（沿用路书页 /d/xxx 的蓝灰 + 白卡片） ── */
+.drive-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9100;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px;
+  background: rgba(24, 30, 40, 0.42);
+  backdrop-filter: blur(10px) saturate(1.02);
+  -webkit-backdrop-filter: blur(10px) saturate(1.02);
+  overscroll-behavior: contain;
+  animation: drive-overlay-in 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes drive-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drive-sheet {
+  /* 宽高两边都要装得下：窗口不够高时按 16:9 反推宽度（再补回卡片左右内边距），
+     不让播放器把弹层撑破 */
+  position: relative;
+  width: min(1060px, 100%, calc((100vh - 148px) * 16 / 9 + 28px));
+  width: min(1060px, 100%, calc((100dvh - 148px) * 16 / 9 + 28px));
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border-radius: 4px;
+  background: #fff;
+  color: #3c3c48;
+  box-shadow: 0 24px 60px -18px rgba(16, 24, 40, 0.45);
+  animation: drive-sheet-in 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 标题栏：和编辑页弹层的抬头一致，左边一点蓝是路书页的控件色 */
+.drive-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.drive-head h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.drive-head h3::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border-radius: 2px;
+  background: #3d7eff;
+}
+
+@keyframes drive-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.drive-close {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #dce4f0;
+  border-radius: 3px;
+  background: #fff;
+  color: #4a5464;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+.drive-close:hover {
+  color: #3377ff;
+  border-color: #9cbcff;
+  background: rgba(51, 119, 255, 0.07);
+}
+
+.drive-close:active {
+  transform: scale(0.96);
+}
+
+.drive-close:focus-visible {
+  outline: 2px solid rgba(51, 119, 255, 0.45);
+  outline-offset: 2px;
+}
+
+.drive-close svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* 导出中：同一个描边按钮，装两个字的「取消」，宽度放开 */
+.drive-close.wide {
+  width: auto;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 下载 MP4：和「关闭」同一套描边，左边挂一个下载箭头 */
+.drive-export {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 3px;
+  background: #fff;
+  color: #3377ff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+.drive-export:hover:not(:disabled) {
+  color: #1f5fe0;
+  border-color: #9cbcff;
+  background: rgba(51, 119, 255, 0.07);
+}
+
+.drive-export:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.drive-export:focus-visible {
+  outline: 2px solid rgba(51, 119, 255, 0.45);
+  outline-offset: 2px;
+}
+
+.drive-export:disabled {
+  color: #6b7686;
+  background: #f4f6fa;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+
+.drive-export svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 导出失败 / 浏览器不支持：抬头里的一行小字，细节在 title 里 */
+.drive-ask {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: #c2452d;
+}
+
+/* 导出进度：贴在画面下沿的一条细线。选择器比后面的 .drive-stage > * 更具体，
+   才能盖掉那条「每个孩子都是一块画面」的规则 */
+.drive-stage > .drive-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  display: block;
+  overflow: hidden;
+  border-radius: 0;
+  background: rgba(18, 16, 14, 0.4);
+  pointer-events: none;
+}
+
+.drive-progress i {
+  display: block;
+  height: 100%;
+  background: #3d7eff;
+  transition: width 0.2s linear;
+}
+
+/* 白色卡片里嵌一块画面：和外层的路书页控件同一套描边 */
+.drive-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 3px;
+  border: 1px solid #e5e8ee;
+  background: #fafbfd;
+}
+
+.drive-stage > * {
+  display: block;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #12100e;
+}
+
+.drive-stage .drive-note {
+  display: block;
+}
+
+.drive-note {
+  margin: 0;
+  padding: 104px 24px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: #8a93a0;
+  text-align: center;
+  background: #fafbfd;
 }
 
 /* ── 编辑页弹层：二维码 / 分享（沿用编辑页的蓝灰配色，不复用主页的 .confirm-*） ── */
