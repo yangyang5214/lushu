@@ -104,24 +104,34 @@ function rise(p: number, dist = 16): CSSProperties {
 
 /**
  * 到站点。未到的只留一枚小圆点（不抢路线），车压过去的那一刻：
- * 圆点收成白底圆牌、外面炸开一圈同色光环、名字气泡上浮挂住两秒。
+ * 圆点收成白底圆牌、外面炸开一圈同色光环。
+ *
+ * 站名同一刻只挂一个（报到的那一站），不然同城几处一起亮起来，字就叠成一团；
+ * 下一站的名字只在离得远时才提前挂出来（带剩余里程）。
+ * 几站落在同一个像素上时，勋章在构建期已经摊开（见 drive.ts 的 layoutStops），
+ * 这里按摊开的偏移画勋章、画一条引线回到真位置。
  */
 function StopMarker({
   stop,
   frame,
   fps,
+  driveStart,
   atFrame,
   reached,
   next,
+  mode,
   remaining,
 }: {
   stop: DriveStop
   frame: number
   fps: number
+  driveStart: number
   atFrame: number
   reached: boolean
   next: boolean
-  /** 到下一站的剩余里程：只挂在还没到的那一站上，到了就不写。 */
+  /** 站名：当前报到 / 提前预告（离得远才有）/ 不挂。 */
+  mode: 'current' | 'teaser' | 'off'
+  /** 到下一站的剩余里程：挂在那下一站上，到站后换成备注。 */
   remaining?: string
 }) {
   const color = dayInk(stop.day)
@@ -138,20 +148,67 @@ function StopMarker({
   const ringOpacity = reached ? (1 - burst) * 0.75 : 0
   const dotOpacity = reached ? Math.max(0, 1 - pop * 1.6) : next ? 0.9 : 0.5
   const pinScale = reached ? 0.62 + 0.38 * pop : 0.55
-  const label = stop.label
-  const labelSize = /[\u3000-\u9fff]/.test(label) ? 10.5 : 12
-  // 站名直接写在地图上（描边当底色，不用气泡）：站名 + 剩余里程（下一站才有）+ 备注。
+
+  // 站名的时间轴按行车段算（announce 是相对行车段起点的帧）：提前 26 帧淡入
+  // （既是提前预告下一站，也是到站那一下的报到），交棒给下一站时淡出。
+  // 两个阶段用同一条曲线，预告转报到时不会闪一下。
+  const driveT = frame - driveStart
+  const nameEnd = Math.max(stop.announceEnd, stop.announce + 16)
+  const nameOpacity =
+    mode === 'off'
+      ? 0
+      : Math.min(easeOut(driveT, stop.announce - 26, 14), 1 - easeOut(driveT, nameEnd - 7, 12))
+
+  const bx = stop.dx
+  const by = stop.dy
+  const len = Math.hypot(bx, by)
+  /** 偏得太少就当没摊开：三两像素的引线只是一根毛刺，站名也照样挂正上方。 */
+  const spread = len > 6
+  // 引线：勋章已亮、或站名正挂在摊开的位置上时，牵一条线回真位置。
+  const leaderOpacity = spread ? Math.max(reached ? 0.45 : 0, nameOpacity * 0.5) : 0
+
+  const labelSize = /[\u3000-\u9fff]/.test(stop.label) ? 10.5 : 12
+  // 报到的是「这一站 + 备注」，还没到就是「这一站 + 还剩多少公里」。
   const detail = [!reached && remaining ? remaining : '', stop.note].filter(Boolean).join(' · ')
-  // 名字：到站后挂 2.6 秒；还没到的下一站也提前挂出来。
-  const nameOpacity = reached
-    ? interpolate(since, [2, 12, 78, 96], [0, 1, 1, 0], {
-        extrapolateLeft: 'clamp',
-        extrapolateRight: 'clamp',
-      })
-    : clamp01(easeOut(frame, atFrame - 26, 16))
+
+  // 站名挂在勋章外侧：摊开的按径向挂出去（彼此不会撞），没摊开的还是挂正上方。
+  let lx = bx
+  let ly = by - 22 - 6 * nameOpacity
+  let anchor: 'middle' | 'start' | 'end' = 'middle'
+  let baseline: 'auto' | 'middle' | 'hanging' = 'auto'
+  if (spread) {
+    const ux = bx / len
+    const uy = by / len
+    const out = 18 + 6 * nameOpacity
+    if (Math.abs(ux) > 0.5) {
+      anchor = ux > 0 ? 'start' : 'end'
+      lx = bx + ux * out
+      ly = by + uy * out
+      baseline = 'middle'
+    } else {
+      lx = bx
+      ly = by + uy * out
+      baseline = uy > 0 ? 'hanging' : 'auto'
+    }
+  } else if (stop.y + by < 52) {
+    // 顶到画面上沿的那几站，站名改挂到勋章下面。
+    ly = by + 28 + 6 * nameOpacity
+    baseline = 'hanging'
+  }
 
   return (
     <g transform={`translate(${stop.x.toFixed(1)} ${stop.y.toFixed(1)})`}>
+      {leaderOpacity > 0.01 ? (
+        <line
+          x1={0}
+          y1={0}
+          x2={bx}
+          y2={by}
+          stroke={color}
+          strokeOpacity={leaderOpacity}
+          strokeWidth={1.3}
+        />
+      ) : null}
       {ringOpacity > 0.01 ? (
         <circle
           r={11}
@@ -163,43 +220,47 @@ function StopMarker({
         />
       ) : null}
       <circle r={5.5} fill={color} opacity={dotOpacity} />
-      <g transform={`scale(${pinScale.toFixed(3)})`} opacity={reached ? 1 : 0}>
-        <circle r={12.5} fill="#ffffff" />
-        <circle r={12.5} fill="none" stroke={color} strokeWidth={2.6} />
-        <text
-          y={0.5}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill={color}
-          fontFamily={SANS}
-          fontSize={labelSize}
-          fontWeight={700}
-        >
-          {label}
-        </text>
+      <g transform={`translate(${bx.toFixed(1)} ${by.toFixed(1)})`}>
+        <g transform={`scale(${pinScale.toFixed(3)})`} opacity={reached ? 1 : 0}>
+          <circle r={12.5} fill="#ffffff" />
+          <circle r={12.5} fill="none" stroke={color} strokeWidth={2.6} />
+          <text
+            y={0.5}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill={color}
+            fontFamily={SANS}
+            fontSize={labelSize}
+            fontWeight={700}
+          >
+            {stop.label}
+          </text>
+        </g>
+        {nameOpacity > 0.01 ? (
+          /* 贴图的字：描边作底，和地图上的地名同一套读法，压在任何底图上都不糊 */
+          <text
+            x={lx}
+            y={ly}
+            textAnchor={anchor}
+            dominantBaseline={baseline}
+            opacity={nameOpacity}
+            fill={CREAM}
+            stroke="rgba(30,21,9,0.5)"
+            strokeWidth={3.4}
+            strokeLinejoin="round"
+            paintOrder="stroke"
+            fontFamily={SANS}
+            fontSize={12.5}
+          >
+            <tspan fontWeight={600}>{stop.name}</tspan>
+            {detail ? (
+              <tspan dx={6} fontWeight={500} fill="rgba(255,250,240,0.8)">
+                {detail}
+              </tspan>
+            ) : null}
+          </text>
+        ) : null}
       </g>
-      {nameOpacity > 0.01 ? (
-        /* 贴图的字：描边作底，和地图上的地名同一套读法，压在任何底图上都不糊 */
-        <text
-          y={-28 - 6 * nameOpacity}
-          textAnchor="middle"
-          opacity={nameOpacity}
-          fill={CREAM}
-          stroke="rgba(30,21,9,0.5)"
-          strokeWidth={3.4}
-          strokeLinejoin="round"
-          paintOrder="stroke"
-          fontFamily={SANS}
-          fontSize={12.5}
-        >
-          <tspan fontWeight={600}>{stop.name}</tspan>
-          {detail ? (
-            <tspan dx={6} fontWeight={500} fill="rgba(255,250,240,0.8)">
-              {detail}
-            </tspan>
-          ) : null}
-        </text>
-      ) : null}
     </g>
   )
 }
@@ -324,6 +385,23 @@ export function DriveComposition({ scene }: { scene: DriveScene }) {
   const nextIndex = stops.findIndex((stop) => stop.at > progress + 1e-4)
   const nextStop = nextIndex >= 0 ? stops[nextIndex] : null
   const toNextKm = nextStop ? Math.max(0, Math.round((nextStop.at - progress) * scene.distanceKm)) : 0
+
+  // 站名同一刻只挂一个：挂的是最后报到的那一站。下一站离得够远（不在同一堆里）
+  // 才提前预告，不然同城几处的站名会盖在一起。
+  const driveT = frame - driveStart
+  let announcedIndex = -1
+  stops.forEach((stop, i) => {
+    if (driveT >= stop.announce) announcedIndex = i
+  })
+  let teaserIndex = -1
+  // 还没开始走（片头）就不预告：这时画面上只有书名，地图不必再多一行字。
+  if (announcedIndex >= 0 && nextIndex >= 0 && nextIndex !== announcedIndex) {
+    const from = stops[announcedIndex]
+    const to = stops[nextIndex]
+    // 挨在同一堆里的两站（同城几处）不预告，不然两个站名会盖在一起。
+    const gap = Math.hypot(from.x + from.dx - (to.x + to.dx), from.y + from.dy - (to.y + to.dy))
+    if (gap >= 90) teaserIndex = nextIndex
+  }
 
   const traveledKm = Math.round(progress * scene.distanceKm)
   const dayTitle = labels.dayTitles[currentDay] ?? ''
@@ -469,9 +547,11 @@ export function DriveComposition({ scene }: { scene: DriveScene }) {
               stop={stop}
               frame={frame}
               fps={fps}
+              driveStart={driveStart}
               atFrame={driveStart + stop.at * scene.driveFrames}
               reached={progress >= stop.at - 1e-4}
               next={i === nextIndex}
+              mode={i === announcedIndex ? 'current' : i === teaserIndex ? 'teaser' : 'off'}
               remaining={i === nextIndex ? `${toNextKm} ${labels.unitKm}` : undefined}
             />
           ))}
